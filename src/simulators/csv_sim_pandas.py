@@ -53,10 +53,10 @@ class CSV(mosaik_api.Simulator):
 
         # Find first relevant value:
         if continuous:
-            first_index = data.index.get_loc(start_date, method='ffill')
+            first_index = data.index.get_loc(start_date)
             self.next_index = first_index
         else:
-            first_index = data.index.get_loc(start_date, method='bfill')
+            first_index = data.index.get_loc(start_date)
             first_date = data.index[first_index]
             if first_date == start_date:
                 self.next_index = first_index
