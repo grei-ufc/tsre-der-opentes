@@ -1,0 +1,52 @@
+arrow==1.3.0
+ca-certificates==2024.3.11
+colorama==0.4.6
+contourpy==1.1.1
+cycler==0.12.1
+deepdiff==7.0.1
+docopt==0.6.2
+fonttools==4.53.0
+h5py==3.11.0
+importlib-metadata==4.13.0
+importlib-resources==  6.4.0
+kiwisolver==1.4.5
+libffi==3.4.4
+llvmlite==0.41.1
+loguru==0.7.2
+matplotlib== 3.7.5
+mosaik==3.2.0
+mosaik-api==3.0.3
+mosaik-api-v3==3.0.10
+mosaik-csv==2.0.1
+mosaik-hdf5==0.4
+mosaik-pandapower== 0.2.2
+mosaik-simpy-io==0.2.4
+networkx==3.1
+numba==0.58.1
+numpy==1.24.4
+opender==2.1.6
+openssl==3.0.13
+ordered-set==4.1.0
+packaging==24.1
+pandapower==2.14.6
+pandas==1.2.4
+pillow==10.3.0
+pip==24.0
+pyparsing==3.1.2
+python==3.8.19
+python-dateutil==2.9.0.post0
+pytz==2024.1
+scipy==1.10.1
+setuptools== 69.5.1
+simbench==1.5.3
+simpy==3.0.13
+six==1.16.0
+sqlite==3.45.3
+tqdm==4.66.4
+types-python-dateutil==2.9.0.20240316
+typing-extensions==4.12.2
+vc==14.2
+vs2015_runtime==14.29.301
+wheel==0.43.0
+win32-setctime==1.1.0
+zipp==3.19.2
