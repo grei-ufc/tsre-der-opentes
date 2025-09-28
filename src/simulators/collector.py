@@ -7,6 +7,10 @@ import pandas as pd
 
 import mosaik_api
 
+from pathlib import Path
+
+current_dir = Path(__file__).resolve().parent
+parent_dir = current_dir.parent
 
 META = {
     'type': 'event-based',
@@ -29,7 +33,7 @@ class Collector(mosaik_api.Simulator):
                                             collections.defaultdict(dict))
 
     def init(self, sid, time_resolution, start_date,
-             date_format='%Y-%m-%d %H:%M:%S', output_file='results.csv',
+             date_format='%Y-%m-%d %H:%M:%S', output_file= parent_dir / 'output' / 'results.csv',
              print_results=False):
         self.time_resolution = time_resolution
         self.start_date = pd.to_datetime(start_date, format=date_format)

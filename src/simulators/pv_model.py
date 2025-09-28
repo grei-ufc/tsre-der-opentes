@@ -1,5 +1,4 @@
-from numpy import sin, cos, tan, arcsin, arccos, arctan2, nan, pi, isnan
-from scipy import radians
+from numpy import sin, cos, tan, arcsin, arccos, arctan2, nan, pi, isnan, radians
 import arrow
 
 DATE_FORMAT = 'YYYY-MM-DD HH:mm:ss'
