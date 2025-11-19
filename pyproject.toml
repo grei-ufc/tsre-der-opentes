@@ -9,6 +9,7 @@ dependencies = [
     "mosaik-pandapower==0.2.2",
     "opender==2.1.6",
     "setuptools==69.5.1",
+    "simbench>=1.5.3",
 ]
 
 [project.scripts]

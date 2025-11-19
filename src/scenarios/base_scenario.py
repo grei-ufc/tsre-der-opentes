@@ -25,7 +25,7 @@ sim_config = {
 # Parâmetros da simulação
 END =   1*60*60  # duração da simulação 
 START = '2016-01-01 11:00:00'  # horário de início da simulação
-GRID_FILE = parent_dir / 'data' / 'rede_1-LV-rural2--0-sw.json'  # arquivo da rede elétrica
+GRID_FILE = parent_dir / 'data' / '1-LV-urban6--0-sw.json'  # arquivo da rede elétrica
 PV_DATA = parent_dir / 'data' / 'solar_data_Bremen_minutes.csv'  # dados de irradiância solar
 
 def config_cosimul() -> mosaik.World:
@@ -42,7 +42,7 @@ def config_cosimul() -> mosaik.World:
     pv = pvsim.PV(lat=53.07, area=3e4)  # entidade de geração FV 
 
     # Criação dos 48 controladores para as unidades geradoras
-    controllers = [ctrlsim.Ctrl() for _ in range(48)]
+    controllers = [ctrlsim.Ctrl() for _ in range(29)]
 
     # Filtragem das entidades da rede para facilitar as conexões
     nodes_gen = [element for element in grid if 'ext_gen' in element.eid]  # geradores externos
@@ -54,9 +54,7 @@ def config_cosimul() -> mosaik.World:
     world.connect(solar_data[0], pv, 'DNI')
 
     # Índices das barras onde estão alocados os geradores fotovoltaicos
-    indices_nodes_gen = [2, 4, 5, 10, 12, 15, 16, 21, 22, 24, 25, 27, 28, 30, 31, 34, 35, 37,
-                        32, 40, 44, 45, 46, 43, 49, 51, 52, 53, 56, 57, 59, 63, 65, 66, 68,
-                        69, 71, 72, 74, 76, 79, 80, 84, 86, 88, 91, 92, 93]
+    indices_nodes_gen = [2, 4, 5, 7, 8, 9, 12, 14, 16, 18, 19, 23, 26, 28, 29, 31, 33, 35, 37, 39, 40, 42, 44, 45, 48, 51, 53, 54, 57]
 
     # Conexão dos controladores aos nós da rede
     generated_nodes = []

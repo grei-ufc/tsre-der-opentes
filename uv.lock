@@ -2418,6 +2418,39 @@ wheels = [
 ]
 
 [[package]]
+name = "simbench"
+version = "1.5.3"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.9'",
+]
+dependencies = [
+    { name = "pandapower", version = "2.14.11", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/14/a3/6abc401d86139c0fcc39d08fa13a7e78b37d75d490952b04f8ee3eff29f7/simbench-1.5.3.tar.gz", hash = "sha256:518db08a9a72180de4ce0668715f7cf796dc50a1b5a973b0b6ff0bbaf938e8a8", size = 88282087, upload-time = "2024-04-23T13:51:57.776Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6f/08/9be5247c5d02b53d2ea57e20c10cbe5241dcc280c7505b00fe42e6d82af7/simbench-1.5.3-py3-none-any.whl", hash = "sha256:4728e7d5894e34715436f4e73b6bb479045f37df97188f835330af6c5982b260", size = 90965663, upload-time = "2024-04-23T13:51:51.539Z" },
+]
+
+[[package]]
+name = "simbench"
+version = "1.6.1"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
+    "python_full_version == '3.10.*'",
+    "python_full_version == '3.9.*'",
+]
+dependencies = [
+    { name = "pandapower", version = "3.1.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5b/8a/33bdeb621702d7fd92efbc08cbf7c42ab500ca1b76531bf6aa79b30f7cbb/simbench-1.6.1.tar.gz", hash = "sha256:6c3c804229f1725667ed28e0156cdd5b564c3f10ceacb7496321aacce6ba17ea", size = 88284969, upload-time = "2025-04-13T10:12:53.523Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fc/fa/d30a9ba570eb05c4013712b6b1e4eaef411c5c486e07637a6d2380617c2e/simbench-1.6.1-py3-none-any.whl", hash = "sha256:f1d8c879cc35bca17552ac6fd0ea95e9097bc0300f61d66f13eb1d755017a763", size = 90966482, upload-time = "2025-04-13T10:12:48.023Z" },
+]
+
+[[package]]
 name = "simpy"
 version = "3.0.13"
 source = { registry = "https://pypi.org/simple" }
@@ -2456,6 +2489,8 @@ dependencies = [
     { name = "mosaik-pandapower" },
     { name = "opender" },
     { name = "setuptools" },
+    { name = "simbench", version = "1.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "simbench", version = "1.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
 ]
 
 [package.metadata]
@@ -2464,6 +2499,7 @@ requires-dist = [
     { name = "mosaik-pandapower", specifier = "==0.2.2" },
     { name = "opender", specifier = "==2.1.6" },
     { name = "setuptools", specifier = "==69.5.1" },
+    { name = "simbench", specifier = ">=1.5.3" },
 ]
 
 [[package]]
