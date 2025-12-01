@@ -23,8 +23,8 @@ sim_config = {
 
 
 # Parâmetros da simulação
-END =   1*60*60  # duração da simulação 
-START = '2016-01-01 11:00:00'  # horário de início da simulação
+END =   9*60*60  # duração da simulação 
+START = '2016-01-01 07:00:00'  # horário de início da simulação
 GRID_FILE = parent_dir / 'data' / '1-LV-urban6--0-sw.json'  # arquivo da rede elétrica
 PV_DATA = parent_dir / 'data' / 'solar_data_Bremen_minutes.csv'  # dados de irradiância solar
 
