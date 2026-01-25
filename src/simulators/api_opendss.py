@@ -56,9 +56,14 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         return self.meta
 
     def create(self, num, model, **model_params):
-        if model != 'Grid': raise ValueError(f"Use 'Grid'")
+        if model == 'Grid':
+            return self._create_grid()
+        else:
+            raise ValueError(f"Use 'Gird' model to initialize the system. Access elements via children.")
+
+    def _create_grid(self):
         child_entities = []
-        
+
         # --- Cargas ---
         loads_df = self.dss_wrapper.get_all_elements('Load')
         if not loads_df.empty:
@@ -67,48 +72,9 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 eid = f"Load-{name}"
                 self.entity_map[eid] = name
                 child_entities.append({'eid': eid, 'type': 'Load'})
+                self._check_load_profile(eid, name)
 
-                shape_name = None
-                try:
-                    yearly = self.dss_wrapper.get_property(name, 'yearly', 'Load')
-                    daily = self.dss_wrapper.get_property(name, 'daily', 'Load')
-                    if isinstance(yearly, str) and yearly.lower() not in ['none', 'constant', '']: shape_name = yearly
-                    elif isinstance(daily, str) and daily.lower() not in ['none', 'constant', '']: shape_name = daily
-                except: pass
-
-                if shape_name:
-                    base_kw = float(self.dss_wrapper.get_property(name, 'kW', 'Load') or 0.0)
-                    base_kvar = float(self.dss_wrapper.get_property(name, 'kvar', 'Load') or 0.0)
-                    self.loads_with_profiles[eid] = {'shape_name': shape_name, 'base_kw': base_kw, 'base_kvar': base_kvar}
-                    
-                    if shape_name not in self.shape_data_cache:
-                        try:
-                            self.dss_wrapper.dss.loadshapes.name = shape_name
-                            p_mult = list(self.dss_wrapper.dss.loadshapes.p_mult)
-                            q_mult = list(self.dss_wrapper.dss.loadshapes.q_mult)
-                            npts = self.dss_wrapper.dss.loadshapes.npts
-                            
-                            # Se q_mult estiver vazio ou for menor que p_mult, usa p_mult (fator de potência constante)
-                            if not q_mult or len(q_mult) < npts:
-                                q_mult = p_mult
-                            # --------------------------------------------------
-
-                            interval = self.dss_wrapper.dss.loadshapes.s_interval
-                            if interval == 0: interval = self.dss_wrapper.dss.loadshapes.min_interval * 60
-                            if interval == 0: interval = self.dss_wrapper.dss.loadshapes.hr_interval * 3600
-                            if interval == 0: interval = self.step_size
-                            
-                            self.shape_data_cache[shape_name] = {
-                                'p_mult': p_mult,
-                                'q_mult': q_mult,
-                                'interval_s': interval,
-                                'npts': npts,
-                                'use_actual': bool(self.dss_wrapper.dss.loadshapes.use_actual)
-                            }
-                            print(f"[DEBUG] LoadShape '{shape_name}' cacheada com {npts} pontos.")
-                        except Exception as e:
-                            print(f"[ERRO] Erro ao ler LoadShape '{shape_name}': {e}")
-                            del self.loads_with_profiles[eid]
+        # --- Geradores (A incluir) ---
 
         # --- Linhas ---
         lines_df = self.dss_wrapper.get_all_elements('Line')
@@ -119,6 +85,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 self.entity_map[eid] = name
                 child_entities.append({'eid': eid, 'type': 'Line'})
 
+        # --- Barras ---
         buses = self.dss_wrapper.get_all_buses()
         for name in buses:
             eid = f"Bus-{name}"
@@ -127,12 +94,63 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
 
         return [{'eid': 'Grid-0', 'type': 'Grid', 'children': child_entities}]
 
+    def _check_load_profile(self, eid, name):
+        """
+        Lógica auxiliar para carregar perfis de carga (LoadShapes)
+        
+        :param self: Description
+        """
+
+        shape_name = None
+        try:
+            yearly = self.dss_wrapper.get_property(name, 'yearly', 'Load')
+            daily = self.dss_wrapper.get_property(name, 'daily', 'Load')
+            if isinstance(yearly, str) and yearly.lower() not in ['none', 'constant', '']: shape_name = yearly
+            if isinstance(daily, str) and daily.lower() not in ['none', 'constant', '']: shape_name = daily
+
+        except: pass
+
+        if shape_name:
+            base_kw = float(self.dss_wrapper.get_property(name, 'kW', 'Load') or 0.0)
+            base_kvar = float(self.dss_wrapper.get_property(name, 'kvar', 'Load') or 0.0)
+            self.loads_with_profiles[eid] = {'shape_name': shape_name, 'base_kw': base_kw, 'base_kvar': base_kvar}
+
+            if shape_name not in self.shape_data_cache:
+                self._cache_loadshape(shape_name)
+    
+    def _cache_loadshape(self, shape_name):
+        try:
+            self.dss_wrapper.dss.loadshapes.name = shape_name
+            p_mult = list(self.dss_wrapper.dss.loadshapes.p_mult)
+            q_mult = list(self.dss_wrapper.dss.loadshapes.q_mult)
+            npts = self.dss_wrapper.dss.loadshapes.npts
+
+            if not q_mult or len(q_mult) < npts:
+                q_mult = p_mult
+
+            interval = self.dss_wrapper.dss.loadshapes.s_interval
+            if interval == 0: interval = self.dss_wrapper.dss.loadshapes.min_interval * 60
+            if interval == 0: interval = self.dss_wrapper.dss.loadshapes.hr_interval * 3600
+            if interval == 0: interval = self.step_size
+
+            self.shape_data_cache[shape_name] = {
+                'p_mult': p_mult,
+                'q_mult': q_mult,
+                'interval_s': interval,
+                'npts': npts,
+                'use_actual': bool(self.dss_wrapper.dss.loadshapes.use_actual)
+            }
+
+            # print(f"[DEBUG] LoadShape '{shape_name}' cacheada com {npts} pontos.")
+
+        except Exception as e:
+            print(f"[ERRO] Erro ao ler LoadShape '{shape_name}': {e}")
+
     def step(self, time, inputs, max_advance):
         # 1. ATUALIZAÇÃO MANUAL DAS CARGAS
         for eid, profile in self.loads_with_profiles.items():
             shape_name = profile['shape_name']
             if shape_name not in self.shape_data_cache: continue
-            
             data = self.shape_data_cache[shape_name]
             idx = math.floor(time / data['interval_s']) % data['npts']
             
@@ -183,13 +201,13 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 while len(mags) < 3: mags.append(0.0)
                 while len(angs) < 3: angs.append(0.0)
 
+                mapping = {'I1_A': (mags, 0), 'I2_A': (mags, 1), 'I3_A': (mags, 2),
+                           'I1_ang': (angs, 0), 'I2_ang': (angs, 1), 'I3_ang': (angs, 2)}
                 for attr in attrs:
-                    if attr == 'I1_A': data[eid][attr] = mags[0]
-                    elif attr == 'I1_ang': data[eid][attr] = angs[0]
-                    elif attr == 'I2_A': data[eid][attr] = mags[1]
-                    elif attr == 'I2_ang': data[eid][attr] = angs[1]
-                    elif attr == 'I3_A': data[eid][attr] = mags[2]
-                    elif attr == 'I3_ang': data[eid][attr] = angs[2]
+                    if attr in mapping:
+                        lst, idx = mapping[attr]
+                        data[eid][attr] = lst[idx]
+
 
             elif model_type == 'Bus':
                 volt_mag, volt_ang = self.dss_wrapper.get_bus_voltage(bus=name, pu=True, mag_only=False, polar=True)
@@ -198,13 +216,12 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 while len(mags) < 3: mags.append(0.0)
                 while len(angs) < 3: angs.append(0.0)
 
+                mapping = {'V1_pu': (mags, 0), 'V2_pu': (mags, 1), 'V3_pu': (mags, 2),
+                           'V1_ang': (angs, 0), 'V2_ang': (angs, 1), 'V3_ang': (angs, 2)}
                 for attr in attrs:
-                    if attr == 'V1_pu': data[eid][attr] = mags[0]
-                    elif attr == 'V1_ang': data[eid][attr] = angs[0]
-                    elif attr == 'V2_pu': data[eid][attr] = mags[1]
-                    elif attr == 'V2_ang': data[eid][attr] = angs[1]
-                    elif attr == 'V3_pu': data[eid][attr] = mags[2]
-                    elif attr == 'V3_ang': data[eid][attr] = angs[2]
+                    if attr in mapping:
+                        lst, idx = mapping[attr]
+                        data[eid][attr] = lst[idx]
 
         return data
 
