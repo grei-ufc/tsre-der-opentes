@@ -29,8 +29,13 @@ META = {
                       'V2_pu', 'V2_ang',
                       'V3_pu', 'V3_ang']
         },
+        'RegControl': {
+            'public': False,
+            'params': [],
+            'attrs': ['tap', 'v_meas', 'i_meas']
+        },
     },
-    'extra_methods': ['get_dss_wrapper'],
+    'extra_methods': ['get_dss_wrapper', 'get_detected_regulators'],
 }
 
 class OpenDSSSimulator(mosaik_api_v3.Simulator):
@@ -43,6 +48,8 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self.loads_with_profiles = {}
         self.shape_data_cache = {}
         self.time_resolution = 1.0
+        self.detected_regulators = []
+        self.regulator_map = {}
 
     def init(self, sid, time_resolution, topofile, step_size=900, **sim_params):
         self.sid = sid
@@ -59,7 +66,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         if model == 'Grid':
             return self._create_grid()
         else:
-            raise ValueError(f"Use 'Gird' model to initialize the system. Access elements via children.")
+            raise ValueError(f"Use 'Grid' model to initialize the system. Access elements via children.")
 
     def _create_grid(self):
         child_entities = []
@@ -91,6 +98,73 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             eid = f"Bus-{name}"
             self.entity_map[eid] = name
             child_entities.append({'eid': eid, 'type': 'Bus'})
+
+        # --- Reguladores de tensão --- 
+
+        try:
+            reg_names = self.dss_wrapper.dss.regcontrols.names
+
+            for name in reg_names:
+                self.dss_wrapper.dss.regcontrols.name = name
+
+                # Desativar o controle nativo
+                self.dss_wrapper.dss.regcontrols.max_tap_change = 0
+                self.dss_wrapper.dss.regcontrols.tap_number = 0
+
+                # Identifica o transformador e o enrolamento controlado
+                trafo_name = self.dss_wrapper.dss.regcontrols.transformer
+                winding = self.dss_wrapper.dss.regcontrols.winding
+
+                # Identifica barra e fase monitorada
+                self.dss_wrapper.dss.circuit.set_active_element(f"Transformer.{trafo_name}")
+                full_bus_name = self.dss_wrapper.dss.cktelement.bus_names[winding-1]
+
+                if '.' in full_bus_name:
+                    parts = full_bus_name.split('.')
+                    bus_clean = parts[0]
+                    try:
+                        target_phase = int(parts[1])
+                    except ValueError:
+                        target_phase = 1
+
+                else:
+                    bus_clean = full_bus_name
+                    target_phase = 1
+
+                eid = f"RegControl-{name}"
+                self.entity_map[eid] = name
+
+                # Extrair parâmetros para o Controlador Python
+                reg_params = {
+                    'eid_dss': eid,
+                    'name': name,
+                    'vreg': self.dss_wrapper.dss.regcontrols.forward_vreg,
+                    'band': self.dss_wrapper.dss.regcontrols.forward_band,
+                    'pt_ratio': self.dss_wrapper.dss.regcontrols.pt_ratio,
+                    'ct_primary': self.dss_wrapper.dss.regcontrols.ct_primary,
+                    'R': self.dss_wrapper.dss.regcontrols.forward_r,
+                    'X': self.dss_wrapper.dss.regcontrols.forward_x,
+                    'delay': self.dss_wrapper.dss.regcontrols.delay,
+                    'tap_delay': self.dss_wrapper.dss.regcontrols.tap_delay,
+                    'tap_ini': self.dss_wrapper.get_tap(name)
+                }
+
+                # Salvar metadados
+                self.detected_regulators.append(reg_params)
+                self.regulator_map[eid] = {
+                    'trafo': trafo_name,
+                    'winding': winding,
+                    'target_bus': bus_clean,
+                    'target_phase': target_phase,
+                    'pt_ratio': reg_params['pt_ratio']
+                }
+
+                # Registrar entidades
+                child_entities.append({'eid': eid, 'type': 'RegControl'})
+                print(f"[OpenTES] Regulador {name} -> Trafo {trafo_name} @ {bus_clean}.{target_phase}")
+
+        except Exception as e:
+            print(f"[OpenTES] Aviso na detecção de reguladores: {e}")
 
         return [{'eid': 'Grid-0', 'type': 'Grid', 'children': child_entities}]
 
@@ -147,7 +221,24 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             print(f"[ERRO] Erro ao ler LoadShape '{shape_name}': {e}")
 
     def step(self, time, inputs, max_advance):
-        # 1. ATUALIZAÇÃO MANUAL DAS CARGAS
+        # PROCESSAR INPUTS DE CONTROLE
+        for eid, attrs in inputs.items():
+            if eid not in self.entity_map: continue
+            # Controle de Regulador
+            if 'RegControl' in eid and 'tap' in attrs:
+                try:
+                    name = self.entity_map[eid]
+                    new_tap = int(list(attrs['tap'].values())[0])
+                    new_tap = max(min(new_tap, 16), -16)
+                    # self.dss_wrapper.set_tap(name, tap=new_tap)
+                    self.dss_wrapper.dss.regcontrols.name = name 
+                    self.dss_wrapper.dss.regcontrols.tap_number = new_tap
+
+                    # print(f"[LOG] {name} Tap alterado para {new_tap}")
+                except Exception as e:
+                    print(f"[ERRO] Falha ao ajustar tap de {name}: {e}")
+
+        # ATUALIZAÇÃO DAS CARGAS
         for eid, profile in self.loads_with_profiles.items():
             shape_name = profile['shape_name']
             if shape_name not in self.shape_data_cache: continue
@@ -174,8 +265,8 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             load_name = self.entity_map[eid]
             self.dss_wrapper.set_power(load_name, p=p_set, q=q_set, element='Load')
             
-            if eid == 'Load-671' and time < 1200: 
-                print(f"[STEP {time}] Atualizando {load_name}: Multiplicador={pmult:.3f} -> Definindo kW={p_set:.2f}")
+            # if eid == 'Load-671' and time < 1200: 
+            #     print(f"[STEP {time}] Atualizando {load_name}: Multiplicador={pmult:.3f} -> Definindo kW={p_set:.2f}")
 
         # 2. RESOLVER FLUXO DE POTÊNCIA (SNAPSHOT)
         self.dss_wrapper.run_dss()
@@ -223,7 +314,54 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                         lst, idx = mapping[attr]
                         data[eid][attr] = lst[idx]
 
+            elif model_type == 'RegControl':
+                info = self.regulator_map.get(eid)
+                if not info: continue
+
+                if 'v_meas' in attrs:
+                    if eid in self.regulator_map:
+                        try:
+                            v_r, v_i = self.dss_wrapper.get_bus_voltage(
+                                bus=info['target_bus'],
+                                phase=info['target_phase'],
+                                pu=False,
+                                mag_only=True,
+                                polar=False
+                            )
+
+                            v_val = complex(v_r, v_i)
+
+                            data[eid]['v_meas'] = v_val
+
+                            print(f"DEBUG {eid}: V_meas lido do OpenDSS = {v_val:.2f} V")
+
+                        except Exception as e:
+                            print(f"[ERRO] Falhaao ler v_meas para {eid}: {e}")
+                            data[eid]['v_meas'] = 0.0
+
+                    
+
+                if 'i_meas' in attrs:
+                    try:
+                        self.dss_wrapper.dss.circuit.set_active_element(f"Transformer.{info['trafo']}")
+                        curr = self.dss_wrapper.dss.cktelement.currents
+                        
+                        curr = complex(curr[0], curr[1])
+
+                        data[eid]['i_meas'] = curr
+
+                        print(f"DEBUG {eid}: I_meas lido do OpenDSS = {curr:.2f} A")
+
+                    except: data[eid]['i_meas'] = 0.0
+
+                if 'tap' in attrs:
+                    self.dss_wrapper.dss.regcontrols.name = name
+                    # data[eid]['tap'] = self.dss_wrapper.get_tap(name)
+                    data[eid]['tap'] = self.dss_wrapper.dss.regcontrols.tap_number
+
         return data
 
     def get_dss_wrapper(self):
         return self.dss_wrapper
+    def get_detected_regulators(self):
+        return self.detected_regulators
