@@ -448,7 +448,8 @@ class OpenDSS:
     def get_current(self, name: str, element: str = 'Load', 
                     polar: bool = True, mag_only: bool = True, 
                     line_bus: int = 1, phase: Optional[int] = None, 
-                    total: bool = False, raw: bool = False) -> Union[float, Tuple]:
+                    total: bool = False, raw: bool = False,
+                    winding: int = 1) -> Union[float, Tuple]:
         """
         Gets the current of an element.
 
@@ -474,8 +475,14 @@ class OpenDSS:
             return tuple(currents)
 
         n_phases = self.dss.cktelement.num_phases
+
         if element in LINE_CLASSES:
             start_idx = (line_bus - 1) * 2 * n_phases
+            end_idx = start_idx + 2 * n_phases
+            currents = currents[start_idx:end_idx]
+
+        elif element.lower() == "transformer":
+            start_idx = (winding - 1) * (2 * n_phases + 2)
             end_idx = start_idx + 2 * n_phases
             currents = currents[start_idx:end_idx]
         else:
@@ -556,13 +563,15 @@ class OpenDSS:
 
     def set_tap(self, name: str, tap: int, max_tap: int = 16) -> None:
         """Sets the tap of a RegControl, clamping it to the max value."""
-        self.set_element(name, 'RegControl')
+        # self.set_element(name, 'RegControl')
+        self.dss.regcontrols.name = name
         tap = int(min(max(tap, -max_tap), max_tap))
         self.dss.regcontrols.tap_number = tap
 
     def get_tap(self, name: str) -> int:
         """Gets the current tap of a RegControl."""
-        self.set_element(name, 'RegControl')
+        # self.set_element(name, 'RegControl')
+        self.dss.regcontrols.name = name
         return self.dss.regcontrols.tap_number
 
     def set_pt_ratio(self, name: str, pt_ratio: float) -> None:
@@ -585,3 +594,86 @@ class OpenDSS:
             raise OpenDSSException(*msg)
         else:
             self.print(*msg)
+
+    def get_all_regulators_info(self):
+        """
+        Return a list of dicts with all static data about the regulators.
+        Detects the topology (Transformer, Winding, Bus, Phase)
+        
+        :param self: Description
+        """
+        reg_list = []
+        try:
+            names = self.dss.regcontrols.names
+            for name in names:
+                self.dss.regcontrols.name = name
+
+                self.dss.regcontrols.max_tap_change = 0
+                self.dss.regcontrols.tap_number = 0
+
+                info = {
+                    'name': name,
+                    'vreg': self.dss.regcontrols.forward_vreg,
+                    'band': self.dss.regcontrols.forward_band,
+                    'pt_ratio': self.dss.regcontrols.pt_ratio,
+                    'ct_primary': self.dss.regcontrols.ct_primary,
+                    'R': self.dss.regcontrols.forward_r,
+                    'X': self.dss.regcontrols.forward_x,
+                    'delay': self.dss.regcontrols.delay,
+                    'tap_delay': self.dss.regcontrols.tap_delay, # ou tap_delay se existir na versão
+                    'trafo': self.dss.regcontrols.transformer,
+                    'winding': self.dss.regcontrols.winding,
+                    'tap_ini': 0
+                }
+
+                self.set_element(name=info['trafo'], element='Transformer')
+
+                full_bus_name = self.dss.cktelement.bus_names[info['winding'] - 1]
+
+                if '.' in full_bus_name:
+                    parts = full_bus_name.split('.')
+                    info['target_bus'] = parts[0]
+                    try: info['target_phase'] = int(parts[1])
+                    except: info['target_phase'] = 1
+
+                else:
+                    info['target_bus'] = full_bus_name
+                    info['target_phase'] = 1
+
+                reg_list.append(info)
+
+        except Exception as e:
+            print(f"[WRAPPER] Erro ao ler reguladores: {e}")
+
+        return reg_list
+
+    def get_regulator_measurements(self, reg_info):
+        res = {'v': 0j, 'i': 0j, 'tap': 0}
+
+        try:
+            self.dss.regcontrols.name = reg_info['name']
+            res['tap'] = self.dss.regcontrols.tap_number
+
+            v_r, v_i = self.get_bus_voltage(
+                bus=reg_info['target_bus'],
+                phase=reg_info['target_phase'],
+                pu=False, mag_only=False, polar=False 
+            )
+
+            res['v'] = complex(v_r, v_i)
+
+            i_r, i_i = self.get_current(
+                name=reg_info['trafo'],
+                element='Transformer',
+                winding=1,
+                phase=reg_info['target_phase'],
+                mag_only=False,
+                polar=False)
+
+
+            res['i'] = complex(i_r, i_i)
+
+        except Exception as e:
+            pass
+
+        return res
