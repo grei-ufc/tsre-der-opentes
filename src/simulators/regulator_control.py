@@ -66,7 +66,7 @@ class VR_Model(object):
                 self.Ti_ctrl= 0
         else:
             self.state = 'Idle'
-            self.Td_ctrl = 0
+            self.Ti_ctrl = 0
 
         self.Ti_tap += self.Ts
 
@@ -121,7 +121,7 @@ class RegulatorSimulator(mosaik_api_v3.Simulator):
                 Vref=model_params.get('vreg', 120),
                 db=model_params.get('band', 2),
                 PT_Ratio=model_params.get('pt_ratio', 1),
-                CT_primary=model_params.get('ct_primary', 0),
+                CT_Primary=model_params.get('ct_primary', 0),
                 LDC_R=model_params.get('R', 0),
                 LDC_X=model_params.get('X', 0),
                 tap_ini=model_params.get('tap_ini', 0)
