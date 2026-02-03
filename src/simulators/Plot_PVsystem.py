@@ -11,7 +11,7 @@ df_2 = pd.read_csv("src/data/13Bus/IEEE13Nodeckt_Mon_pot_barra680_1.csv")*1000
 minutos_por_linha = 10  # Altere este valor para o intervalo desejado (1, 5, 10, 15, etc.)
 
 # Criar datetime inicial (meia-noite)
-data_inicial = pd.to_datetime('2024-01-01 00:00:00')
+data_inicial = pd.to_datetime('2016-01-01 00:00:00')
 
 # Criar Hora_completa: cada linha adiciona 'minutos_por_linha' minutos
 df['Hora_completa'] = data_inicial + pd.to_timedelta(df.index * minutos_por_linha, unit='m')
