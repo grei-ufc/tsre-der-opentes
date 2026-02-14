@@ -16,7 +16,9 @@ data_inicial = pd.to_datetime('2016-01-01 00:00:00')
 # Criar Hora_completa: cada linha adiciona 'minutos_por_linha' minutos
 df['Hora_completa'] = data_inicial + pd.to_timedelta(df.index * minutos_por_linha, unit='m')
 
-print(df)
+print(type(df))
+print("\n", df)
+df.to_csv('arquivo_teste.csv', index=False)
 
 tensao_base_V = 2400  
 
