@@ -46,8 +46,11 @@ tensao_base_V = 2400
 col2 = df1[' V1'] / tensao_base_V
 col3 = df1[' V2'] / tensao_base_V
 col4 = df1[' V3'] / tensao_base_V
+col5 = df1[' I1']
+col6 = df1[' I2']
+col7 = df1[' I3']
 
-conteudo_csv = pd.concat([col1, col2, col3, col4], axis=1)
+conteudo_csv = pd.concat([col1, col2, col3, col4, col5, col6, col7], axis=1)
 
 minutos_por_linha = int(((df1.loc[1, ' t(sec)']) - (df1.loc[0, ' t(sec)']))/60)
 
