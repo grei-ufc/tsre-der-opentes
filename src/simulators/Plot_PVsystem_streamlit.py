@@ -90,9 +90,27 @@ print('')
 
 # PLOTS
 
-st.set_page_config(page_title="Comparação entre o simulador desenvolvido e o simulador nativo do OpenDSS", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Comparação OpenDSS x Simulador (Caio Lucas)", page_icon="⚡", layout="centered")
 
-st.title("⚡ Comparação entre o simulador desenvolvido e o simulador nativo do OpenDSS")
+st.markdown("""
+## 📊 Dashboard de Validação
+
+Este aplicativo compara os resultados do **OpenDSS** (referência) com o **simulador próprio** desenvolvido em Python, permitindo avaliar a precisão do modelo.
+
+### 🔧 Como usar
+- **Seleção de fontes**: Escolha entre OpenDSS (linhas azuis contínuas), Simulador (linhas laranja) e/ou Diferença (erro) – exibida em roxo.
+- **Seleção de grandezas**: Visualize Potência, Tensões e Correntes (apenas OpenDSS).
+
+### 📈 Organização dos gráficos
+Cada grandeza ocupa uma linha. Quando a diferença está ativa, há duas colunas:
+- **Esquerda**: comparação OpenDSS vs Simulador.
+- **Direita**: erro (diferença) com cores por fase.
+
+O eixo x cobre o período de 01/01/2016 a 05/01/2016, com intervalo de 6 horas.
+
+### 📊 Estatísticas (opcional)
+Na barra lateral, ative a exibição das diferenças médias e máximas para avaliar a acurácia do simulador.
+""")
 
 # Opções disponíveis
 opcoes_fonte = ["OpenDSS", "Simulador", "Diferença (erro)"]
@@ -100,26 +118,39 @@ opcoes_grandeza = ["Potência", "Tensões", "Correntes"]
 
 # Seleção de fontes (múltipla)
 fontes = st.multiselect(
-    "Selecione as fontes a exibir:",
+    "Selecione as fontes de dados para exibir:",
     opcoes_fonte,
     default=["OpenDSS", "Simulador"]  # valor inicial
 )
 # Seleção de grandezas (múltipla)
 grandezas = st.multiselect(
-    "Selecione as grandezas:",
+    "Selecione as grandezas para serem exibidas:",
     opcoes_grandeza,
     default=["Potência", "Tensões"]
 )
 
-if "OpenDSS" in fontes or "Simulador" in fontes:
-    if "Diferença (erro)" in fontes:
-        n_colunas = 2
-    else:
-        n_colunas = 1
-elif "Diferença (erro)" in fontes:
-    n_colunas = 1
+# -------------------------------------------------------------------
+# Verificar quais fontes estão selecionadas
+tem_open = "OpenDSS" in fontes
+tem_sim = "Simulador" in fontes
+tem_dif = "Diferença (erro)" in fontes
+
+# Definir o modo de exibição com base nas fontes ativas
+if tem_dif and not (tem_open or tem_sim):
+    # Apenas diferenças: uma coluna com os gráficos de erro
+    modo = "diferenca"
+    ncols = 1
+elif (tem_open or tem_sim) and not tem_dif:
+    # Apenas comparação: uma coluna com OpenDSS e/ou Simulador
+    modo = "comparacao"
+    ncols = 1
+elif (tem_open or tem_sim) and tem_dif:
+    # Ambos: duas colunas (comparação à esquerda, diferença à direita)
+    modo = "ambos"
+    ncols = 2
 else:
-    st.warning("Selecione pelo menos uma fonte de dados.")
+    # Nenhuma fonte selecionada (já deve ter sido tratado antes)
+    st.warning("Selecione pelo menos uma fonte.")
     st.stop()
 
 # -------------------------------------------------------------------
@@ -244,8 +275,8 @@ if n_series == 0:
 
 # -------------------------------------------------------------------
 # Criar a figura com GridSpec
-fig = plt.figure(figsize=(13, 2 * n_series))
-gs = GridSpec(n_series, n_colunas, figure=fig, hspace=0.3, wspace=0.15)
+fig = plt.figure(figsize=(12*ncols, 2 * n_series), dpi=480)
+gs = GridSpec(n_series, ncols, figure=fig, hspace=0.5, wspace=0.15)
 
 x = df[' Hora']
 tem_diferenca_global = "Diferença (erro)" in fontes
@@ -254,120 +285,115 @@ tem_diferenca_global = "Diferença (erro)" in fontes
 axes_esq = []
 axes_dir = []
 
-# Loop sobre cada série
 for i, serie in enumerate(series):
-    # --- Eixo esquerdo (comparação OpenDSS vs Simulador) ---
-    ax_esq = fig.add_subplot(gs[i, 0])
-    axes_esq.append(ax_esq)
-    ax_esq.grid(True)
-    ax_esq.set_ylabel(serie["ylabel"])
+    if modo == "comparacao":
+        # Apenas um eixo com a comparação OpenDSS/Simulador
+        ax = fig.add_subplot(gs[i, 0])
+        axes_esq.append(ax)
+        ax.grid(True)
+        ax.set_ylabel(serie["ylabel"])
 
-    # Plotar OpenDSS
-    if "OpenDSS" in fontes:
-        ax_esq.plot(x, df[serie["col_open"]], 
-                   label='OpenDSS', color=serie["cor"], linestyle='-')
+        if tem_open:
+            ax.plot(x, df[serie["col_open"]], label='OpenDSS', color='blue', linestyle='-', linewidth=1)
+        if tem_sim and serie["tem_sim"]:
+            ax.plot(x, df_2[serie["col_sim"]], label='Simulador', color='red', linestyle='-', linewidth=1)
 
-    # Plotar Simulador (se disponível para esta série)
-    if "Simulador" in fontes and serie["tem_sim"]:
-        ax_esq.plot(x, df_2[serie["col_sim"]], 
-                   label='Simulador', color=serie["cor"], linestyle='--')
+        if (tem_open) or (tem_sim and serie["tem_sim"]):
+            ax.legend(loc='upper right', fontsize=8, frameon=True)
 
-    # Legenda (se houver pelo menos uma fonte plotada)
-    if ("OpenDSS" in fontes) or ("Simulador" in fontes and serie["tem_sim"]):
-        ax_esq.legend(loc='upper right', fontsize=8, frameon=True)
+        if serie.get("major_locator_esq"):
+            ax.yaxis.set_major_locator(serie["major_locator_esq"])
 
-    # Aplicar locator personalizado se existir
-    if serie.get("major_locator_esq"):
-        ax_esq.yaxis.set_major_locator(serie["major_locator_esq"])
+    elif modo == "diferenca":
+        # Apenas um eixo com a diferença
+        ax = fig.add_subplot(gs[i, 0])
+        axes_esq.append(ax)
+        ax.grid(True)
+        ax.set_ylabel(serie["ylabel_dif"])
 
-    # --- Eixo direito (diferença) ---
-    ax_dir = fig.add_subplot(gs[i, 1])
-    axes_dir.append(ax_dir)
-    ax_dir.grid(True)
+        if serie["tem_dif"]:
+            ax.plot(x, df[serie["col_dif"]], color='purple', linestyle='-', linewidth=1)
+            if serie.get("major_locator_dir"):
+                ax.yaxis.set_major_locator(serie["major_locator_dir"])
+        else:
+            # Se a série não tem diferença, oculta o eixo
+            ax.set_visible(False)
 
-    if tem_diferenca_global and serie["tem_dif"]:
-        ax_dir.set_ylabel(serie["ylabel_dif"])
-        ax_dir.plot(x, df[serie["col_dif"]], 
-                   color=serie["cor"], linestyle='-', linewidth=1.5)
-        if serie.get("major_locator_dir"):
-            ax_dir.yaxis.set_major_locator(serie["major_locator_dir"])
-    else:
-        # Oculta o eixo se não houver diferença para esta série
-        ax_dir.set_visible(False)
+    else:  # modo == "ambos"
+        # Eixo esquerdo: comparação
+        ax_esq = fig.add_subplot(gs[i, 0])
+        axes_esq.append(ax_esq)
+        ax_esq.grid(True)
+        ax_esq.set_ylabel(serie["ylabel"])
+
+        if tem_open:
+            ax_esq.plot(x, df[serie["col_open"]], label='OpenDSS', color='blue', linestyle='-', linewidth=1)
+        if tem_sim and serie["tem_sim"]:
+            ax_esq.plot(x, df_2[serie["col_sim"]], label='Simulador', color='red', linestyle='-', linewidth=1)
+
+        if (tem_open) or (tem_sim and serie["tem_sim"]):
+            ax_esq.legend(loc='upper right', fontsize=8, frameon=True)
+
+        if serie.get("major_locator_esq"):
+            ax_esq.yaxis.set_major_locator(serie["major_locator_esq"])
+
+        # Eixo direito: diferença
+        ax_dir = fig.add_subplot(gs[i, 1])
+        axes_dir.append(ax_dir)
+        ax_dir.grid(True)
+
+        if serie["tem_dif"]:
+            ax_dir.set_ylabel(serie["ylabel_dif"])
+            ax_dir.plot(x, df[serie["col_dif"]], color='purple'
+            '', linestyle='-', linewidth=1)
+            if serie.get("major_locator_dir"):
+                ax_dir.yaxis.set_major_locator(serie["major_locator_dir"])
+        else:
+            ax_dir.set_visible(False)
 
 # -------------------------------------------------------------------
 # Configurar o eixo x para todos os subplots visíveis
-for ax in axes_esq + axes_dir:
-    if ax.get_visible():
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-        ax.xaxis.set_major_locator(mdates.HourLocator(interval=6))
-        ax.tick_params(axis='x', rotation=45)
-        ax.set_xlim(pd.to_datetime('2016-01-01 00:00:00'), 
-                    pd.to_datetime('2016-01-05 00:00:00'))
+if modo in ["comparacao", "diferenca"]:
+    # Apenas uma coluna: formatar os eixos em axes_esq
+    for ax in axes_esq:
+        if ax.get_visible():
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            ax.xaxis.set_major_locator(mdates.HourLocator(interval=6))
+            ax.tick_params(axis='x', rotation=45)
+            ax.set_xlim(pd.to_datetime('2016-01-01 00:00:00'), 
+                        pd.to_datetime('2016-01-05 00:00:00'))
+    # Rótulo x no último subplot
+    if axes_esq and axes_esq[-1].get_visible():
+        axes_esq[-1].set_xlabel('Hora')
 
-# Colocar o rótulo do eixo x apenas nos últimos subplots de cada coluna
-for ax in [axes_esq[-1], axes_dir[-1]]:
-    if ax.get_visible():
-        ax.set_xlabel('Hora')
+else:  # modo == "ambos"
+    # Formatar eixos esquerdos
+    for ax in axes_esq:
+        if ax.get_visible():
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            ax.xaxis.set_major_locator(mdates.HourLocator(interval=6))
+            ax.tick_params(axis='x', rotation=45)
+            ax.set_xlim(pd.to_datetime('2016-01-01 00:00:00'), 
+                        pd.to_datetime('2016-01-05 00:00:00'))
+    # Formatar eixos direitos
+    for ax in axes_dir:
+        if ax.get_visible():
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            ax.xaxis.set_major_locator(mdates.HourLocator(interval=6))
+            ax.tick_params(axis='x', rotation=45)
+            ax.set_xlim(pd.to_datetime('2016-01-01 00:00:00'), 
+                        pd.to_datetime('2016-01-05 00:00:00'))
+    # Rótulos x nos últimos subplots
+    axes_esq[-1].set_xlabel('Hora')
+    if axes_dir and axes_dir[-1].get_visible():
+        axes_dir[-1].set_xlabel('Hora')
 
-# Títulos das colunas
-fig.text(0.3, 0.98, 'Potência e Tensões', ha='center', va='center', fontsize=12)
-fig.text(0.72, 0.98, 'Diferenças (Erros)', ha='center', va='center', fontsize=12)
+    # Títulos das colunas (apenas no modo ambos)
+    fig.text(0.3, 0.92, 'Potência e Tensões', ha='center', va='center', fontsize=12)
+    fig.text(0.72, 0.92, 'Diferenças (Erros)', ha='center', va='center', fontsize=12)
 
-plt.suptitle('Comparativo de grandezas na barra 671', weight='bold', y=1.02)
+plt.suptitle('Comparativo de grandezas na barra 671', weight='bold', y=1)
 plt.tight_layout()
 
-# -------------------------------------------------------------------
 # Exibir no Streamlit
 st.pyplot(fig)
-
-
-
-
-
-
-
-
-#Apenas grandezas:
-
-'''
-
-fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(13, 6), sharex=True)
-
-ax1 = plt.subplot(4, 1, 1)
-plt.plot(x, df['PanelkW'], label='OpenDSS')
-plt.plot(x, df_2['PV-0.PV_0-P_gen'], linestyle='dashed', label='Simulador')
-ax1.set_ylabel('Potência (kW)'), ax1.grid(True)
-ax1.yaxis.set_major_locator(ticker.MultipleLocator(100))
-plt.legend(loc='upper right', fontsize=8, frameon=True)
-
-ax2 = plt.subplot(4, 1, 2)
-plt.plot(x, df[' V1'], label='OpenDSS')
-plt.plot(x, df_2['DSS-0.Bus-671-V1_pu'], linestyle='dashed', label='Simulador')
-ax2.set_ylabel('V1 (pu)'),ax2.grid(True)
-ax2.yaxis.set_major_locator(ticker.MultipleLocator(0.02))
-plt.legend(loc='upper right', fontsize=8, frameon=True)
-
-ax3 = plt.subplot(4, 1, 3)
-plt.plot(x, df[' V2'], label='OpenDSS')
-plt.plot(x, df_2['DSS-0.Bus-671-V2_pu'], linestyle='dashed', label='Simulador')
-ax3.set_ylabel('V2 (pu)'),ax3.grid(True)
-ax3.yaxis.set_major_locator(ticker.MultipleLocator(0.005))
-plt.legend(loc='upper right', fontsize=8, frameon=True)
-
-ax4 = plt.subplot(4, 1, 4)
-plt.plot(x, df[' V3'], label='OpenDSS')
-plt.plot(x, df_2['DSS-0.Bus-671-V3_pu'], linestyle='dashed', label='Simulador')
-ax4.set_ylabel('V3 (pu)'),ax4.grid(True)
-ax4.yaxis.set_major_locator(ticker.MultipleLocator(0.02))
-plt.legend(loc='upper right', fontsize=8, frameon=True)
-
-ax4.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-ax4.xaxis.set_major_locator(mdates.HourLocator(interval=4))
-ax4.tick_params(axis='x', rotation=45)
-ax4.set_xlim(pd.to_datetime('2016-01-01 00:00:00'), pd.to_datetime('2016-01-05 00:00:00'))
-
-plt.suptitle('Potência injetada e tensão na barra 671')
-
-st.pyplot(fig)
-'''
