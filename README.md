@@ -81,3 +81,12 @@ uv run --no-sync python src/scenarios/opendss_scenario.py
 ```
 
 Os resultados específicos desta simulação serão gerados na pasta `src/output`.
+
+
+### Executar o plot com o streamlit:
+
+1. Verifique se está na pasta base (tsre-der-opente).
+
+2. Rode o seguinte comando no terminal:
+
+uv run streamlit run src/simulators/Plot_PVsystem_streamlit.py
