@@ -34,6 +34,11 @@ META = {
             'params': [],
             'attrs': ['tap', 'v_meas', 'i_meas']
         },
+        'Storage': {
+            'public': True,
+            'params': [],
+            'attrs': ['P_set', 'Q_set', 'SoC_set', 'P_act', 'Q_atc', 'SoC']
+        }
     },
     'extra_methods': ['get_dss_wrapper', 'get_detected_regulators'],
 }
@@ -115,6 +120,16 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             child_entities.append({'eid': eid, 'type': 'RegControl'})
             print(f"[OpenTES] Regulador detectado: {name} @ {info['target_bus']}.{info['target_phase']}")
 
+        # --- Baterias ---
+
+        storages_df = self.dss_wrapper.get_all_elements('Storage')
+        if not storages_df.empty:
+            for full_name in storages_df.index:
+                name = full_name.split('.')[1]
+                eid = f"Storage-{name}"
+                self.entity_map[eid] = name
+                child_entities.append({'eid': eid, 'type': 'Storage'})
+
         return [{'eid': 'Grid-0', 'type': 'Grid', 'children': child_entities}]
 
     def _check_load_profile(self, eid, name):
@@ -174,9 +189,14 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         for eid, attrs in inputs.items():
             if eid not in self.entity_map: continue
             # Controle de Regulador
-            if 'RegControl' in eid and 'tap' in attrs:
+
+            name = self.entity_map[eid]
+            model_type = eid.split('-')[0]
+
+
+            # --- Controle do Regulador ---
+            if model_type == 'RegControl' and 'tap' in attrs:
                 try:
-                    name = self.entity_map[eid]
                     new_tap = int(list(attrs['tap'].values())[0])
 
                     self.dss_wrapper.set_tap(name=name, tap=new_tap)
@@ -184,6 +204,19 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                     # print(f"[LOG] {name} Tap alterado para {new_tap}")
                 except Exception as e:
                     print(f"[ERRO] Falha ao ajustar tap de {name}: {e}")
+
+            # --- Controle de Bateria ---
+            elif model_type == 'Storage':
+                try:
+                    p_val = list(attrs['P_set'].values())[0] if 'P_set' in attrs else None
+                    q_val = list(attrs['Q_set'].values())[0] if 'Q_set' in attrs else None
+                    soc_val = list(attrs['SoC_set'].values())[0] if 'SoC_set' in attrs else None
+
+                    if p_val is not None or q_val is not None or soc_val is not None:
+                        self.dss_wrapper.set_power(name, p=p_val, q=q_val, element='Storage')
+
+                except Exception as e:
+                    print(f"[ERRO] Falha ao ajustar bateria {name}: {e}")
 
         # ATUALIZAÇÃO DAS CARGAS
         for eid, profile in self.loads_with_profiles.items():
@@ -270,6 +303,21 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 if 'v_meas' in attrs: data[eid]['v_meas'] = meas['v']
                 if 'i_meas' in attrs: data[eid]['i_meas'] = meas['i']
                 if 'tap' in attrs:    data[eid]['tap'] = meas['tap']
+
+            elif model_type == 'Storage':
+                p_kw_meas, q_kvar_meas = self.dss_wrapper.get_power(name=name, element='Storage', total=True)
+
+                if isinstance(p_kw_meas, (list, tuple)):
+                    p_kw_meas = sum(p_kw_meas)
+                if isinstance(q_kvar_meas, (list, tuple)):
+                    q_kvar_meas = sum(q_kvar_meas)
+
+                p_kw_mosaik = -p_kw_meas
+                q_kvar_mosaik = -q_kvar_meas
+
+                for attr in attrs:
+                    if attr == 'P_act': data[eid][attr] = p_kw_mosaik
+                    if attr == 'Q_act': data[eid][attr] = q_kvar_mosaik
 
 
         return data
