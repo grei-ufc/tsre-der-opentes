@@ -227,9 +227,21 @@ class OpenDSS:
         Returns:
             pd.DataFrame: DataFrame indexed by the full element name.
         """
-        self.dss.circuit.set_active_class(element)
+        try:
+            self.dss.circuit.set_active_class(element)
+        except Exception:
+            # Se a própria classe for inválida
+            return pd.DataFrame()
+        
+        # CORREÇÃO DEFINITIVA: Checa se existem elementos antes de acessar os nomes
+        if self.dss.active_class.count == 0:
+            return pd.DataFrame()
+
+        # Agora é seguro pedir os nomes
         names = self.dss.active_class.names
-        if not names or names[0] is None:
+
+        # Dupla checagem de segurança
+        if not names or names[0] is None or names[0].lower() == 'none':
             return pd.DataFrame()
         
         all_data = {}
@@ -426,24 +438,18 @@ class OpenDSS:
             self.run_command(cmd)
         else:
             # Specific logic for Storage
-            if p == 0:
-                self.run_command(f'edit Storage.{name} kW=0 kvar=0 State=Idling')
-                return
-            
-            if size is None:
-                size = self.get_property(name, 'kWrated', element='Storage')
-            if q is None:
-                q = 0
-            
-            pf = np.cos(np.arctan(q / p)) if p != 0 else 0
-            if p * q < 0:
-                pf = -pf
-            p_pct = abs(p) / size * 100 if size != 0 else 0
+            if p is None: return
+            if q is None: q = 0.0
 
-            if p < 0:
-                self.run_command(f'edit Storage.{name} %discharge={p_pct:.4} pf={pf:.4} State=Discharging')
+            if p > 0:
+                state_str = "Discharging"
+            elif p < 0:
+                state_str = "Charging"
             else:
-                self.run_command(f'edit Storage.{name} %charge={p_pct:.4} pf={pf:.4} State=Charging')
+                state_str = "Idling"
+
+            cmd = f"Edit Storage.{name} State={state_str} kW={p} kvar={q}"
+            self.run_command(cmd)
 
     def get_current(self, name: str, element: str = 'Load', 
                     polar: bool = True, mag_only: bool = True, 
