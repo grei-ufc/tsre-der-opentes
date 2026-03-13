@@ -16,7 +16,7 @@ class OpenDSS:
 
     It handles circuit compilation, time flow management, data extraction, 
     and element control (Loads, PVs, Storage, etc.).
-    """
+    """ 
     name = 'DSS'
 
     def __init__(self, 
@@ -448,7 +448,11 @@ class OpenDSS:
             else:
                 state_str = "Idling"
 
-            cmd = f"Edit Storage.{name} State={state_str} kW={p} kvar={q}"
+            if state_str == "Idling":
+                cmd = f"Edit Storage.{name} State={state_str}"
+            else:
+                cmd = f"Edit Storage.{name} State={state_str} kW={p} kvar={q}"
+
             self.run_command(cmd)
 
     def get_current(self, name: str, element: str = 'Load', 
