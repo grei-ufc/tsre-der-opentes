@@ -105,20 +105,22 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             child_entities.append({'eid': eid, 'type': 'Bus'})
 
         # --- Reguladores de tensão --- 
-        reg_infos = self.dss_wrapper.get_all_regulators_info()
+        if self.dss_wrapper.dss.regcontrols.count > 0:
+            
+            reg_infos = self.dss_wrapper.get_all_regulators_info()
 
-        for info in reg_infos:
-            name = info["name"]
-            eid = f"RegControl-{name}"
+            for info in reg_infos:
+                name = info["name"]
+                eid = f"RegControl-{name}"
 
-            info["eid_dss"] = eid
+                info["eid_dss"] = eid
 
-            self.entity_map[eid] = name
-            self.detected_regulators.append(info)
-            self.regulator_map[eid] = info
+                self.entity_map[eid] = name
+                self.detected_regulators.append(info)
+                self.regulator_map[eid] = info
 
-            child_entities.append({'eid': eid, 'type': 'RegControl'})
-            print(f"[OpenTES] Regulador detectado: {name} @ {info['target_bus']}.{info['target_phase']}")
+                child_entities.append({'eid': eid, 'type': 'RegControl'})
+                print(f"[OpenTES] Regulador detectado: {name} @ {info['target_bus']}.{info['target_phase']}")
 
         # --- Baterias ---
 
