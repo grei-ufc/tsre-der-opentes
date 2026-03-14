@@ -1,4 +1,4 @@
-import mosaik_api
+import mosaik_api 
 from simulators.battery_model import OpenDSSBattery
 
 META = {
@@ -8,7 +8,7 @@ META = {
             'public': True,
             'params': [
                 'kw_rated', 'kwh_rated', 'kwh_stored', 'kwh_reserve',
-                'eff_charge', 'eff_discharge', 'idling_kw', 'kva_rated'
+                'eff_charge', 'eff_discharge', 'pct_idling_kw', 'kva_rated'
             ],
             'attrs': [
                 'P_ref',  # Input: Referência de P desejada
@@ -49,7 +49,7 @@ class BatterySim(mosaik_api.Simulator):
                 kwh_reserve=model_params.get('kwh_reserve', 0),
                 eff_charge=model_params.get('eff_charge', 0.95),
                 eff_discharge=model_params.get('eff_discharge', 0.95),
-                idling_kw=model_params.get('idling_kw', 0.1),
+                pct_idling_kw=model_params.get('pct_idling_kw', 2.0),
                 kva_rated=model_params.get('kva_rated', None)
             )
             
