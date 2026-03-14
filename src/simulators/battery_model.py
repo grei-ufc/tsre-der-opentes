@@ -1,6 +1,6 @@
 import math
 
-class OpenDSSBattery:
+class OpenDSSBattery: 
     """
     Implementação Python fiel ao modelo 'Storage' do OpenDSS (Storage.pas).
     
@@ -9,7 +9,6 @@ class OpenDSSBattery:
     - kW < 0: Charging (Absorvendo da rede)
     """
     
-    # Constantes de Estado baseadas no Storage.pas
     STATE_IDLING = 0
     STATE_DISCHARGING = 1
     STATE_CHARGING = -1
@@ -21,27 +20,37 @@ class OpenDSSBattery:
                  kwh_reserve=0.0,
                  eff_charge=0.90, 
                  eff_discharge=0.90, 
-                 idling_kw=0.0,
+                 pct_idling_kw=1.0,
                  kva_rated=None,
                  max_charge_kw=None,
-                 max_discharge_kw=None):
+                 max_discharge_kw=None,
+                 eff_curve_x=[0.1, 0.2, 0.4, 1.0],
+                 eff_curve_y=[0.86, 0.9, 0.93, 0.97]):
         
         self.name = name
         
+        # Curva de Eficiência do Inversor (Seguro contra vazamento de memória)
+        self.eff_curve_x = eff_curve_x if eff_curve_x is not None else [0.1, 0.2, 0.4, 1.0]
+        self.eff_curve_y = eff_curve_y if eff_curve_y is not None else [0.86, 0.9, 0.93, 0.97]
+
         # Parâmetros Nominais
         self.kw_rated = float(kw_rated)
         self.kwh_rated = float(kwh_rated)
         self.kwh_reserve = float(kwh_reserve) # Nível mínimo antes de parar descarga
         
-        # Estado InicialP
-        self.kwh_stored = float(kwh_stored)
-        self.state = self.STATE_IDLING
+        # # Estado InicialP --------------------------
+        # self.kwh_stored = float(kwh_stored)
+        # self.state = self.STATE_IDLING
         
         # Eficiências e Perdas
         self.eff_charge = float(eff_charge)
         self.eff_discharge = float(eff_discharge)
-        self.idling_kw = float(idling_kw)
+        self.idling_kw = float(pct_idling_kw * kw_rated / 100)
         
+        # Curva de Eficiência do Inversor
+        self.eff_curve_x = eff_curve_x
+        self.eff_curve_y = eff_curve_y
+
         # Limites do Inversor
         self.kva_rated = float(kva_rated) if kva_rated else self.kw_rated * 1.0 # Default PF=1
         
@@ -49,8 +58,15 @@ class OpenDSSBattery:
         self.max_charge_kw = max_charge_kw if max_charge_kw else self.kw_rated
         self.max_discharge_kw = max_discharge_kw if max_discharge_kw else self.kw_rated
 
-        # Saídas para o passo atual
-        self.p_out_kw = 0.0
+        # Variáveis de Estado de Tempo Discreto
+        self.kwh_stored = float(kwh_stored)
+        self.pending_delta_energy = 0.0
+        self.state = self.STATE_IDLING
+
+
+        # Saídas iniciais
+        eta_inv_idle = self.get_inverter_efficiency(self.idling_kw)
+        self.p_out_kw = -(self.idling_kw / eta_inv_idle) if eta_inv_idle > 0 else -self.idling_kw
         self.q_out_kvar = 0.0
 
     def calculate_step(self, p_request, q_request, dt_seconds):
@@ -68,11 +84,15 @@ class OpenDSSBattery:
 
         dt_hours = dt_seconds / 3600.0
         
+        # ------------------------------------------------------------------
         # 1. Limitação pelo Inversor (Círculo de Potência Aparente)
-        # Prioridade para Potência Ativa (P) típica em Grid-Following
-        p_limited = p_request
-        q_limited = q_request
+        # ------------------------------------------------------------------
+
+        p_limited = float(p_request) if p_request is not None else 0.0
+        q_limited = float(q_request) if q_request is not None else 0.0
         
+        self.kwh_stored += self.pending_delta_energy
+
         # Clamp P nos limites nominais de carga/descarga
         if p_limited > self.max_discharge_kw:
             p_limited = self.max_discharge_kw
@@ -93,93 +113,81 @@ class OpenDSSBattery:
             if abs(p_limited) > self.kva_rated:
                  p_limited = math.copysign(self.kva_rated, p_limited)
 
-        # 2. Determinação do Estado e Cálculo da Energia Química
-        # Baseado na lógica do Storage.pas
-        
-        delta_energy_kwh = 0.0
+        # ------------------------------------------------------------------
+        # 2. DEFINIÇÃO DO COMPORTAMENTO PADRÃO (FALLBACK)
+        # ------------------------------------------------------------------
+        calc_delta_energy = 0.0
         next_state = self.STATE_IDLING
+
+        eta_inv_idle = self.get_inverter_efficiency(self.idling_kw)
         
-        # --- MODO CHARGING (P < 0) ---
-        if p_limited < -1e-6: # Tolerância numérica
-            # Lógica: A rede fornece P_grid. Parte se perde no inversor e idling.
-            # O resto carrega o químico.
-            # Energia armazenada AUMENTA (sinal + no balanço do químico)
-            
-            # Potência vinda da rede (magnitude positiva)
-            p_grid_mag = abs(p_limited)
-            
-            # P_quimico = (P_grid - P_idling) * Eficiencia
-            p_chem = (p_grid_mag - self.idling_kw) * self.eff_charge
-            
-            if p_chem > 0:
-                next_state = self.STATE_CHARGING
-                # Verifica se cabe no armazenamento
-                energy_to_store = p_chem * dt_hours
-                if (self.kwh_stored + energy_to_store) > self.kwh_rated:
-                    # Bateria cheia: Reduz a potência para caber exatamente
-                    energy_to_store = max(0, self.kwh_rated - self.kwh_stored)
-                    p_chem = energy_to_store / dt_hours
-                    # Recalcula P_grid reverso: P_grid = (P_chem / Eff) + P_idling
-                    p_grid_mag = (p_chem / self.eff_charge) + self.idling_kw
-                    p_limited = -p_grid_mag # Ajusta o output real
+        # Guardamos essa variável para usá-la na Média Ponderada
+        p_idle_ac = -(self.idling_kw / eta_inv_idle) if eta_inv_idle > 0 else -self.idling_kw
+        p_output = p_idle_ac
+
+        # ------------------------------------------------------------------
+        # 3. Determinação do Estado e Cálculo da Energia Química (Lado DC)
+        # Emulação do Fotógrafo (Instantâneo) OpenDSS
+        # ------------------------------------------------------------------
+        if p_limited > 1e-6:
+            # --- TENTATIVA DE DESCARGA (Injetar na rede) ---
+            eta_inv = self.get_inverter_efficiency(p_limited)
+            if eta_inv > 0:
+                p_dc_req = p_limited / eta_inv             
+                p_chem = p_dc_req / self.eff_discharge   
+                
+                total_drain_rate = p_chem + self.idling_kw     
+                
+                energy_required = total_drain_rate * dt_hours
+                available_energy = max(0.0, self.kwh_stored - self.kwh_reserve)
+                
+                if available_energy > 0:
+                    # Trava a potência lida no valor nominal (foto instantânea)
+                    next_state = self.STATE_DISCHARGING
+                    p_output = p_limited
                     
-                delta_energy_kwh = energy_to_store # Positivo (incrementa kWh)
-            else:
-                # Perdas maiores que a carga -> Bateria drena (Idling efetivo)
-                next_state = self.STATE_IDLING
-                # Drena a diferença da bateria
-                loss_deficit = abs(p_chem) 
-                delta_energy_kwh = -loss_deficit * dt_hours
+                    if energy_required > available_energy:
+                        # Bateria esvazia no meio do passo: limita apenas a energia
+                        calc_delta_energy = -available_energy
+                    else:
+                        calc_delta_energy = -energy_required
 
-        # --- MODO DISCHARGING (P > 0) ---
-        elif p_limited > 1e-6:
-            # Lógica: Químico fornece energia para cobrir Saída + Perdas + Idling
-            # Energia armazenada DIMINUI
+        elif p_limited < -1e-6:
+            # --- TENTATIVA DE CARGA (Absorver da rede) ---
+            p_grid_mag = abs(p_limited)
+            eta_inv = self.get_inverter_efficiency(p_grid_mag)
             
-            # P_quimico = (P_out + P_idling) / Eficiencia
-            p_chem = (p_limited + self.idling_kw) / self.eff_discharge
+            p_dc_input = p_grid_mag * eta_inv              
+            p_chem = p_dc_input * self.eff_charge            
             
-            next_state = self.STATE_DISCHARGING
-            energy_required = p_chem * dt_hours
-            
-            # Verifica se tem energia suficiente (respeitando Reserva)
-            available_energy = self.kwh_stored - self.kwh_reserve
-            
-            if available_energy < 0: available_energy = 0
-            
-            if energy_required > available_energy:
-                # Bateria vazia (ou atingiu reserva): Entrega o que pode
-                energy_required = available_energy
-                if energy_required <= 0:
-                    p_limited = 0
-                    next_state = self.STATE_IDLING
-                    delta_energy_kwh = - (self.idling_kw * dt_hours) # Apenas perdas de vazio
-                else:
-                    # Recalcula P_out possível
-                    p_chem = energy_required / dt_hours
-                    # P_out = (P_chem * Eff) - P_idling
-                    p_limited = (p_chem * self.eff_discharge) - self.idling_kw
-                    if p_limited < 0: p_limited = 0
-                    delta_energy_kwh = -energy_required
-            else:
-                delta_energy_kwh = -energy_required # Negativo (decrementa kWh)
+            total_charge_rate = p_chem - self.idling_kw
 
-        # --- MODO IDLING (P ~ 0) ---
-        else:
-            next_state = self.STATE_IDLING
-            p_limited = 0
-            # Em Idling, consome perdas constantes
-            delta_energy_kwh = - (self.idling_kw * dt_hours)
+            if total_charge_rate > 0:
+                energy_space = max(0.0, self.kwh_rated - self.kwh_stored)
+                energy_to_store = total_charge_rate * dt_hours
+                
+                if energy_space > 0:
+                    # Trava a potência lida no valor nominal (foto instantânea)
+                    next_state = self.STATE_CHARGING
+                    p_output = p_limited
+                    
+                    if energy_to_store > energy_space:
+                        # Bateria enche no meio do passo: limita apenas o espaço
+                        calc_delta_energy = energy_space
+                    else:
+                        calc_delta_energy = energy_to_store
 
-        # 3. Atualização Final do Estado
-        self.kwh_stored += delta_energy_kwh
-        
+        # ------------------------------------------------------------------
+        # 4. Atualização Final do Estado
+        # ------------------------------------------------------------------
+
         # Clamp de segurança (erros numéricos)
-        if self.kwh_stored < 0: self.kwh_stored = 0
+        if self.kwh_stored < 0: self.kwh_stored = 0.0
         if self.kwh_stored > self.kwh_rated: self.kwh_stored = self.kwh_rated
-            
+
+        self.pending_delta_energy = calc_delta_energy    
         self.state = next_state
-        self.p_out_kw = p_limited
+        self.p_out_kw = p_output
         self.q_out_kvar = q_limited
 
         return {
@@ -193,3 +201,24 @@ class OpenDSSBattery:
         if self.state == self.STATE_CHARGING: return "Charging"
         if self.state == self.STATE_DISCHARGING: return "Discharging"
         return "Idling"
+    
+    def get_inverter_efficiency(self, p_kw):
+        """Interpola ou Extrapola linearmente a eficiência baseada na curva XY do OpenDSS."""
+        p_pu = abs(p_kw) / self.kw_rated if self.kw_rated > 0 else 0.0
+        
+        if p_pu <= 0.0: 
+            return 0.0
+            
+        # Trava no limite superior se passar do máximo da curva (ex: 1.0 pu)
+        if p_pu >= self.eff_curve_x[-1]: 
+            return self.eff_curve_y[-1]
+        
+        # Interpolação e Extrapolação Linear (para baixo)
+        for i in range(len(self.eff_curve_x) - 1):
+            if p_pu <= self.eff_curve_x[i+1]:
+                x0, x1 = self.eff_curve_x[i], self.eff_curve_x[i+1]
+                y0, y1 = self.eff_curve_y[i], self.eff_curve_y[i+1]
+                eta = y0 + (p_pu - x0) * (y1 - y0) / (x1 - x0)
+                return max(0.1, eta) # Limite de segurança matemático para não dividir por 0
+                
+        return 0.0
