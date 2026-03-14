@@ -2,7 +2,7 @@ import mosaik_api_v3
 import datetime
 import math
 from simulators.opendss_wrapper import OpenDSS, OpenDSSException
-
+ 
 META = {
     'api_version': '3.0',
     'type': 'time-based',
@@ -106,7 +106,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
 
         # --- Reguladores de tensão --- 
         if self.dss_wrapper.dss.regcontrols.count > 0:
-            
+
             reg_infos = self.dss_wrapper.get_all_regulators_info()
 
             for info in reg_infos:
