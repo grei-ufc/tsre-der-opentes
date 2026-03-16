@@ -368,19 +368,33 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                     elif attr == 'I3_A': data[eid][attr] = i_mags[2]
 
             elif model_type == "PVSystem":
-                p_kw_meas, q_kvar_meas = self.dss_wrapper.get_power(name=name, element='PVSystem', total=True)
+                # 1. Obter Potências por fase (total=False)
+                p_kw_raw, q_kvar_raw = self.dss_wrapper.get_power(name=name, element='PVSystem', total=False)
+                
+                # Garante que seja uma lista de 3 posições
+                p_list = [p_kw_raw] if not isinstance(p_kw_raw, (list, tuple)) else list(p_kw_raw)
+                q_list = [q_kvar_raw] if not isinstance(q_kvar_raw, (list, tuple)) else list(q_kvar_raw)
+                while len(p_list) < 3: p_list.append(0.0)
+                while len(q_list) < 3: q_list.append(0.0)
 
-                if isinstance(p_kw_meas, (list, tuple)):
-                    p_kw_meas = sum(p_kw_meas)
-                if isinstance(q_kvar_meas, (list, tuple)):
-                    q_kvar_meas = sum(q_kvar_meas)
+                # 2. Obter Correntes por fase
+                curr_mag, curr_ang = self.dss_wrapper.get_current(name, element='PVSystem', polar=True, mag_only=False)
+                i_mags = [curr_mag] if not isinstance(curr_mag, (list, tuple)) else list(curr_mag)
+                while len(i_mags) < 3: i_mags.append(0.0)
 
-                p_kw_mosaik = -p_kw_meas
-                q_kvar_mosaik = -q_kvar_meas
-
+                # 3. Mapear para os atributos do Mosaik (Invertendo o sinal da potência para manter convenção de injeção)
                 for attr in attrs:
-                    if attr == 'P_meas': data[eid][attr] = p_kw_mosaik
-                    if attr == 'Q_meas': data[eid][attr] = q_kvar_mosaik
+                    if attr == 'P_meas': data[eid][attr] = -sum(p_list)
+                    elif attr == 'Q_meas': data[eid][attr] = -sum(q_list)
+                    elif attr == 'P1': data[eid][attr] = -p_list[0]
+                    elif attr == 'P2': data[eid][attr] = -p_list[1]
+                    elif attr == 'P3': data[eid][attr] = -p_list[2]
+                    elif attr == 'Q1': data[eid][attr] = -q_list[0]
+                    elif attr == 'Q2': data[eid][attr] = -q_list[1]
+                    elif attr == 'Q3': data[eid][attr] = -q_list[2]
+                    elif attr == 'I1_A': data[eid][attr] = i_mags[0]
+                    elif attr == 'I2_A': data[eid][attr] = i_mags[1]
+                    elif attr == 'I3_A': data[eid][attr] = i_mags[2]
 
         return data
 
