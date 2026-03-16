@@ -497,6 +497,8 @@ class OpenDSS:
             currents = currents[start_idx:end_idx]
         elif element.lower() == "storage":
             currents = currents[:-2]
+        elif element.lower() == "pvsystem":
+            currents = currents[:-2]
         else:
             currents = currents[:2 * n_phases]
             
