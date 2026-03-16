@@ -495,6 +495,8 @@ class OpenDSS:
             start_idx = (winding - 1) * (2 * n_phases + 2)
             end_idx = start_idx + 2 * n_phases
             currents = currents[start_idx:end_idx]
+        elif element.lower() == "storage":
+            currents = currents[:-2]
         else:
             currents = currents[:2 * n_phases]
             
