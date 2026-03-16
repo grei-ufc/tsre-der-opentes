@@ -38,7 +38,12 @@ META = {
             'public': True,
             'params': [],
             'attrs': ['P_set', 'Q_set', 'SoC_set', 'P_act', 'Q_atc', 'SoC']
-        }
+        },
+        'PVSystem': {
+            'public': True,
+            'params': [],
+            'attrs' : ['P_des', 'Q_des', 'P_meas', 'Q_meas']
+        },
     },
     'extra_methods': ['get_dss_wrapper', 'get_detected_regulators'],
 }
@@ -132,6 +137,15 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 self.entity_map[eid] = name
                 child_entities.append({'eid': eid, 'type': 'Storage'})
 
+        #  --- Sistema Fotovoltaico ---
+        pvs_df = self.dss_wrapper.get_all_elements('PVSystem')
+        if not pvs_df.empty:
+            for full_name in pvs_df.index:
+                name = full_name.split('.')[1] if '.' in full_name else full_name
+                eid = f"PVSystem-{name}"
+                self.entity_map[eid] = name
+                child_entities.append({'eid': eid, 'type': 'PVSystem'})
+
         return [{'eid': 'Grid-0', 'type': 'Grid', 'children': child_entities}]
 
     def _check_load_profile(self, eid, name):
@@ -219,6 +233,14 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
 
                 except Exception as e:
                     print(f"[ERRO] Falha ao ajustar bateria {name}: {e}")
+
+            # --- Controle do PVSystem ---
+            elif model_type == 'PVSystem':
+                # Pegar os valores desejados (se existirem na iteração atual), senão mantém 0
+                p_des = list(attrs.get('P_des', {}).values())[0] if 'P_des' in attrs else 0.0
+                q_des = list(attrs.get('Q_des', {}).values())[0] if 'Q_des' in attrs else 0.0
+                
+                self.dss_wrapper.set_pvsystem_pq(name, p_des, q_des)
 
         # ATUALIZAÇÃO DAS CARGAS
         for eid, profile in self.loads_with_profiles.items():
@@ -321,6 +343,20 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                     if attr == 'P_act': data[eid][attr] = p_kw_mosaik
                     if attr == 'Q_act': data[eid][attr] = q_kvar_mosaik
 
+            elif model_type == "PVSystem":
+                p_kw_meas, q_kvar_meas = self.dss_wrapper.get_power(name=name, element='PVSystem', total=True)
+
+                if isinstance(p_kw_meas, (list, tuple)):
+                    p_kw_meas = sum(p_kw_meas)
+                if isinstance(q_kvar_meas, (list, tuple)):
+                    q_kvar_meas = sum(q_kvar_meas)
+
+                p_kw_mosaik = -p_kw_meas
+                q_kvar_mosaik = -q_kvar_meas
+
+                for attr in attrs:
+                    if attr == 'P_meas': data[eid][attr] = p_kw_mosaik
+                    if attr == 'Q_meas': data[eid][attr] = q_kvar_mosaik
 
         return data
 
