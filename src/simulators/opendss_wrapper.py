@@ -738,3 +738,89 @@ class OpenDSS:
         p_meas = -sum(powers[0:6:2])
         q_meas = -sum(powers[1:6:2])
         return p_meas, q_meas
+    
+    def get_all_pvsystems_info(self):
+        """
+        Retorna um dicionário com todos os dados estáticos e curvas dos PVSystems.
+        Lê automaticamente as XYCurves atreladas a cada inversor.
+        """
+        pv_infos = {}
+        names = self.dss.pvsystems.names
+        
+        if not names or names[0].upper() == 'NONE':
+            return pv_infos
+
+        for name in names:
+            self.dss.pvsystems.name = name
+            
+            # 1. Parâmetros Básicos
+            pmpp = self.dss.pvsystems.pmpp
+            kva = self.dss.pvsystems.kva
+            
+            # Lendo propriedades via texto (pois nem todas têm interface nativa direta no py_dss_interface)
+            cutin = float(self.dss.text(f"? PVSystem.{name}.%cutin"))
+            cutout = float(self.dss.text(f"? PVSystem.{name}.%cutout"))
+            
+            # 2. Descobrir os Nomes das Curvas
+            pt_curve_name = self.dss.text(f"? PVSystem.{name}.P-TCurve")
+            eff_curve_name = self.dss.text(f"? PVSystem.{name}.EffCurve")
+            
+            # 3. Função Auxiliar para buscar os arrays X e Y de uma XYCurve
+            def get_xy_curve(curve_name):
+                if not curve_name: return [], []
+                self.dss.xycurves.name = curve_name
+                x = list(self.dss.xycurves.x_array)
+                y = list(self.dss.xycurves.y_array)
+                return x, y
+
+            pt_x, pt_y = get_xy_curve(pt_curve_name)
+            eff_x, eff_y = get_xy_curve(eff_curve_name)
+            
+            pv_infos[name] = {
+                'pmpp': pmpp,
+                'kva': kva,
+                'pct_cutin': cutin,
+                'pct_cutout': cutout,
+                'pt_curve_x': pt_x,
+                'pt_curve_y': pt_y,
+                'eff_curve_x': eff_x,
+                'eff_curve_y': eff_y
+            }
+            
+        return pv_infos
+    
+    def get_all_storages_info(self):
+        """
+        Retorna um dicionário com todos os dados estáticos dos elementos Storage.
+        """
+        storage_infos = {}
+        
+        # Aproveitamos o método que já lista todos os elementos de uma classe
+        storages_df = self.get_all_elements('Storage')
+        if storages_df.empty:
+            return storage_infos
+
+        for full_name in storages_df.index:
+            name = full_name.split('.')[1] if '.' in full_name else full_name
+            
+            # Lendo propriedades via texto para garantir consistência
+            kw_rated = float(self.dss.text(f"? Storage.{name}.kWrated"))
+            kwh_rated = float(self.dss.text(f"? Storage.{name}.kWhrated"))
+            kwh_stored = float(self.dss.text(f"? Storage.{name}.kWhstored"))
+            pct_reserve = float(self.dss.text(f"? Storage.{name}.%reserve"))
+            eff_charge = float(self.dss.text(f"? Storage.{name}.%EffCharge"))
+            eff_discharge = float(self.dss.text(f"? Storage.{name}.%EffDischarge"))
+            pct_idling = float(self.dss.text(f"? Storage.{name}.%IdlingkW"))
+            
+            storage_infos[name] = {
+                'name': name,
+                'kw_rated': kw_rated,
+                'kwh_rated': kwh_rated,
+                'kwh_stored': kwh_stored,
+                'pct_reserve': pct_reserve,
+                'eff_charge': eff_charge,
+                'eff_discharge': eff_discharge,
+                'pct_idling_kw': pct_idling
+            }
+            
+        return storage_infos
