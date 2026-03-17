@@ -71,6 +71,10 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self.time_resolution = 1.0
         self.detected_regulators = []
         self.regulator_map = {}
+        self.detected_pvsystems = []
+        self.pvsystem_map = {}
+        self.detected_storages = []
+        self.storage_map = {}
 
     def init(self, sid, time_resolution, topofile, step_size=900, **sim_params):
         self.sid = sid
