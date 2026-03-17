@@ -56,7 +56,7 @@ META = {
                        'I1_A', 'I2_A', 'I3_A']
         },
     },
-    'extra_methods': ['get_dss_wrapper', 'get_detected_regulators'],
+    'extra_methods': ['get_dss_wrapper', 'get_detected_regulators', 'get_detected_pvsystems', 'get_detected_storages'],
 }
 
 class OpenDSSSimulator(mosaik_api_v3.Simulator):
@@ -139,23 +139,44 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 print(f"[OpenTES] Regulador detectado: {name} @ {info['target_bus']}.{info['target_phase']}")
 
         # --- Baterias ---
-
-        storages_df = self.dss_wrapper.get_all_elements('Storage')
-        if not storages_df.empty:
-            for full_name in storages_df.index:
-                name = full_name.split('.')[1]
+        storage_infos = self.dss_wrapper.get_all_storages_info()
+        
+        if storage_infos:
+            for name, info in storage_infos.items():
                 eid = f"Storage-{name}"
+                info["eid_dss"] = eid
+                info["name"] = name
+                
                 self.entity_map[eid] = name
+                self.detected_storages.append(info)
+                self.storage_map[eid] = info  # <--- Guardando a referência aqui!
+                
                 child_entities.append({'eid': eid, 'type': 'Storage'})
+                print(f"[OpenTES] Storage detectado: {name} | kW_rated: {info['kw_rated']} | kWh_rated: {info['kwh_rated']}")
 
         #  --- Sistema Fotovoltaico ---
-        pvs_df = self.dss_wrapper.get_all_elements('PVSystem')
-        if not pvs_df.empty:
-            for full_name in pvs_df.index:
-                name = full_name.split('.')[1] if '.' in full_name else full_name
+        pv_infos = self.dss_wrapper.get_all_pvsystems_info() # Usa o método que criamos no wrapper
+        
+        if pv_infos:
+            # 1. Criamos curvas IDEAIS no OpenDSS para que ele não aplique dupla penalidade
+            self.dss_wrapper.dss.text("New XYCurve.EffIdeal_Cosim npts=2 xarray=[0.0 1.0] yarray=[1.0 1.0]")
+            self.dss_wrapper.dss.text("New XYCurve.PTIdeal_Cosim npts=2 xarray=[0.0 100.0] yarray=[1.0 1.0]")
+            
+            for name, info in pv_infos.items():
                 eid = f"PVSystem-{name}"
+                info["eid_dss"] = eid
+                info["name"] = name
+                
                 self.entity_map[eid] = name
+                self.detected_pvsystems.append(info)
+                self.pvsystem_map[eid] = info
+                
                 child_entities.append({'eid': eid, 'type': 'PVSystem'})
+                print(f"[OpenTES] PVSystem detectado: {name} | Pmpp: {info['pmpp']} kW | kVA: {info['kva']}")
+                
+                # 2. Lobotomiza o elemento nativo: tira os cortes e atrela às curvas 100% ideais
+                cmd = f"Edit PVSystem.{name} %cutin=0.0001 %cutout=0.0001 EffCurve=EffIdeal_Cosim P-TCurve=PTIdeal_Cosim"
+                self.dss_wrapper.dss.text(cmd)
 
         return [{'eid': 'Grid-0', 'type': 'Grid', 'children': child_entities}]
 
@@ -402,3 +423,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         return self.dss_wrapper
     def get_detected_regulators(self):
         return self.detected_regulators
+    def get_detected_pvsystems(self):
+        return self.detected_pvsystems
+    def get_detected_storages(self):
+        return self.detected_storages
