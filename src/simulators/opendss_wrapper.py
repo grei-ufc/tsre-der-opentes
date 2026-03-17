@@ -684,7 +684,6 @@ class OpenDSS:
                 mag_only=False,
                 polar=False)
 
-
             res['i'] = complex(i_r, i_i)
 
         except Exception as e:
