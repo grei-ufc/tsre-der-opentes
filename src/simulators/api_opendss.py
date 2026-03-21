@@ -23,7 +23,10 @@ META = {
             'attrs': ['is_open',
                       'I1_A', 'I1_ang',
                       'I2_A', 'I2_ang',
-                      'I3_A', 'I3_ang']
+                      'I3_A', 'I3_ang',
+                      'P1_w', 'Q1_var',
+                      'P2_w', 'Q2_var',
+                      'P3_w', 'Q3_var']
         },
         'Bus': {
             'public': False,
@@ -334,6 +337,19 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
 
                 mapping = {'I1_A': (mags, 0), 'I2_A': (mags, 1), 'I3_A': (mags, 2),
                            'I1_ang': (angs, 0), 'I2_ang': (angs, 1), 'I3_ang': (angs, 2)}
+                for attr in attrs:
+                    if attr in mapping:
+                        lst, idx = mapping[attr]
+                        data[eid][attr] = lst[idx]
+
+                p_w, q_var = self.dss_wrapper.get_power(name, element='Line', line_bus=1)
+                ps = [p_w] if not isinstance(p_w, (list, tuple)) else list(p_w)
+                qs = [q_var] if not isinstance(q_var, (list, tuple)) else list(q_var)
+                while len(ps) < 3: ps.append(0.0)
+                while len(qs) < 3: qs.append(0.0)
+
+                mapping = {'P1_w': (ps, 0), 'P2_w': (ps, 1), 'P3_w': (ps, 2),
+                           'Q1_var': (qs, 0), 'Q2_var': (qs, 1), 'Q3_var': (qs, 2)}
                 for attr in attrs:
                     if attr in mapping:
                         lst, idx = mapping[attr]
