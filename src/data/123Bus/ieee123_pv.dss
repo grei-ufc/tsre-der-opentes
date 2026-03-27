@@ -11,3 +11,45 @@ New PVSystem.PV phases=3 Bus1=97 kV=4.16 kVA=1000 irrad=0.8 Pmpp=1000
 ~ Daily=my_shape2_pv TDaily=MyTemp
 ~ Vminpu=0.001
 ~ Model=1
+
+New PVSystem.PV-2 phases=3 Bus1=29 kV=4.16 kVA=1000 irrad=0.8 Pmpp=1000
+~ temperature=25 PF=1 EffCurve=MyEff P-TCurve=MyPvsT
+~ Daily=my_shape2_pv TDaily=MyTemp
+~ Vminpu=0.001
+~ Model=1
+
+New PVSystem.PV-3 phases=1 Bus1=114.1 kV=2.4 kVA=1000 irrad=0.8 Pmpp=1000
+~ temperature=25 PF=1 EffCurve=MyEff P-TCurve=MyPvsT
+~ Daily=my_shape2_pv TDaily=MyTemp
+~ Vminpu=0.001
+~ Model=1
+
+New PVSystem.PV-4 phases=1 Bus1=92.3 kV=2.4 kVA=1000 irrad=0.8 Pmpp=1000
+~ temperature=25 PF=1 EffCurve=MyEff P-TCurve=MyPvsT
+~ Daily=my_shape2_pv TDaily=MyTemp
+~ Vminpu=0.001
+~ Model=1
+
+New PVSystem.PV-5 phases=1 Bus1=20.1 kV=2.4 kVA=1000 irrad=0.8 Pmpp=1000
+~ temperature=25 PF=1 EffCurve=MyEff P-TCurve=MyPvsT
+~ Daily=my_shape2_pv TDaily=MyTemp
+~ Vminpu=0.001
+~ Model=1
+
+New PVSystem.PV-6 phases=3 Bus1=52 kV=4.16 kVA=1000 irrad=0.8 Pmpp=1000
+~ temperature=25 PF=1 EffCurve=MyEff P-TCurve=MyPvsT
+~ Daily=my_shape2_pv TDaily=MyTemp
+~ Vminpu=0.001
+~ Model=1
+
+New PVSystem.PV-7 phases=3 Bus1=151 kV=4.16 kVA=1000 irrad=0.8 Pmpp=1000
+~ temperature=25 PF=1 EffCurve=MyEff P-TCurve=MyPvsT
+~ Daily=my_shape2_pv TDaily=MyTemp
+~ Vminpu=0.001
+~ Model=1
+
+New PVSystem.PV-8 phases=1 Bus1=85.3 kV=2.4 kVA=1000 irrad=0.8 Pmpp=1000
+~ temperature=25 PF=1 EffCurve=MyEff P-TCurve=MyPvsT
+~ Daily=my_shape2_pv TDaily=MyTemp
+~ Vminpu=0.001
+~ Model=1
