@@ -14,6 +14,14 @@ New Monitor.Feeder_output_vi element=Line.L115 Terminal=1 mode=0
 New Monitor.Feeder_output_pq element=Line.L115 Terminal=1 mode=1 ppolar=no
 
 New Monitor.Line96_vi element=Line.L96 Terminal=1 mode=0
+New Monitor.Line31_vi element=Line.L31 Terminal=1 mode=0
+New Monitor.Line113_vi element=Line.L113 Terminal=2 mode=0
+New Monitor.Line91_vi element=Line.L91 Terminal=2 mode=0
+New Monitor.Line20_vi element=Line.L20 Terminal=2 mode=0
+New Monitor.Line52_vi element=Line.L52 Terminal=1 mode=0
+New Monitor.Line51_vi element=Line.L51 Terminal=2 mode=0
+New Monitor.Line85_vi element=Line.L85 Terminal=2 mode=0
+
 
 Set mode=Daily
 Set stepsize=5m

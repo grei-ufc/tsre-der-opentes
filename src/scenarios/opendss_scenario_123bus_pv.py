@@ -85,6 +85,8 @@ def run_scenario():
         csv_data_temp = csv_sim_temp.Data.create(1)
         monitor = collector.Monitor()
 
+        # Parte que cria dos geradores FV com os inversores
+        
         pv_info = dss_sim.get_detected_pvsystems()
         pvs_dss_map = {e.eid: e for e in grid.children if e.type == 'PVSystem'}
 
@@ -127,7 +129,7 @@ def run_scenario():
 
 
         # Monitorar Barra 149
-        target_names = ['52','97','114','149']
+        target_names = ['149', '97','']
         # target_name = '149'
         # target_name = '1'
 
