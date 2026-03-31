@@ -129,7 +129,7 @@ def run_scenario():
 
 
         # Monitorar Barra 149
-        target_names = ['149', '97','']
+        target_names = ['149', '97', '29', '114', '92']
         # target_name = '149'
         # target_name = '1'
 
