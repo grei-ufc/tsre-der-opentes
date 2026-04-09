@@ -289,14 +289,23 @@ class OpenDSS:
             self.fail(f'NaN or empty output for bus voltage: {bus}')
         
         n_phases = self.dss.bus.num_nodes
+        nodes = self.dss.bus.nodes
         real_or_mag = tuple(v[0::2])
         imag_or_ang = tuple(v[1::2])
+
+        real_or_mag = tuple(
+            [real_or_mag[nodes.index(i+1)] if (i+1) in nodes else 0.0 for i in range(3)]
+        )
+
+        imag_or_ang = tuple(
+            [imag_or_ang[nodes.index(i+1)] if (i+1) in nodes else 0.0 for i in range(3)]
+        )
 
         if polar and zero_voltage_error and any([mag <= 1e-10 for mag in real_or_mag]):
             self.fail(f'Bus "{bus}" voltage is out of bounds: {real_or_mag}')
 
-        if n_phases == 1:
-            return real_or_mag[0] if (polar and mag_only) else (real_or_mag[0], imag_or_ang[0])
+        # if n_phases == 1:
+        #     return real_or_mag[0] if (polar and mag_only) else (real_or_mag[0], imag_or_ang[0])
         elif phase is None:
             if polar and mag_only and average:
                 return sum(real_or_mag) / len(real_or_mag)
@@ -759,6 +768,8 @@ class OpenDSS:
             # Lendo propriedades via texto (pois nem todas têm interface nativa direta no py_dss_interface)
             cutin = float(self.dss.text(f"? PVSystem.{name}.%cutin"))
             cutout = float(self.dss.text(f"? PVSystem.{name}.%cutout"))
+
+            bus_name = self.dss.cktelement.bus_names[0]
             
             # 2. Descobrir os Nomes das Curvas
             pt_curve_name = self.dss.text(f"? PVSystem.{name}.P-TCurve")
@@ -783,7 +794,8 @@ class OpenDSS:
                 'pt_curve_x': pt_x,
                 'pt_curve_y': pt_y,
                 'eff_curve_x': eff_x,
-                'eff_curve_y': eff_y
+                'eff_curve_y': eff_y,
+                'bus': bus_name
             }
             
         return pv_infos
