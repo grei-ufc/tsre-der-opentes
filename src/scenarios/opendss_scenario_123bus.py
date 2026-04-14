@@ -8,10 +8,15 @@ from pathlib import Path
 CURRENT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT = CURRENT_DIR.parent
 DATA_DIR = PROJECT_ROOT / "data" / "123Bus"
+
 CIRCUITO_DSS = DATA_DIR / "run_ieee123_cosim_5min.dss"
+CIRCUITO_DSS = DATA_DIR / "run_ieee123_cosim_5min_edited.dss"
+
 OUTPUT_DIR = PROJECT_ROOT / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
 ARQUIVO_RESULTADOS_CSV = OUTPUT_DIR / 'result_run_ieee123_cosim_5min.csv'
+ARQUIVO_RESULTADOS_CSV = OUTPUT_DIR / 'result_run_ieee123_cosim_5min_edited.csv'
 
 START_DATE = "2024-01-01 00:00:00"
 STEP_SIZE = 60 * 5
@@ -54,7 +59,7 @@ def run_scenario():
         monitor = collector.Monitor()
 
         # Monitorar Barra 149
-        target_names = ['149', '97']
+        target_names = ['149', '97', '450', '114']
         # target_name = '149'
         # target_name = '1'
 

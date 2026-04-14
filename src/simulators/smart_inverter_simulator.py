@@ -26,7 +26,8 @@ META = {
 }
 
 class InverterModel:
-    def __init__(self, kVA, eff_curve_x, eff_curve_y, ctrl_config=None, phase_mode='AVG'):
+    def __init__(self, kVA, eff_curve_x, eff_curve_y, ctrl_config=None, phase_mode='AVG',
+                 np_phase='THREE', np_v_meas_unbalance='AVG'):
         self.kVA = kVA
         self.eff_curve_x = eff_curve_x
         self.eff_curve_y = eff_curve_y
@@ -45,10 +46,13 @@ class InverterModel:
         self.P_ac_out = [0.0, 0.0, 0.0]
         self.Q_ac_out = [0.0, 0.0, 0.0]
 
-    def _create_der(self, kva_rating, config):
+    def _create_der(self, kva_rating, config, np_phase='THREE'):
         # Utilizando DER_PV conforme o snippet oficial
         der = DER_PV()
         
+        # Definie se o modelo DER é monofásico ou trifásico
+        der.der_file.NP_PHASE = np_phase
+
         # Nameplate Settings (Ajustados para a API correta)
         der.der_file.NP_VA_MAX = kva_rating * 1000 
         der.der_file.NP_P_MAX = kva_rating * 1000 

@@ -98,7 +98,7 @@ class PVPanelSim(mosaik_api_v3.Simulator):
             panel.calculate_step()
             
             # CORREÇÃO: Alterado de panel.p_dc para panel.P_dc
-            print(f"[PVPanel Debug] Tempo: {time}s | Irr: {panel.irradiance:.2f} | Temp: {panel.temperature:.1f}°C | P_dc: {panel.P_dc:.2f} kW")
+            # print(f"[PVPanel Debug] Tempo: {time}s | Irr: {panel.irradiance:.2f} | Temp: {panel.temperature:.1f}°C | P_dc: {panel.P_dc:.2f} kW")
 
         return time + self.step_size
 

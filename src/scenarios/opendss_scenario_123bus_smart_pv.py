@@ -10,6 +10,8 @@ PROJECT_ROOT = CURRENT_DIR.parent
 DATA_DIR = PROJECT_ROOT / "data" / "123Bus"
 CIRCUITO_DSS = DATA_DIR / "run_ieee123_cosim_pv_5min.dss"
 
+CIRCUITO_DSS = DATA_DIR / "run_ieee123_cosim_multiple_pv_5min.dss"
+
 IRRADIANCE = DATA_DIR / "ieee123_shape_pv_5min.csv"
 TEMPERATURE = DATA_DIR / "ieee123_temperature_5min.csv"
 OUTPUT_DIR = PROJECT_ROOT / "output"

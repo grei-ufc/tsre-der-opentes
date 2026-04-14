@@ -10,6 +10,8 @@ Redirect ieee123_shape_load_5min.dss
 
 Redirect edit_load.dss
 
+Set Loadmult=1.9
+
 Redirect ieee123_shape_pv_5min.dss
 
 Redirect ieee123_pv.dss
