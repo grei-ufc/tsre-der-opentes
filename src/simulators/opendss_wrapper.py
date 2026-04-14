@@ -16,7 +16,7 @@ class OpenDSS:
 
     It handles circuit compilation, time flow management, data extraction, 
     and element control (Loads, PVs, Storage, etc.).
-    """
+    """ 
     name = 'DSS'
 
     def __init__(self, 
@@ -227,9 +227,21 @@ class OpenDSS:
         Returns:
             pd.DataFrame: DataFrame indexed by the full element name.
         """
-        self.dss.circuit.set_active_class(element)
+        try:
+            self.dss.circuit.set_active_class(element)
+        except Exception:
+            # Se a própria classe for inválida
+            return pd.DataFrame()
+        
+        # CORREÇÃO DEFINITIVA: Checa se existem elementos antes de acessar os nomes
+        if self.dss.active_class.count == 0:
+            return pd.DataFrame()
+
+        # Agora é seguro pedir os nomes
         names = self.dss.active_class.names
-        if not names or names[0] is None:
+
+        # Dupla checagem de segurança
+        if not names or names[0] is None or names[0].lower() == 'none':
             return pd.DataFrame()
         
         all_data = {}
@@ -277,14 +289,23 @@ class OpenDSS:
             self.fail(f'NaN or empty output for bus voltage: {bus}')
         
         n_phases = self.dss.bus.num_nodes
+        nodes = self.dss.bus.nodes
         real_or_mag = tuple(v[0::2])
         imag_or_ang = tuple(v[1::2])
+
+        real_or_mag = tuple(
+            [real_or_mag[nodes.index(i+1)] if (i+1) in nodes else 0.0 for i in range(3)]
+        )
+
+        imag_or_ang = tuple(
+            [imag_or_ang[nodes.index(i+1)] if (i+1) in nodes else 0.0 for i in range(3)]
+        )
 
         if polar and zero_voltage_error and any([mag <= 1e-10 for mag in real_or_mag]):
             self.fail(f'Bus "{bus}" voltage is out of bounds: {real_or_mag}')
 
-        if n_phases == 1:
-            return real_or_mag[0] if (polar and mag_only) else (real_or_mag[0], imag_or_ang[0])
+        # if n_phases == 1:
+        #     return real_or_mag[0] if (polar and mag_only) else (real_or_mag[0], imag_or_ang[0])
         elif phase is None:
             if polar and mag_only and average:
                 return sum(real_or_mag) / len(real_or_mag)
@@ -426,24 +447,22 @@ class OpenDSS:
             self.run_command(cmd)
         else:
             # Specific logic for Storage
-            if p == 0:
-                self.run_command(f'edit Storage.{name} kW=0 kvar=0 State=Idling')
-                return
-            
-            if size is None:
-                size = self.get_property(name, 'kWrated', element='Storage')
-            if q is None:
-                q = 0
-            
-            pf = np.cos(np.arctan(q / p)) if p != 0 else 0
-            if p * q < 0:
-                pf = -pf
-            p_pct = abs(p) / size * 100 if size != 0 else 0
+            if p is None: return
+            if q is None: q = 0.0
 
-            if p < 0:
-                self.run_command(f'edit Storage.{name} %discharge={p_pct:.4} pf={pf:.4} State=Discharging')
+            if p > 0:
+                state_str = "Discharging"
+            elif p < 0:
+                state_str = "Charging"
             else:
-                self.run_command(f'edit Storage.{name} %charge={p_pct:.4} pf={pf:.4} State=Charging')
+                state_str = "Idling"
+
+            if state_str == "Idling":
+                cmd = f"Edit Storage.{name} State={state_str}"
+            else:
+                cmd = f"Edit Storage.{name} State={state_str} kW={p} kvar={q}"
+
+            self.run_command(cmd)
 
     def get_current(self, name: str, element: str = 'Load', 
                     polar: bool = True, mag_only: bool = True, 
@@ -485,6 +504,10 @@ class OpenDSS:
             start_idx = (winding - 1) * (2 * n_phases + 2)
             end_idx = start_idx + 2 * n_phases
             currents = currents[start_idx:end_idx]
+        elif element.lower() == "storage":
+            currents = currents[:-2]
+        elif element.lower() == "pvsystem":
+            currents = currents[:-2]
         else:
             currents = currents[:2 * n_phases]
             
@@ -670,10 +693,145 @@ class OpenDSS:
                 mag_only=False,
                 polar=False)
 
-
             res['i'] = complex(i_r, i_i)
 
         except Exception as e:
             pass
 
         return res
+
+    def set_pvsystem_pq(self, name: str, p_des: float, q_des: float):
+        """
+        Força valores de potência ativa e reativa em um PVSystem no OpenDSS.
+        Desacopla o elemento das curvas de temperatura e irradiância para controle via co-simulação.
+        """
+        self.dss.circuit.set_active_element(f"PVSystem.{name}")
+        p_abs = abs(p_des)
+        
+        if p_abs > 0.001:
+            pmpp_req = p_abs
+            
+            # Cálculo do Fator de Potência Base
+            s_apparent = np.sqrt(p_des**2 + q_des**2)
+            pf_calc = p_des / s_apparent if s_apparent > 0 else 1.0
+            
+            # Correção do Sinal do PF (Convenção Real do OpenDSS)
+            if q_des > 0:
+                pf_calc = abs(pf_calc)   # Injeção de Q = PF Positivo
+            else:
+                pf_calc = -abs(pf_calc)  # Absorção de Q = PF Negativo
+                
+            cmd = f"Edit PVSystem.{name} pmpp={pmpp_req} irradiance=1.0 pf={pf_calc}"
+            self.dss.text(cmd)
+            
+        elif abs(q_des) > 0.001:
+            # STATCOM puro (Noite / Sem Ativa)
+            cmd = f"Edit PVSystem.{name} irradiance=0.0 kvar={q_des}"
+            self.dss.text(cmd)
+            
+        else:
+            # Desligado ou Ocioso
+            cmd = f"Edit PVSystem.{name} irradiance=0.0 pf=1.0"
+            self.dss.text(cmd)
+
+    def get_pvsystem_power(self, name: str):
+        """
+        Coleta a potência ativa e reativa medida nos terminais do PVSystem.
+        Retorna: (P_kW, Q_kvar)
+        """
+        self.dss.circuit.set_active_element(f"PVSystem.{name}")
+        powers = self.dss.cktelement.powers
+        # OpenDSS retorna powers no formato [P1, Q1, P2, Q2, P3, Q3...]
+        # Multiplicamos por -1 pois a convenção de injeção de geração no OpenDSS é negativa
+        p_meas = -sum(powers[0:6:2])
+        q_meas = -sum(powers[1:6:2])
+        return p_meas, q_meas
+    
+    def get_all_pvsystems_info(self):
+        """
+        Retorna um dicionário com todos os dados estáticos e curvas dos PVSystems.
+        Lê automaticamente as XYCurves atreladas a cada inversor.
+        """
+        pv_infos = {}
+        names = self.dss.pvsystems.names
+        
+        if not names or names[0].upper() == 'NONE':
+            return pv_infos
+
+        for name in names:
+            self.dss.pvsystems.name = name
+            
+            # 1. Parâmetros Básicos
+            pmpp = self.dss.pvsystems.pmpp
+            kva = self.dss.pvsystems.kva
+            
+            # Lendo propriedades via texto (pois nem todas têm interface nativa direta no py_dss_interface)
+            cutin = float(self.dss.text(f"? PVSystem.{name}.%cutin"))
+            cutout = float(self.dss.text(f"? PVSystem.{name}.%cutout"))
+
+            bus_name = self.dss.cktelement.bus_names[0]
+            
+            # 2. Descobrir os Nomes das Curvas
+            pt_curve_name = self.dss.text(f"? PVSystem.{name}.P-TCurve")
+            eff_curve_name = self.dss.text(f"? PVSystem.{name}.EffCurve")
+            
+            # 3. Função Auxiliar para buscar os arrays X e Y de uma XYCurve
+            def get_xy_curve(curve_name):
+                if not curve_name: return [], []
+                self.dss.xycurves.name = curve_name
+                x = list(self.dss.xycurves.x_array)
+                y = list(self.dss.xycurves.y_array)
+                return x, y
+
+            pt_x, pt_y = get_xy_curve(pt_curve_name)
+            eff_x, eff_y = get_xy_curve(eff_curve_name)
+            
+            pv_infos[name] = {
+                'pmpp': pmpp,
+                'kva': kva,
+                'pct_cutin': cutin,
+                'pct_cutout': cutout,
+                'pt_curve_x': pt_x,
+                'pt_curve_y': pt_y,
+                'eff_curve_x': eff_x,
+                'eff_curve_y': eff_y,
+                'bus': bus_name
+            }
+            
+        return pv_infos
+    
+    def get_all_storages_info(self):
+        """
+        Retorna um dicionário com todos os dados estáticos dos elementos Storage.
+        """
+        storage_infos = {}
+        
+        # Aproveitamos o método que já lista todos os elementos de uma classe
+        storages_df = self.get_all_elements('Storage')
+        if storages_df.empty:
+            return storage_infos
+
+        for full_name in storages_df.index:
+            name = full_name.split('.')[1] if '.' in full_name else full_name
+            
+            # Lendo propriedades via texto para garantir consistência
+            kw_rated = float(self.dss.text(f"? Storage.{name}.kWrated"))
+            kwh_rated = float(self.dss.text(f"? Storage.{name}.kWhrated"))
+            kwh_stored = float(self.dss.text(f"? Storage.{name}.kWhstored"))
+            pct_reserve = float(self.dss.text(f"? Storage.{name}.%reserve"))
+            eff_charge = float(self.dss.text(f"? Storage.{name}.%EffCharge"))
+            eff_discharge = float(self.dss.text(f"? Storage.{name}.%EffDischarge"))
+            pct_idling = float(self.dss.text(f"? Storage.{name}.%IdlingkW"))
+            
+            storage_infos[name] = {
+                'name': name,
+                'kw_rated': kw_rated,
+                'kwh_rated': kwh_rated,
+                'kwh_stored': kwh_stored,
+                'pct_reserve': pct_reserve,
+                'eff_charge': eff_charge,
+                'eff_discharge': eff_discharge,
+                'pct_idling_kw': pct_idling
+            }
+            
+        return storage_infos
