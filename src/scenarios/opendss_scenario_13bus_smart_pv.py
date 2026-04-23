@@ -8,7 +8,7 @@ from pathlib import Path
 CURRENT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT = CURRENT_DIR.parent
 DATA_DIR = PROJECT_ROOT / "data" / "13Bus"
-CIRCUITO_DSS = DATA_DIR / "run_ieee13_cosim_pv.dss"
+CIRCUITO_DSS = DATA_DIR / "run_ieee13_cosim_pv_5min.dss"
 
 IRRADIANCE = DATA_DIR / "ieee13_shape_pv_5min.csv"
 TEMPERATURE = DATA_DIR / "ieee13_temperature_5min.csv"
@@ -199,7 +199,7 @@ def run_scenario():
         # ====================================================================
         # MONITORES GERAIS DA REDE
         # ====================================================================
-        target_names = ['149', '97']
+        target_names = ['650', '680', '611']
         for target_name in target_names:
             target_eid = f'Bus-{target_name}'
             bus_entities = [e for e in grid.children if e.eid == target_eid]
@@ -207,7 +207,7 @@ def run_scenario():
                 world.connect(bus_entities[0], monitor, 'V1_pu', 'V2_pu', 'V3_pu')
                 print(f"Monitorando Barra: {target_eid}")
 
-        target_name = 'L115'
+        target_name = '650632'
         target_eid = f'Line-{target_name}'
         line_entities = [e for e in grid.children if e.eid.lower() == target_eid.lower()]
         if line_entities:

@@ -171,7 +171,7 @@ BusCoords IEEE13Node_BusXY.csv
 Transformer.Reg1.Taps=[1.0 1.0625]
 Transformer.Reg2.Taps=[1.0 1.0500]
 Transformer.Reg3.Taps=[1.0 1.06875]
-Set Controlmode=OFF
+!Set Controlmode=OFF
 
 Solve
 */
