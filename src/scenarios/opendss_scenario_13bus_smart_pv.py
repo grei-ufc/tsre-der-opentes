@@ -143,7 +143,7 @@ def run_scenario():
                 eff_curve_x=lista_pvs[0]['eff_curve_x'],
                 eff_curve_y=lista_pvs[0]['eff_curve_y'],
                 # Habilitamos Volt-Var (QV) como teste inicial!
-                ctrl_config={'Volt_Var': True, 'Const_PF': False} 
+                ctrl_config={'Volt_Var': False, 'Const_PF': False} 
             )[0]
 
             # Conexões Climáticas
