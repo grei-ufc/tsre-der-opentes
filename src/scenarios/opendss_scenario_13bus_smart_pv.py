@@ -207,12 +207,13 @@ def run_scenario():
                 world.connect(bus_entities[0], monitor, 'V1_pu', 'V2_pu', 'V3_pu')
                 print(f"Monitorando Barra: {target_eid}")
 
-        target_name = '650632'
-        target_eid = f'Line-{target_name}'
-        line_entities = [e for e in grid.children if e.eid.lower() == target_eid.lower()]
-        if line_entities:
-            world.connect(line_entities[0], monitor,
-                          'I1_A', 'I1_ang', 'I2_A', 'I2_ang', 'I3_A', 'I3_ang',
+        target_names = ['650632', '671680', '684611']
+        for target_name in target_names:
+            target_eid = f'Line-{target_name}'
+            line_entities = [e for e in grid.children if e.eid.lower() == target_eid.lower()]
+            if line_entities:
+                world.connect(line_entities[0], monitor,
+                              'I1_A', 'I1_ang', 'I2_A', 'I2_ang', 'I3_A', 'I3_ang',
                           'P1_w', 'Q1_var', 'P2_w', 'Q2_var', 'P3_w', 'Q3_var')
             print(f"Monitorando Linha: {target_eid}")
 
