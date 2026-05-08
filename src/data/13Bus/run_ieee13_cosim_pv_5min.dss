@@ -1,6 +1,6 @@
 Clear
 
-Compile (IEEE13Nodeckt.dss)
+Compile (IEEE13Nodeckt_w_loadcurve.dss)
 
 Set ControlMode=Time
 
