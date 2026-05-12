@@ -1,14 +1,11 @@
-#Importação das bibliotecas
-import pandas as pd
-import py_dss_interface
-from pathlib import Path
-from math import ceil # arredondar pra cima
-from random import choice, seed
+# --- Library Imports ---
+import pandas as pd              # Data manipulation and CSV file handling
+import py_dss_interface          # Python interface for OpenDSS (EPRI)
+from pathlib import Path         # Object-oriented filesystem paths
+from math import ceil            # Ceiling function to calculate total simulation points
+from random import choice, seed  # Random node selection and reproducibility seeding
 
-# Configura os diretórios base, de entrada (metadados e dados das estações solares) e de saída,
-# utilizando pathlib para construir caminhos relativos ao diretório pai do script.
-# Em seguida, carrega o arquivo CSV de metadados das usinas em um DataFrame pandas.
-
+# --- Environment and Path Configurations ---
 BASE_DIR = Path(".").resolve()
 INFO_PV_FILE = BASE_DIR/'src'/'data'/'InfoPV'/'power_station_metadata.csv'
 SOLAR_STATION_FILES = BASE_DIR/'src'/'data'/'InfoPV'/'solar_station'
@@ -16,15 +13,110 @@ OUTPUT_DIR = BASE_DIR/'src'/'output'
 SCRIPT_DSS = BASE_DIR/'src'/'data'/'123Bus'/'run_ieee123_cosim_pv_5min.dss'
 PV_list = pd.read_csv(INFO_PV_FILE)
 
-# Configura variáveis importantes
-
-t_simulation = 24*60*1 #tempo total de simulação em minutos
-npts_origin = ceil(t_simulation/15) #quantidade total de passos da simulação
-step = '5min'
+# --- Simulation Control Variables ---
+t_simulation = 24*60*1              # Total simulation time in minutes
+npts_origin = ceil(t_simulation/15) # Original data points (15-min base)
+step = '5min'                       # Target simulation time step
 my_seed = 25
-seed(my_seed)
 
-class PVShapeConverter:
+def PVCreator(QtdPVs,
+              SCRIPT_DSS = SCRIPT_DSS,
+              PV_list = PV_list,
+              step = step,
+              PV_Dictionaries = None,
+              seed = my_seed,
+              npts_origin:int = npts_origin):
+    """
+    Automates bus selection and creation of Photovoltaic (PV) systems in an OpenDSS circuit.
+
+    The function identifies compatible buses, randomly selects connection points, 
+    and instantiates PVGenerator objects for data curve processing.
+
+    Args:
+        QtdPVs (int): Number of PV systems to be randomly installed.
+        SCRIPT_DSS (str/Path, optional): Path to the .dss circuit script.
+        PV_list (pd.DataFrame, optional): PV plant metadata (BR-PVGen dataset).
+        step (str, optional): Time step for linear interpolation (e.g., '5min').
+        PV_Dictionaries (list, optional): Base list for PV configuration dictionaries.
+        seed (int, optional): Seed for reproducible random bus sampling.
+        npts_origin (int, optional): Number of points in the original time series.
+
+    Returns:
+        PVGen: A list of configured and interpolated PVGenerator objects.
+    """
+    
+    # Initialize OpenDSS interface and compile the target circuit
+    dss = py_dss_interface.DSS()
+    dss.text(f"compile '{SCRIPT_DSS}'")
+
+    # Check for compilation success using the OpenDSS error code
+    if dss.errorinterface.error_code == 0:
+        print("Success: Circuit compiled.")
+    else:
+        # Raise an exception to stop execution immediately
+        raise RuntimeError(f"OpenDSS Compilation Failed: {dss.errorinterface.error_desc}")
+
+    # Set internal seed for reproducibility
+    seed(seed)
+
+    # Initialize support lists for bus mapping 
+    PV_Dictionaries = [] if PV_Dictionaries is None else PV_Dictionaries
+    PV_buses = []
+    PV_buses_kv = []
+    PV_buses_phases = []
+
+    # Iterate through circuit buses to identify eligible connection points
+    for i in dss.circuit.buses_names:
+        dss.circuit.set_active_bus(i)
+        if dss.bus.name.isdigit():
+            # Define connection and phase count based on bus topology (nodes)
+            if len(dss.bus.nodes) == 1:
+                PV_buses.append(str(dss.bus.name)+'.'+str(dss.bus.nodes[0]))
+                PV_buses_phases.append(1)
+            elif len(dss.bus.nodes) == 2:
+                # Randomly select one of the available nodes for single-phase connection
+                PV_buses.append(str(dss.bus.name)+'.'+str(choice(dss.bus.nodes)))
+                PV_buses_phases.append(1)
+            elif len(dss.bus.nodes) == 3:
+                PV_buses.append(str(dss.bus.name)+'.'+str(dss.bus.nodes[0])+'.'+str(dss.bus.nodes[1])+'.'+str(dss.bus.nodes[2]))
+                PV_buses_phases.append(3)
+            PV_buses_kv.append(round(dss.bus.kv_base, 2))
+    
+    # Create candidate DataFrame and perform random bus sampling
+    allbuses = pd.DataFrame({'bus': PV_buses, 'kv': PV_buses_kv, 'phases': PV_buses_phases})
+    PVbuses = allbuses.sample(n=QtdPVs, random_state=seed)
+
+    # Populate technical configurations for each PV generator based on the sampled buses
+    for bus in PVbuses.index:
+        PV_Dictionaries.append({
+            'PV_phases': (int(allbuses.loc[bus, 'phases'])),
+            'PV_bus': (allbuses.loc[bus, 'bus']),
+            # Voltage: kV base for 1-phase, kV L-L (base * sqrt(3)) for 3-phase
+            'PV_kv': float(((allbuses.loc[bus, 'kv']) if (allbuses.loc[bus, 'phases']) == 1 else round(((allbuses.loc[bus, 'kv'])*(3**(1/2))), 2))),
+            'PV_kva': None,
+            'PV_curve_id':None,
+            'npts_origin': npts_origin})
+    
+    # Initialize the list for generator objects
+    PVGen = []
+
+    # Instantiate converters and apply temporal resampling (interpolation)
+    for PV, PV_data in enumerate(PV_Dictionaries):
+        PVGen.append(PVGenerator(
+            PV_id = PV+1,                              # ID sequencial começando em 1
+            PV_phases = PV_data['PV_phases'],          # Número de fases (1 ou 3)
+            PV_bus = PV_data['PV_bus'],                # Barra de conexão
+            PV_kv = PV_data['PV_kv'],                  # Tensão nominal (kV)
+            PV_kva = PV_data['PV_kva'],                # Potência (None = usa dataset)
+            PV_curve_id = PV_data['PV_curve_id'],      # ID da curva (None = usa PV_id)
+            npts_origin = PV_data['npts_origin'],      # Número de pontos originais
+            PV_list = PV_list                          # DataFrame com metadados
+        ))
+        # Resample curves to the simulation time step (step)
+        PVGen[PV].CurveLinearInterpolation(step)
+    return PVGen
+
+class PVGenerator:
     def __init__(
             self,  
             PV_kv, 
@@ -39,263 +131,109 @@ class PVShapeConverter:
             ):
         
         """
-        Recebe os dados do PV e relaciona aos arquivos do dataset.
+        Initializes the PV generator by mapping technical parameters to the solar dataset.
 
-        Parâmetros: 
-        - PV_kv: Tensão de fase da barra de instalação do PV.
-        - PV_kva: Potência instalada do PV.
-        - PV_bus: Barra em que o PV será conectado.
-        - PV_phases: Número de fases da barra que o PV será conectado.
-        - PV_id: Número inteiro associado ao nome que será atribuído ao gerador.
-        - PV_curve_id: Número inteiro associado ao arquivo com as curvas que será atribuído ao gerador, vai de 1 a 51.
-        - npts_origin: Número de pontos que as curvas têm no arquivo original, com passo de simulação de 15 minutos.
-        - PV_list: Dataframe que recebe os dados do arquivo de metadados.
-        - start: Argumento que define a partir de que pontos os dados originais serão utilizados, ignorando os pontos anteriores ao definido.
+        Args:
+            PV_kv (float): Phase voltage at the connection bus.
+            PV_kva (float): Installed PV capacity (kVA).
+            PV_bus (str): Bus identifier for connection.
+            PV_phases (int): Number of phases for the connection.
+            PV_id (int): Unique integer ID for generator naming.
+            PV_curve_id (int): ID for curve file selection (range 1-51).
+            npts_origin (int): Original number of points (15-min resolution).
+            PV_list (pd.DataFrame): Metadata DataFrame containing plant information.
+            start (int): Starting index for data slicing, skipping previous points.
         """
 
-        # ===== CONFIGURAÇÃO DO ID DA CURVA E VALIDAÇÃO =====
-        # Define o curve_id (priorizando o fornecido ou usando o PV_id como fallback)
-        # Garante que o valor fique entre 1 e 51 (faixa válida dos arquivos de curva)
-        if pd.isna(PV_curve_id):
-           self.curve_id = PV_id #Atribui o valor do id da curva igual ao id painel se não for fornecido
-        else:
-            self.curve_id = PV_curve_id
-        #   Garante que o valor do id da curva vai estar entre 1 e 51 (correspondente aos arquivos)
+        # --- CURVE ID CONFIGURATION & VALIDATION ---
+        # Set curve_id using PV_id as fallback if curve_id is NaN
+        self.curve_id = PV_id if pd.isna(PV_curve_id) else PV_curve_id
+        
+        # Ensure curve_id remains within the valid dataset range (1 to 51)
         if self.curve_id > 51:
             self.curve_id = PV_curve_id % 51 
         elif self.curve_id <= 0:
-            print('\nWARNING: O número de id de entrada do PV foi {PV_curve_id}.')
-            print('O número de id de entrada do  PV deve ser igual ou maior que 1, portanto foi atribuído a ele o valor default.')
-            self.curve_id=1
+            print(f'\nWARNING: Input PV id was {PV_curve_id}. Must be >= 1. Defaulting to 1.')
+            self.curve_id = 1
 
-        # ===== CARREGAMENTO DO ARQUIVO DE CURVA SOLAR =====
-        # Localiza e carrega o CSV correspondente ao curve_id definido
+        # --- SOLAR CURVE FILE LOADING ---
+        # Locate and load the CSV file corresponding to the defined curve_id
         self.curve = PV_list.iloc[self.curve_id-1, 1]
         self.FILE_CSV = self.curve + '.csv'
         self.SOLAR_STATION_FILE = SOLAR_STATION_FILES/self.FILE_CSV
-        self.solar_station_curves = pd.read_csv(self.SOLAR_STATION_FILE)
 
-        # ===== ATRIBUTOS BÁSICOS DO PV =====
-        # Nome, número de fases, barra, tensão e potência instalada
+        try:
+            self.solar_station_curves = pd.read_csv(self.SOLAR_STATION_FILE)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Error: Dataset file {self.SOLAR_STATION_FILE} not found.")
+
+        # --- BASIC PV ATTRIBUTES ---
+        # Naming, phase count, bus connection, voltage, and capacity
         self.name = 'PV'+str(PV_id)
         self.phases = PV_phases
         self.bus = PV_bus
         self.kv = PV_kv
+        
+        # KVA Setup: Use metadata if PV_kva is NaN. Scale by 3 for 3-phase systems.
+        base_kva = int(PV_list.iloc[self.curve_id-1, 3]) * 1000 if pd.isna(PV_kva) else int(PV_kva)
+        self.kva = base_kva * 3 if PV_phases == 3 else base_kva
 
-        if pd.isna(PV_kva): #Atribui o valor do dataset se não for declarada
-            self.kva = int(PV_list.iloc[self.curve_id-1, 3])*1000
-        else:
-            self.kva = int(PV_kva)
-        if PV_phases == 3:
-            self.kva = int(self.kva*3)
-
-        # ===== PARÂMETROS ELÉTRICOS E TÉRMICOS DO PAINEL =====
-        # Irradiância base, potência máxima (Pmpp), temperatura base, fator de potência
+        # --- ELECTRICAL & THERMAL PANEL PARAMETERS ---
+        # Base irradiance, max power (Pmpp), reference temperature, and power factor
         self.irrad = 0.8 * 1000
         self.pmpp = self.kva
         self.temperature = 25
         self.pf = 1
+        self.vminpu = 0.001
+        self.model = 1
 
-        # ===== CURVAS DE EFICIÊNCIA E POTÊNCIA =====
-        # Define curvas características do inversor e do painel fotovoltaico
+        # --- EFFICIENCY & POWER CORRECTION CURVES ---
+        # Define characteristic curves for inverter efficiency and PV temperature correction
         self.effcurve = 'New XYCurve.MyEff npts=4 xarray=[0.1, 0.2, 0.4, 1.0] yarray=[0.86, 0.90, 0.93, 0.97]'
         self.ptcurve = 'New XYCurve.MyPvsT npts=4 xarray=[0, 25, 75, 100] yarray=[1.2, 1.0, 0.8, 0.6]'
 
-        # ===== PROCESSAMENTO DA CURVA DE IRRADIÂNCIA =====
-        # Extrai, normaliza, limpa e renomeia os dados de irradiância do arquivo original
+        # --- CURVES PROCESSING ---
         self.npts = npts_origin
-        #   Pega os valores de irradiância incidente no plano dos paineis (poa = plane of array).
-        self.irrad_curve = ((self.solar_station_curves['poa_irradiance_wm2'].iloc[start:self.npts+start])/self.irrad)
-        for i in range(len(self.irrad_curve)):
-            if pd.isna(self.irrad_curve.iloc[i]) or self.irrad_curve.iloc[i] < 0:
-                self.irrad_curve.iloc[i] = 0
-        self.column_name = 'my_shape' + str(PV_id) + '_irrad'
-        #self.irrad_curve.rename(columns={'poa_irradiance_wm2':self.column_name}, inplace=True)
-        self.irrad_curve.rename(self.column_name, inplace=True)
+        data_slice = slice(start, self.npts + start)
+        
+        # 1. Process Irradiance (Normalize, clip negatives, fill NaNs)
+        self.irrad_curve = (self.solar_station_curves['poa_irradiance_wm2'].iloc[data_slice] / self.irrad)
+        self.irrad_curve = self.irrad_curve.clip(lower=0).fillna(0)
+        self.irrad_curve.name = f'my_shape{PV_id}_irrad'
 
-        # ===== PROCESSAMENTO DA CURVA DE TEMPERATURA =====
-        # Extrai, normaliza, limpa e renomeia os dados de temperatura ambiente
-        self.temperature_curve = (self.solar_station_curves['panel_temperature_celsius'].iloc[start:self.npts+start])/self.temperature
-        for i in range(len(self.temperature_curve)):
-            if pd.isna(self.temperature_curve.iloc[i]) or self.temperature_curve.iloc[i] < 0:
-                self.temperature_curve.iloc[i] = 0
-        self.column_name = 'my_shape' + str(PV_id) + '_temperature'
-        #self.temperature_curve.rename(columns={'ambient_temperature_celsius':self.column_name}, inplace=True)
-        self.temperature_curve.rename(self.column_name, inplace=True)
+        # 2. Process Temperature (Normalize, fill NaNs)
+        self.temperature_curve = (self.solar_station_curves['panel_temperature_celsius'].iloc[data_slice] / self.temperature)
+        self.temperature_curve = self.temperature_curve.fillna(1)
+        self.temperature_curve.name = f'my_shape{PV_id}_temperature'
 
-        # ===== CONFIGURAÇÕES FINAIS DO OBJETO E CURVAS =====
-        # Tensão mínima, modelo do objeto PV e carimbo de tempo
-        self.vminpu = 0.001
-        self.model = 1
-        self.datetime = self.solar_station_curves['datetime'].iloc[start:self.npts+start]
-        self.datetime = pd.to_datetime(self.datetime)
+        # 3. Handle Datetime & Indexing
+        # Convert timestamp strings to datetime objects for time-based operations
+        self.datetime = pd.to_datetime(self.solar_station_curves['datetime'].iloc[data_slice])
 
-        # ===== CONCATENAÇÃO E INDEXAÇÃO DAS CURVAS =====
-        # Une as curvas com a coluna de tempo e define o tempo como índice
-        self.irrad_curve = pd.concat([self.datetime, self.irrad_curve], axis=1)
-        self.temperature_curve = pd.concat([self.datetime, self.temperature_curve], axis=1)
-        self.irrad_curve.set_index('datetime', inplace=True)
-        self.temperature_curve.set_index('datetime', inplace=True)
+        # Concatenate curves with time column and set as index for resampling
+        self.irrad_curve = pd.concat([self.datetime, self.irrad_curve], axis=1).set_index('datetime', inplace=True)
+        self.temperature_curve = pd.concat([self.datetime, self.temperature_curve], axis=1).set_index('datetime', inplace=True)
 
-    def CurveLinearInterpolation(self, nova_taxa):
+    def CurveLinearInterpolation(self, new_rate):
         """
-        Reamostra uma curva de série temporal (Pandas Series) para qualquer intervalo.
+        Resamples a time-series curve to a new time frequency using linear interpolation.
         
-        Parâmetros:
-        - curva: A variável com os dados (Pandas Series com índice de tempo).
-        - nova_taxa: String do Pandas para tempo. Ex: '5s' (5 segundos), '1h' (1 hora), '15min'.
+        Args:
+            new_rate (str): Pandas offset alias for frequency (e.g., '5s', '1h', '15min').
         """
-        # ===== REAMOSTRAGEM E INTERPOLAÇÃO LINEAR =====
-        # 1. resample(nova_taxa): Agrupa os dados no novo intervalo
-        # 2. mean(): Se for subamostragem (1h), calcula a média dos pontos. 
-        #            Se for sobreamostragem (5s), coloca o valor original no ponto exato e NaN (vazio) no resto.
-        # 3. interpolate(method='time'): Se houver buracos (sobreamostragem), preenche ligando os pontos proporcionalmente ao tempo.
+        # --- RESAMPLING & LINEAR INTERPOLATION ---
+        # 1. resample: Groups data into the new time interval (new_rate)
+        # 2. mean: Aggregates points for downsampling or creates NaNs for upsampling
+        # 3. interpolate: Fills gaps using time-proportional linear connection
         
-        self.irrad_curve = (self.irrad_curve.resample(nova_taxa).mean().interpolate(method='time'))
-        self.temperature_curve = self.temperature_curve.resample(nova_taxa).mean().interpolate(method='time')
+        self.irrad_curve = (self.irrad_curve.resample(new_rate).mean().interpolate(method='time')).round(6)
         
-        # ===== ARREDONDAMENTO E RESET DO ÍNDICE =====
-        # Arredonda os valores para 6 casas decimais e restaura o índice numérico (converte o tempo de volta para coluna)
-        self.irrad_curve = self.irrad_curve.round(6)
-        self.temperature_curve = self.temperature_curve.round(6)
+        self.temperature_curve = (self.temperature_curve.resample(new_rate).mean().interpolate(method='time')).round(6)
+        
+        # Reset index to restore numerical indexing and convert time back to a column
         self.irrad_curve = self.irrad_curve.reset_index()
         self.temperature_curve = self.temperature_curve.reset_index()
 
-    @staticmethod
-    def GeneratePVDictionaries(
-        QtdPVs,
-        PV_Dictionaries = None,
-        seed = None):
 
-        # Cria a instância para controlar o OpenDSS, depois compila o script do circuito .dss existente.
-        dss = py_dss_interface.DSS()
 
-        # Compilação do circuito usando o script .dss.
-        dss.text(f"compile '{SCRIPT_DSS}'")
 
-        # Verificação baseada no componente ErrorOpenDSS listado no seu arquivo
-        if dss.errorinterface.error_code == 0:
-            print("Sucesso: Circuito compilado.")
-        else:
-            print(f"Erro detectado: {dss.errorinterface.error_desc}")
-
-        PV_Dictionaries = [] if PV_Dictionaries is None else PV_Dictionaries
-        PV_buses = []
-        PV_buses_kv = []
-        PV_buses_phases = []
-        for i in dss.circuit.buses_names:
-            dss.circuit.set_active_bus(i)
-            if dss.bus.name.isdigit():
-                if len(dss.bus.nodes) == 1:
-                    PV_buses.append(str(dss.bus.name)+'.'+str(dss.bus.nodes[0]))
-                    PV_buses_phases.append(1)
-                elif len(dss.bus.nodes) == 2:
-                    PV_buses.append(str(dss.bus.name)+'.'+str(choice(dss.bus.nodes)))
-                    PV_buses_phases.append(1)
-                elif len(dss.bus.nodes) == 3:
-                    PV_buses.append(str(dss.bus.name)+'.'+str(dss.bus.nodes[0])+'.'+str(dss.bus.nodes[1])+'.'+str(dss.bus.nodes[2]))
-                    PV_buses_phases.append(3)
-                PV_buses_kv.append(round(dss.bus.kv_base, 2))
-        allbuses = pd.DataFrame({'bus': PV_buses, 'kv': PV_buses_kv, 'phases': PV_buses_phases})
-
-        PVbuses = allbuses.sample(n=QtdPVs, random_state=seed)
-
-        for bus in PVbuses.index:
-            PV_Dictionaries.append({
-                'PV_phases': (int(allbuses.loc[bus, 'phases'])),
-                'PV_bus': (allbuses.loc[bus, 'bus']),
-                'PV_kv': float(((allbuses.loc[bus, 'kv']) if (allbuses.loc[bus, 'phases']) == 1 else round(((allbuses.loc[bus, 'kv'])*(3**(1/2))), 2))),
-                'PV_kva': None,
-                'PV_curve_id':None,
-                'npts_origin': npts_origin})
-        
-        return PV_Dictionaries
-
-    @staticmethod
-    def GenerateCSV():
-        """
-        Gera arquivos CSV consolidados com todas as curvas de irradiância e temperatura dos geradores PV.
-        
-        A função percorre a lista de geradores PV, extrai suas curvas individuais e as concatena
-        em DataFrames únicos, que são então salvos como arquivos CSV no diretório de saída.
-        
-        Arquivos gerados:
-        - data_irrad.csv: Contém todas as curvas de irradiância de todos os PVs
-        - data_temperature.csv: Contém todas as curvas de temperatura de todos os PVs
-        """
-        # ===== INICIALIZA AS VARIÁVEIS E PERCORRE TODOS OS GERADORES PV =====
-        
-        # Inicializa DataFrames vazios para armazenar todas as curvas de temperatura e irradiância
-        # que serão consolidadas posteriormente a partir dos múltiplos geradores PV
-        all_temperature_curves = pd.DataFrame()
-        all_irrad_curves = pd.DataFrame()
-
-        # Itera sobre cada PV na lista global PVDictionaries, enumerando para obter o índice
-        for PV, PV_data in enumerate(PV_Dictionaries):
-            PV_id = str(PV+1) # ID do PV começando em 1
-
-            # ===== CONCATENAÇÃO DA CURVA DE IRRADIÂNCIA =====
-            # Nome da coluna específica de cada PV no formato 'my_shapeX_irrad'
-            column_name = 'my_shape' + PV_id + '_irrad'
-
-            # Para o primeiro PV (índice 0), apenas atribui a curva
-            # Para os demais, concatena horizontalmente (axis=1) com as curvas existentes
-            if PV > 0:
-                all_irrad_curves = pd.concat([all_irrad_curves, PVGenerators[PV].irrad_curve[column_name]], axis=1)
-            else:
-                
-                all_irrad_curves = PVGenerators[PV].irrad_curve
-            
-            # ===== CONCATENAÇÃO DA CURVA DE TEMPERATURA =====
-            # Nome da coluna específica de cada PV no formato 'my_shapeX_temperature'
-            column_name = 'my_shape' + PV_id + '_temperature'
-
-            if PV > 0:
-                all_temperature_curves = pd.concat([all_temperature_curves, PVGenerators[PV].temperature_curve[column_name]], axis=1)
-            else:
-                all_temperature_curves = PVGenerators[PV].temperature_curve
-
-        # ===== EXPORTAÇÃO DOS ARQUIVOS CSV =====
-        # Salva as curvas consolidadas no diretório de saída, sem incluir o índice das linhas
-        all_irrad_curves.to_csv((str(OUTPUT_DIR) + '/data_irrad.csv'), index=False)
-        all_temperature_curves.to_csv((str(OUTPUT_DIR) + '/data_temperature.csv'), index=False)
-    
-    @staticmethod
-    def GenerateDSS():
-        """
-        Gera um arquivo de script no formato DSS (OpenDSS) para definir todos os sistemas fotovoltaicos (PVSystems).
-        
-        O arquivo gerado contém as definições de curvas e parâmetros de cada gerador PV,
-        permitindo sua simulação no software OpenDSS.
-        
-        Arquivo gerado:
-        - data_pv.dss: Script com todos os comandos 'New PVSystem' para cada PV cadastrado.
-        """
-
-        # ===== INICIALIZAÇÃO DO SCRIPT COM AS CURVAS BASE =====
-        # Adiciona as definições das curvas de potência vs temperatura e eficiência
-        # que serão compartilhadas por todos os geradores PV
-        string_pv = (
-            f'{PVGenerators[0].ptcurve}\n'
-            + f'{PVGenerators[0].effcurve}\n\n')
-        
-        # ===== CRIAÇÃO DOS COMANDOS PARA CADA GERADOR PV =====
-        # Percorre todos os PVs na lista global PV_Dictionaries
-        for PV, PV_data in enumerate(PV_Dictionaries):
-            string_pv = string_pv + (
-                # Cria o PVSystem com nome, fases, barra, tensão, potência, irradiância e potência máxima
-                f'New PVSystem.{str(PVGenerators[PV].name)} phases={str(PVGenerators[PV].phases)} Bus1={str(PVGenerators[PV].bus)} kV={str(PVGenerators[PV].kv)} kVA={str(PVGenerators[PV].kva)} irrad={str((PVGenerators[PV].irrad)/1000)} Pmpp={str(PVGenerators[PV].pmpp)}\n'
-                # Linha com parâmetros de temperatura, fator de potência e curvas associadas
-                + f'~ temperature={str(PVGenerators[PV].temperature)} PF={str(PVGenerators[PV].pf)} EffCurve=MyEff P-TCurve=MyPvsT\n'
-                # Define as curvas diárias de irradiância e temperatura (formato 'my_shapeX_irrad' e 'my_shapeX_temperature')
-                + f'~ Daily={'my_shape' + str(PV+1) + '_irrad'} TDaily={'my_shape' + str(PV+1) + '_temperature'}\n'
-                # Tensão mínima em pu
-                + f'~ Vminpu={str(PVGenerators[PV].vminpu)}\n'
-                # Modelo do gerador (1 = modelo de potência constante)
-                +f'~ Model={str(PVGenerators[PV].model)}\n\n'
-        ) 
-        
-        # ===== ESCRITA DO ARQUIVO =====
-        # Salva o script gerado como arquivo .dss no diretório de saída
-        with open((str(OUTPUT_DIR) + '/data_pv.dss'), "w") as f:
-            f.write(string_pv)
