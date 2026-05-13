@@ -764,6 +764,8 @@ class OpenDSS:
             # 1. Parâmetros Básicos
             pmpp = self.dss.pvsystems.pmpp
             kva = self.dss.pvsystems.kva
+            irradiance = self.dss.pvsystems.irradiance
+            daily = self.dss.text(f"? PVSystem.{name}.daily")
             
             # Lendo propriedades via texto (pois nem todas têm interface nativa direta no py_dss_interface)
             cutin = float(self.dss.text(f"? PVSystem.{name}.%cutin"))
@@ -789,6 +791,8 @@ class OpenDSS:
             pv_infos[name] = {
                 'pmpp': pmpp,
                 'kva': kva,
+                'irradiance': irradiance,
+                'daily': daily,
                 'pct_cutin': cutin,
                 'pct_cutout': cutout,
                 'pt_curve_x': pt_x,
@@ -822,6 +826,11 @@ class OpenDSS:
             eff_charge = float(self.dss.text(f"? Storage.{name}.%EffCharge"))
             eff_discharge = float(self.dss.text(f"? Storage.{name}.%EffDischarge"))
             pct_idling = float(self.dss.text(f"? Storage.{name}.%IdlingkW"))
+            daily = self.dss.text(f"? Storage.{name}.daily")
+            charge_trigger = float(self.dss.text(f"? Storage.{name}.chargeTrigger"))
+
+            discharge_trigger = float(self.dss.text(f"? Storage.{name}.dischargeTrigger"))
+
             
             storage_infos[name] = {
                 'name': name,
@@ -831,7 +840,10 @@ class OpenDSS:
                 'pct_reserve': pct_reserve,
                 'eff_charge': eff_charge,
                 'eff_discharge': eff_discharge,
-                'pct_idling_kw': pct_idling
+                'pct_idling': pct_idling,
+                'daily': daily,
+                'charge_trigger': charge_trigger,
+                'discharge_trigger': discharge_trigger
             }
             
         return storage_infos
