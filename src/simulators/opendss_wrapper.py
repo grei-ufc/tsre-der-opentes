@@ -700,6 +700,40 @@ class OpenDSS:
 
         return res
 
+    # def set_pvsystem_pq(self, name: str, p_des: float, q_des: float):
+    #     """
+    #     Força valores de potência ativa e reativa em um PVSystem no OpenDSS.
+    #     Desacopla o elemento das curvas de temperatura e irradiância para controle via co-simulação.
+    #     """
+    #     self.dss.circuit.set_active_element(f"PVSystem.{name}")
+    #     p_abs = abs(p_des)
+        
+    #     if p_abs > 0.001:
+    #         pmpp_req = p_abs
+            
+    #         # Cálculo do Fator de Potência Base
+    #         s_apparent = np.sqrt(p_des**2 + q_des**2)
+    #         pf_calc = p_des / s_apparent if s_apparent > 0 else 1.0
+            
+    #         # Correção do Sinal do PF (Convenção Real do OpenDSS)
+    #         if q_des > 0:
+    #             pf_calc = abs(pf_calc)   # Injeção de Q = PF Positivo
+    #         else:
+    #             pf_calc = -abs(pf_calc)  # Absorção de Q = PF Negativo
+                
+    #         cmd = f"Edit PVSystem.{name} pmpp={pmpp_req} irradiance=1.0 pf={pf_calc}"
+    #         self.dss.text(cmd)
+            
+    #     elif abs(q_des) > 0.001:
+    #         # STATCOM puro (Noite / Sem Ativa)
+    #         cmd = f"Edit PVSystem.{name} irradiance=0.0 kvar={q_des}"
+    #         self.dss.text(cmd)
+            
+    #     else:
+    #         # Desligado ou Ocioso
+    #         cmd = f"Edit PVSystem.{name} irradiance=0.0 pf=1.0"
+    #         self.dss.text(cmd)
+
     def set_pvsystem_pq(self, name: str, p_des: float, q_des: float):
         """
         Força valores de potência ativa e reativa em um PVSystem no OpenDSS.
@@ -721,17 +755,12 @@ class OpenDSS:
             else:
                 pf_calc = -abs(pf_calc)  # Absorção de Q = PF Negativo
                 
-            cmd = f"Edit PVSystem.{name} pmpp={pmpp_req} irradiance=1.0 pf={pf_calc}"
-            self.dss.text(cmd)
-            
-        elif abs(q_des) > 0.001:
-            # STATCOM puro (Noite / Sem Ativa)
-            cmd = f"Edit PVSystem.{name} irradiance=0.0 kvar={q_des}"
+            cmd = f"Edit PVSystem.{name} pmpp={pmpp_req} irradiance=1.0 kvar={q_des}"
             self.dss.text(cmd)
             
         else:
             # Desligado ou Ocioso
-            cmd = f"Edit PVSystem.{name} irradiance=0.0 pf=1.0"
+            cmd = f"Edit PVSystem.{name} irradiance=0.0 kvar={q_des}"
             self.dss.text(cmd)
 
     def get_pvsystem_power(self, name: str):
@@ -764,6 +793,8 @@ class OpenDSS:
             # 1. Parâmetros Básicos
             pmpp = self.dss.pvsystems.pmpp
             kva = self.dss.pvsystems.kva
+            irradiance = self.dss.pvsystems.irradiance
+            daily = self.dss.text(f"? PVSystem.{name}.daily")
             
             # Lendo propriedades via texto (pois nem todas têm interface nativa direta no py_dss_interface)
             cutin = float(self.dss.text(f"? PVSystem.{name}.%cutin"))
@@ -789,6 +820,8 @@ class OpenDSS:
             pv_infos[name] = {
                 'pmpp': pmpp,
                 'kva': kva,
+                'irradiance': irradiance,
+                'daily': daily,
                 'pct_cutin': cutin,
                 'pct_cutout': cutout,
                 'pt_curve_x': pt_x,
@@ -822,6 +855,11 @@ class OpenDSS:
             eff_charge = float(self.dss.text(f"? Storage.{name}.%EffCharge"))
             eff_discharge = float(self.dss.text(f"? Storage.{name}.%EffDischarge"))
             pct_idling = float(self.dss.text(f"? Storage.{name}.%IdlingkW"))
+            daily = self.dss.text(f"? Storage.{name}.daily")
+            charge_trigger = float(self.dss.text(f"? Storage.{name}.chargeTrigger"))
+
+            discharge_trigger = float(self.dss.text(f"? Storage.{name}.dischargeTrigger"))
+
             
             storage_infos[name] = {
                 'name': name,
@@ -831,7 +869,10 @@ class OpenDSS:
                 'pct_reserve': pct_reserve,
                 'eff_charge': eff_charge,
                 'eff_discharge': eff_discharge,
-                'pct_idling_kw': pct_idling
+                'pct_idling': pct_idling,
+                'daily': daily,
+                'charge_trigger': charge_trigger,
+                'discharge_trigger': discharge_trigger
             }
             
         return storage_infos

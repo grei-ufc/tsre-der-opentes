@@ -7,8 +7,14 @@ META = {
         'Battery': {
             'public': True,
             'params': [
-                'kw_rated', 'kwh_rated', 'kwh_stored', 'kwh_reserve',
-                'eff_charge', 'eff_discharge', 'pct_idling_kw', 'kva_rated'
+                'kw_rated', 
+                'kwh_rated', 
+                'kwh_stored',       # Absoluto
+                'pct_reserve',      # Porcentagem
+                'pct_eff_charge',   # Porcentagem
+                'pct_eff_discharge',# Porcentagem
+                'pct_idling_kw',    # Porcentagem
+                'kva_rated'
             ],
             'attrs': [
                 'P_ref',  # Input: Referência de P desejada
@@ -43,14 +49,14 @@ class BatterySim(mosaik_api.Simulator):
             # Inicializa o modelo físico
             self.batteries[eid] = OpenDSSBattery(
                 name=eid,
-                kw_rated=model_params.get('kw_rated', 50),
-                kwh_rated=model_params.get('kwh_rated', 100),
-                kwh_stored=model_params.get('kwh_stored', 50), # Valor inicial em kWh
-                kwh_reserve=model_params.get('kwh_reserve', 0),
-                eff_charge=model_params.get('eff_charge', 0.95),
-                eff_discharge=model_params.get('eff_discharge', 0.95),
+                kw_rated=model_params.get('kw_rated'),
+                kwh_rated=model_params.get('kwh_rated'),
+                kwh_stored=model_params.get('kwh_stored'),
+                pct_reserve=model_params.get('pct_reserve', 20.0),
+                pct_eff_charge=model_params.get('pct_eff_charge', 90.0),
+                pct_eff_discharge=model_params.get('pct_eff_discharge', 90.0),
                 pct_idling_kw=model_params.get('pct_idling_kw', 2.0),
-                kva_rated=model_params.get('kva_rated', None)
+                kva_rated=model_params.get('kva_rated')
             )
             
             # Buffers de input padrão

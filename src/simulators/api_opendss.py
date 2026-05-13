@@ -44,7 +44,7 @@ META = {
             'public': True,
             'params': [],
             'attrs': ['P_set', 'Q_set', 'SoC_set',
-                      'P_act', 'Q_atc', 'SoC',
+                      'P_act', 'Q_act', 'SoC',
                       'P1', 'P2', 'P3',
                       'Q1', 'Q2', 'Q3',
                       'I1_A', 'I2_A', 'I3_A']

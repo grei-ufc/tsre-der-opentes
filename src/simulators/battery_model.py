@@ -17,10 +17,10 @@ class OpenDSSBattery:
                  kw_rated, 
                  kwh_rated, 
                  kwh_stored, 
-                 kwh_reserve=0.0,
-                 eff_charge=0.90, 
-                 eff_discharge=0.90, 
-                 pct_idling_kw=1.0,
+                 pct_reserve=20.0,
+                 pct_eff_charge=90.0, 
+                 pct_eff_discharge=90.0, 
+                 pct_idling_kw=2.0,
                  kva_rated=None,
                  max_charge_kw=None,
                  max_discharge_kw=None,
@@ -36,16 +36,17 @@ class OpenDSSBattery:
         # Parâmetros Nominais
         self.kw_rated = float(kw_rated)
         self.kwh_rated = float(kwh_rated)
-        self.kwh_reserve = float(kwh_reserve) # Nível mínimo antes de parar descarga
+        self.kwh_reserve = float(pct_reserve / 100.0) * self.kwh_rated # Nível mínimo antes de parar descarga
         
         # # Estado InicialP --------------------------
-        # self.kwh_stored = float(kwh_stored)
-        # self.state = self.STATE_IDLING
+        self.kwh_stored = float(kwh_stored)
+        self.state = self.STATE_IDLING
         
         # Eficiências e Perdas
-        self.eff_charge = float(eff_charge)
-        self.eff_discharge = float(eff_discharge)
-        self.idling_kw = float(pct_idling_kw * kw_rated / 100)
+        self.eff_charge = float(pct_eff_charge/100)
+        self.eff_discharge = float(pct_eff_discharge/100)
+        self.pct_idling_kw = float(pct_idling_kw)
+        self.idling_kw = (self.pct_idling_kw / 100.0) * self.kw_rated
         
         # Curva de Eficiência do Inversor
         self.eff_curve_x = eff_curve_x
