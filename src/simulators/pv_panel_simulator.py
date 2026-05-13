@@ -1,15 +1,51 @@
 import mosaik_api_v3
 import numpy as np
 
-# ==============================================================================
-# 1. MODELO FÍSICO DO PAINEL SOLAR (Domínio)
-# ==============================================================================
+from typing import List
+
+# PV Panel Model
+
 class PVPanelModel:
     """
-    Classe que emula o comportamento físico e elétrico de um painel solar.
-    Totalmente independente do Mosaik.
+    Emulates the physical and electrical behavior of a photovoltaic panel.
+
+    The model is independent from simulation frameworks and computes the
+    available DC power from irradiance and module temperature.
+
+    Parameters
+    ----------
+    p_mpp : float
+        Maximum power point power in kilowatts.
+    irradiance_base : float
+        Reference irradiance used for normalization in kW/m².
+    pt_curve_x : list of float
+        Temperatures in degrees Celsius that define the power-temperature curve.
+    pt_curve_y : list of float
+        Dimensionless power factors corresponding to pt_curve_x.
+
+    Attributes
+    ----------
+    irradiance : float
+        Current irradiance applied to the panel (0..1).
+    temperature : float
+        Current module temperature in degrees Celsius.
+    P_dc : float
+        Calculated DC power in kilowatts (non-negative).
+
+    Notes
+    -----
+    The calculation uses the relation:
+    P_dc = p_mpp * irradiance_base * irradiance * pt_factor
+    where pt_factor is interpolated from pt_curve_x and pt_curve_y.
+    See repository documentation for modeling details and validation.
     """
-    def __init__(self, p_mpp, irradiance_base, pt_curve_x, pt_curve_y):
+    def __init__(self,
+                 p_mpp: float,
+                 irradiance_base: float,
+                 pt_curve_x: List[float],
+                 pt_curve_y: List[float]
+                 ) -> None:
+
         # Parâmetros construtivos
         self.p_mpp = p_mpp
         self.irradiance_base = irradiance_base
@@ -19,23 +55,20 @@ class PVPanelModel:
         # Variáveis de Estado (Inputs e Outputs)
         self.irradiance = 0.0
         self.temperature = 25.0
-        self.P_dc = 0.0 # <--- P MAIÚSCULO
+        self.P_dc = 0.0 
 
-    def calculate_step(self):
+    def calculate_step(self) -> None:
         """
-        Calcula as grandezas elétricas baseadas no clima atual.
-        Equação 1 do comportamento_pv.md
+        Update P_dc based on the current irradiance and temperature.
         """
-        # Avalia a Curva PT (Correção por Temperatura)
+        # Apply P-TCurve
         pt_factor = np.interp(self.temperature, self.pt_curve_x, self.pt_curve_y)
         
-        # P_dc[t] = Pmpp * irradiance_base * irradiance[t] * PTCurve(Temp[t])
         p_dc_calc = self.p_mpp * self.irradiance_base * self.irradiance * pt_factor
         self.P_dc = max(0.0, p_dc_calc)
 
-# ==============================================================================
-# 2. WRAPPER DO SIMULADOR (API Mosaik)
-# ==============================================================================
+# Simulator API
+
 META = {
     'api_version': '3.0',
     'type': 'time-based',
@@ -43,10 +76,10 @@ META = {
         'PVPanel': {
             'public': True,
             'params': [
-                'P_mpp',           # Potência nominal CC em kW
-                'irradiance_base', # Irradiância base (normalmente 1.0 kW/m2 ou 0.8)
-                'pt_curve_x',      # Array de temperaturas (ex: [0, 25, 75, 100])
-                'pt_curve_y'       # Array de fatores (ex: [1.2, 1.0, 0.8, 0.6])
+                'P_mpp',           
+                'irradiance_base', 
+                'pt_curve_x',     
+                'pt_curve_y'
             ],
             # CORREÇÃO: I_dc removido da lista de atributos
             'attrs': ['irradiance', 'temperature', 'P_dc'],
@@ -55,12 +88,53 @@ META = {
 }
 
 class PVPanelSim(mosaik_api_v3.Simulator):
-    def __init__(self):
+    """
+    Mosaik simulator wrapper for PVPanelModel instances.
+
+    This class manages multiple `PVPanelModel` objects and exposes them to a
+    Mosaik co-simulation. It translates Mosaik inputs into model state,
+    triggers the physical calculation, and returns model attributes as outputs.
+
+    Parameters
+    ----------
+    None
+
+    Attributes
+    ----------
+    entities : dict
+        Mapping from entity id (str) to `PVPanelModel` instance.
+    step_size : int
+        Simulation step size in seconds used by the `step` method.
+
+    Notes
+    -----
+    - The simulator expects a `META` dictionary to be available in the module.
+    - `PVPanelModel` must be importable and follow the documented API:
+      it should expose `irradiance`, `temperature`, `P_dc`, and a `calculate_step()` method.
+    """
+    def __init__(self) -> None:
         super().__init__(META)
         self.entities = {} # Aqui guardaremos instâncias de PVPanelModel
         self.step_size = 1
 
     def init(self, sid, time_resolution=1.0, step_size=1.0):
+        """
+        Initialize the simulator instance called by Mosaik.
+
+        Parameters
+        ----------
+        sid : str
+            Simulator id assigned by Mosaik.
+        time_resolution : float, optional
+            Time resolution requested by the orchestrator (unused here).
+        step_size : float, optional
+            Default step size in seconds for the simulation.
+
+        Returns
+        -------
+        dict
+            The simulator META information returned to Mosaik.
+        """
         self.step_size = int(step_size)
         return self.meta
 
@@ -69,7 +143,6 @@ class PVPanelSim(mosaik_api_v3.Simulator):
         for i in range(num):
             eid = f'{model}_{len(self.entities) + i}'
             
-            # Instancia o modelo físico real usando a nova classe
             panel_model = PVPanelModel(
                 p_mpp=model_params.get('P_mpp', 1000.0),
                 irradiance_base=model_params.get('irradiance_base', 1.0),
@@ -77,14 +150,13 @@ class PVPanelSim(mosaik_api_v3.Simulator):
                 pt_curve_y=model_params.get('pt_curve_y', [1.15, 1.0, 0.8, 0.6]),
             )
             
-            # Salva o objeto na lista de entidades do Mosaik
             self.entities[eid] = panel_model
             entities.append({'eid': eid, 'type': model})
             
         return entities
 
     def step(self, time, inputs, max_advance):
-        # 1. Receber e atualizar inputs climáticos
+        # 1. Update Inputs
         for eid, attrs in inputs.items():
             panel = self.entities[eid]
             
@@ -93,13 +165,10 @@ class PVPanelSim(mosaik_api_v3.Simulator):
             if 'temperature' in attrs:
                 panel.temperature = float(list(attrs['temperature'].values())[0])
 
-        # 2. Executar a física para todos os painéis
+        # 2. Run physics for all panels
         for eid, panel in self.entities.items():
             panel.calculate_step()
-            
-            # CORREÇÃO: Alterado de panel.p_dc para panel.P_dc
-            # print(f"[PVPanel Debug] Tempo: {time}s | Irr: {panel.irradiance:.2f} | Temp: {panel.temperature:.1f}°C | P_dc: {panel.P_dc:.2f} kW")
-
+        
         return time + self.step_size
 
     def get_data(self, outputs):
@@ -108,7 +177,6 @@ class PVPanelSim(mosaik_api_v3.Simulator):
             panel = self.entities[eid]
             data[eid] = {}
             for attr in attrs:
-                # O Python busca o valor da variável de mesmo nome dentro da classe PVPanelModel
                 if hasattr(panel, attr):
                     data[eid][attr] = getattr(panel, attr)
         return data
