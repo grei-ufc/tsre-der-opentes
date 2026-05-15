@@ -23,8 +23,9 @@ def PVCreator(QtdPVs,
               SCRIPT_DSS = SCRIPT_DSS,
               PV_list = PV_list,
               step = step,
-              PV_Dictionaries = None,
+              PV_dictionaries_list = None,
               my_seed = my_seed,
+              bus_multi_PV: bool = False,
               npts_origin:int = npts_origin):
     """
     Automates bus selection and creation of Photovoltaic (PV) systems in an OpenDSS circuit.
@@ -37,14 +38,15 @@ def PVCreator(QtdPVs,
         SCRIPT_DSS (str/Path, optional): Path to the .dss circuit script.
         PV_list (pd.DataFrame, optional): PV plant metadata (BR-PVGen dataset).
         step (str, optional): Time step for linear interpolation (e.g., '5min').
-        PV_Dictionaries (list, optional): Base list for PV configuration dictionaries.
-        seed (int, optional): Seed for reproducible random bus sampling.
+        PV_dictionaries_list (list, optional): Base list for PV configuration dictionaries.
+        my_seed (int, optional): Seed for reproducible random bus sampling.
         npts_origin (int, optional): Number of points in the original time series.
+        bus_multi_pv (bool, optional): Controls bus reuse during the random sampling process. When False, already occupied or manually defined buses are filtered out of the candidate pool. Does not restrict manually forced allocations. Defaults to False.
 
     Returns:
         PVGen: A list of configured and interpolated PVGenerator objects.
     """
-    
+
     # Initialize OpenDSS interface and compile the target circuit
     dss = py_dss_interface.DSS()
     dss.text(f"compile '{SCRIPT_DSS}'")
@@ -59,9 +61,22 @@ def PVCreator(QtdPVs,
     # Set internal seed for reproducibility
     seed(my_seed)
 
-    # Initialize support lists for bus mapping 
-    if PV_Dictionaries is None:
+    # Initialize PV dictionaries list and handle bus mapping logic
+    # If no list is provided, start with an empty one
+    if  PV_dictionaries_list is None:
         PV_Dictionaries = []
+        Existent_PV_buses = pd.DataFrame(columns=['bus'])
+    else:
+        PV_Dictionaries = PV_dictionaries_list
+        
+        # If multiple PVs per bus are not allowed, extract already occupied buses
+        if not bus_multi_PV:
+            # Using list comprehension to extract the 'PV_bus' attribute from each dictionary
+            Existent_PV_buses = pd.DataFrame({'bus': [dictionary['PV_bus'] for dictionary in PV_Dictionaries]})
+        else:
+            Existent_PV_buses = pd.DataFrame(columns=['bus'])
+
+    # Initialize support lists for mapping available buses from the circuit
     PV_buses = []
     PV_buses_kv = []
     PV_buses_phases = []
@@ -73,29 +88,46 @@ def PVCreator(QtdPVs,
         if dss.bus.name.isdigit():
             # Define connection and phase count based on bus topology (nodes)
             if len(dss.bus.nodes) == 1:
-                PV_buses.append(str(dss.bus.name)+'.'+str(dss.bus.nodes[0]))
+                PV_buses.append(f"{dss.bus.name}.{dss.bus.nodes[0]}")
                 PV_buses_phases.append(1)
             elif len(dss.bus.nodes) == 2:
                 # Randomly select one of the available nodes for single-phase connection
-                PV_buses.append(str(dss.bus.name)+'.'+str(choice(dss.bus.nodes)))
+                PV_buses.append(f"{dss.bus.name}.{choice(dss.bus.nodes)}")
                 PV_buses_phases.append(1)
             elif len(dss.bus.nodes) == 3:
-                PV_buses.append(str(dss.bus.name)+'.'+str(dss.bus.nodes[0])+'.'+str(dss.bus.nodes[1])+'.'+str(dss.bus.nodes[2]))
+                PV_buses.append(f"{dss.bus.name}.{dss.bus.nodes[0]}.{dss.bus.nodes[1]}.{dss.bus.nodes[2]}")
                 PV_buses_phases.append(3)
             PV_buses_kv.append(round(dss.bus.kv_base, 2))
     
     # Create candidate DataFrame and perform random bus sampling
     allbuses = pd.DataFrame({'bus': PV_buses, 'kv': PV_buses_kv, 'phases': PV_buses_phases})
+    allbuses = allbuses[~allbuses['bus'].isin(Existent_PV_buses['bus'])] if not bus_multi_PV else allbuses
+    allbuses = allbuses.reset_index(drop=True)
+
+    if len(allbuses) < QtdPVs:
+        raise ValueError(f"Error: Not enough available buses to allocate {QtdPVs} PV systems. Only {len(allbuses)} buses are available.")
+
     PVbuses = allbuses.sample(n=QtdPVs, random_state=my_seed)
+
+    # Check if manual PV configurations were provided
+    if PV_Dictionaries:
+        manual_count = len(PV_Dictionaries)
+        print(f"Manually defined {manual_count} PV generators from input list.")
+    else:
+        print("No manual PV configurations detected. Proceeding with random allocation only.")
+
     print(f"Randomly selected {QtdPVs} buses for PV installation.")
+
+    print(f"{((QtdPVs + len(PV_Dictionaries))/len(allbuses))*100:.2f}% of available buses allocated for PV systems.")
+    print(f"{(QtdPVs + len(PV_Dictionaries))} buses occupied out of {len(allbuses)} total available buses.")
 
     # Populate technical configurations for each PV generator based on the sampled buses
     for bus in PVbuses.index:
         PV_Dictionaries.append({
-            'PV_phases': (int(allbuses.loc[bus, 'phases'])),
-            'PV_bus': (allbuses.loc[bus, 'bus']),
+            'PV_phases': (int(PVbuses.loc[bus, 'phases'])),
+            'PV_bus': (PVbuses.loc[bus, 'bus']),
             # Voltage: kV base for 1-phase, kV L-L (base * sqrt(3)) for 3-phase
-            'PV_kv': float(((allbuses.loc[bus, 'kv']) if (allbuses.loc[bus, 'phases']) == 1 else round(((allbuses.loc[bus, 'kv'])*(3**(1/2))), 2))),
+            'PV_kv': float(((PVbuses.loc[bus, 'kv']) if (PVbuses.loc[bus, 'phases']) == 1 else round(((PVbuses.loc[bus, 'kv'])*(3**(1/2))), 2))),
             'PV_kva': None,
             'PV_curve_id':None,
             'npts_origin': npts_origin})
@@ -157,7 +189,7 @@ class PVGenerator:
         
         # Ensure curve_id remains within the valid dataset range (1 to 51)
         if self.curve_id > 51:
-            self.curve_id = PV_curve_id % 51 
+            self.curve_id = int(float(self.curve_id) % 51)
         elif self.curve_id <= 0:
             print(f'\nWARNING: Input PV id was {PV_curve_id}. Must be >= 1. Defaulting to 1.')
             self.curve_id = 1
@@ -181,8 +213,14 @@ class PVGenerator:
         self.kv = PV_kv
         
         # KVA Setup: Use metadata if PV_kva is NaN. Scale by 3 for 3-phase systems.
-        base_kva = int(PV_list.iloc[self.curve_id-1, 3]) * 1000 if pd.isna(PV_kva) else int(PV_kva)
-        self.kva = base_kva * 3 if PV_phases == 3 else base_kva
+        # If PV_kva is not provided, fetch from metadata (and convert to VA)
+        if pd.isna(PV_kva):
+            base_kva = int(PV_list.iloc[self.curve_id-1, 3]) * 1000
+            # Scale by 3 for three-phase systems when using baseline metadata
+            self.kva = base_kva * 3 if PV_phases == 3 else base_kva
+        else:
+            # Use the manually defined capacity directly
+            self.kva = int(PV_kva)
 
         # --- ELECTRICAL & THERMAL PANEL PARAMETERS ---
         # Base irradiance, max power (Pmpp), reference temperature, and power factor
@@ -315,7 +353,23 @@ class PVGenerator:
             f.write("\n".join(dss_lines))
         print(f"  Success: 'data_pv.dss' saved to {OUTPUT_DIR}")
 
-PVGen = PVCreator(QtdPVs=2)
-PVGenerator.GenerateCSV(PVGen=PVGen)
-PVGenerator.GenerateDSS(PVGen=PVGen)
+# Model of list of PVs to be created, with the possibility of predefining some parameters
+# and letting the function fill in the rest. This is useful for testing and for cases where
+# we want to ensure certain configurations are included.
+#
+# Dictionary Parameters:
+# - PV_phases: Integer defining the number of phases (e.g., 1 for single-phase, 3 for three-phase).
+# - PV_bus: String representing the bus name and its nodes (e.g., '29.1.2.3').
+# - PV_kv: Float specifying the nominal voltage level in kV at the connection point. L-L voltage for three-phase systems and L-N voltage for single-phase systems.
+# - PV_kva: Float defining the rated power capacity (kVA) of the PV inverter.
+# - PV_curve_id: String or None; identifies a specific irradiance/temperature curve to be assigned.
+# - npts_origin: Integer indicating the number of points in the original time series data.
+PV_Dictionaries = [
+    {'PV_phases': 3, 'PV_bus': '29.1.2.3', 'PV_kv': 4.16, 'PV_kva': 5000, 'PV_curve_id': None, 'npts_origin': npts_origin}
+]
+PVGen = PVCreator(QtdPVs=3, PV_dictionaries_list=PV_Dictionaries)
+
+#PVGen = PVCreator(QtdPVs=2)
+PVGenerator.GenerateCSV(PVGen)
+PVGenerator.GenerateDSS(PVGen)
 
