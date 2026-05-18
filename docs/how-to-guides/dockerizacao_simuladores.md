@@ -21,8 +21,8 @@ O padrão adotado é o seguinte:
 
 Para viabilizar a execução em container, o projeto passou a ter:
 
-- [src/simulators/api_opendss.py](../../src/simulators/api_opendss.py) como camada de compatibilidade para cenários antigos
-- [src/simulators/1_api_opendss.py](../../src/simulators/1_api_opendss.py) como implementação principal do OpenDSS
+- [src/simulators/opendss_simulator.py](../../src/simulators/api_opendss.py) como camada de compatibilidade para cenários antigos
+- [src/simulators/api_opendss.py](../../src/simulators/1_api_opendss.py) como implementação principal do OpenDSS
 - blocos `if __name__ == '__main__':` nos simuladores que precisam subir como processo remoto no container
 
 Esse bloco final é o que faz cada simulador iniciar o servidor do Mosaik quando o container sobe com `--remote`. Sem isso, o arquivo apenas define a classe do simulador e não fica disponível para conexão via TCP.
@@ -148,7 +148,7 @@ O arquivo de saída principal do cenário 123Bus é:
 
 ### O container `opendss` sai com código 0
 
-Isso normalmente significa que o simulador remoto não foi iniciado pelo entrypoint correto. O serviço `opendss` deve executar o módulo compatível `simulators.api_opendss` com `--remote`.
+Isso normalmente significa que o simulador remoto não foi iniciado pelo entrypoint correto. O serviço `opendss` deve executar o módulo compatível `simulators.opendss_simulator` com `--remote`.
 
 ### O cenário não conecta em `localhost:5671`
 
