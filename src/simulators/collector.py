@@ -31,6 +31,8 @@ class Collector(mosaik_api.Simulator):
         self.eid = None
         self.data = collections.defaultdict(lambda:
                                             collections.defaultdict(dict))
+        self.print_results = False 
+        self.data = collections.defaultdict(lambda: collections.defaultdict(dict))
 
     def init(self, sid, time_resolution, start_date,
              date_format='%Y-%m-%d %H:%M:%S', output_file= parent_dir / 'output' / 'results.csv',

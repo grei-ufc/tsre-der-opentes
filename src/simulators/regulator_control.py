@@ -156,3 +156,6 @@ class RegulatorSimulator(mosaik_api_v3.Simulator):
             if logic and 'tap_cmd' in attrs:
                 data[eid] = {'tap_cmd': logic.tap}
         return data
+    
+if __name__ == '__main__':
+    mosaik_api_v3.start_simulation(RegulatorSimulator())

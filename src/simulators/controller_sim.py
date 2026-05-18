@@ -122,3 +122,6 @@ class BatteryControllerSim(mosaik_api.Simulator):
                 if attr in self.controllers[eid]:
                     data[eid][attr] = self.controllers[eid][attr]
         return data
+
+if __name__ == '__main__':
+    mosaik_api.start_simulation(BatteryControllerSim())
