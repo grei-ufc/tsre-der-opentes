@@ -8,6 +8,43 @@ Repositório de código para armazenar as soluções desenvolvidas de simulaçã
 
 O projeto foi dockerizado: cada simulador roda em um container próprio e o cenário principal (`cenariodocker.py`) é executado no host, conectando-se aos simuladores via `localhost`.
 
+Pré-requisitos
+
+Antes de executar via Docker é necessário ter o Docker (e o Docker Compose) instalados no computador. Para Windows recomenda-se instalar o Docker Desktop.
+
+
+- Baixe e instale: https://www.docker.com/get-started
+- Página do Docker Desktop (Windows/macOS): https://www.docker.com/products/docker-desktop/
+
+Para Linux
+
+Se for usar Linux (ex.: Ubuntu/Debian), instale o Docker Engine seguindo a documentação oficial:
+
+- Guia de instalação do Docker Engine (Ubuntu): https://docs.docker.com/engine/install/ubuntu/
+- Guia geral de instalação: https://docs.docker.com/engine/install/
+
+Exemplo rápido (Ubuntu) — execute como root ou com `sudo`:
+
+```bash
+sudo apt update
+sudo apt install ca-certificates curl gnupg lsb-release
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo systemctl enable --now docker
+```
+
+Para confirmar a instalação, verifique as versões:
+
+```bash
+docker --version
+docker compose version
+```
+
+
+Importante: durante a execução o Docker precisa estar em execução. No Windows, abra o Docker Desktop e aguarde até o daemon estar ativo; no Linux, verifique que o serviço `docker` esteja em execução (`sudo systemctl status docker`).
+
 Passos rápidos:
 
 1. Construa a imagem (apenas na primeira vez ou após mudanças no Dockerfile/requirements):
