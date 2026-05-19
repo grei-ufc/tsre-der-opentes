@@ -26,7 +26,8 @@ def PVCreator(QtdPVs,
               PV_dictionaries_list = None,
               my_seed = my_seed,
               bus_multi_PV: bool = False,
-              npts_origin:int = npts_origin):
+              npts_origin:int = npts_origin,
+              ignore_buses: list = None):
     """
     Automates bus selection and creation of Photovoltaic (PV) systems in an OpenDSS circuit.
 
@@ -42,7 +43,7 @@ def PVCreator(QtdPVs,
         my_seed (int, optional): Seed for reproducible random bus sampling.
         npts_origin (int, optional): Number of points in the original time series.
         bus_multi_pv (bool, optional): Controls bus reuse during the random sampling process. When False, already occupied or manually defined buses are filtered out of the candidate pool. Does not restrict manually forced allocations. Defaults to False.
-
+        ignore_buses (list/str, optional): Bus name or list of bus names to be excluded from the random allocation candidate pool (e.g., ['150', '610']). Defaults to None.
     Returns:
         PVGen: A list of configured and interpolated PVGenerator objects.
     """
@@ -100,14 +101,26 @@ def PVCreator(QtdPVs,
             PV_buses_kv.append(round(dss.bus.kv_base, 2))
     
     # Create candidate DataFrame and perform random bus sampling
-    allbuses = pd.DataFrame({'bus': PV_buses, 'kv': PV_buses_kv, 'phases': PV_buses_phases})
-    allbuses = allbuses[~allbuses['bus'].isin(Existent_PV_buses['bus'])] if not bus_multi_PV else allbuses
-    allbuses = allbuses.reset_index(drop=True)
+    allbuses = pd.DataFrame({'bus': PV_buses, 'L-N kv': PV_buses_kv, 'phases': PV_buses_phases})
 
-    if len(allbuses) < QtdPVs:
-        raise ValueError(f"Error: Not enough available buses to allocate {QtdPVs} PV systems. Only {len(allbuses)} buses are available.")
+    if ignore_buses is not None:
+        # If the user passed a single string (e.g., ignore_buses='150'), convert it to a list
+        if isinstance(ignore_buses, str):
+            ignore_buses = [ignore_buses]
+            
+        # Extract the pure bus name (before the dot) and filter out the ignored ones
+        # e.g., '150.1.2.3' becomes '150' and matches the ignore list
+        allbuses = allbuses[~allbuses['bus'].str.split('.').str[0].isin(ignore_buses)]
+        print(f"Applied filter: Excluded {len(ignore_buses)} bus(es) from the candidate pool.")
 
-    PVbuses = allbuses.sample(n=QtdPVs, random_state=my_seed)
+    # Perform unique bus filtering if multi-PV is disabled
+    available_buses = allbuses[~allbuses['bus'].isin(Existent_PV_buses['bus'])] if not bus_multi_PV else allbuses
+    available_buses = available_buses.reset_index(drop=True)
+
+    if len(available_buses) < QtdPVs:
+        raise ValueError(f"Error: Not enough available buses to allocate {QtdPVs} PV systems. Only {len(available_buses)} buses are available.")
+
+    PVbuses = available_buses.sample(n=QtdPVs, random_state=my_seed)
 
     # Check if manual PV configurations were provided
     if PV_Dictionaries:
@@ -118,8 +131,8 @@ def PVCreator(QtdPVs,
 
     print(f"Randomly selected {QtdPVs} buses for PV installation.")
 
-    print(f"{((QtdPVs + len(PV_Dictionaries))/len(allbuses))*100:.2f}% of available buses allocated for PV systems.")
-    print(f"{(QtdPVs + len(PV_Dictionaries))} buses occupied out of {len(allbuses)} total available buses.")
+    print(f"{((QtdPVs + len(PV_Dictionaries))/len(available_buses))*100:.2f}% of available buses allocated for PV systems.")
+    print(f"{(QtdPVs + len(PV_Dictionaries))} buses occupied out of {len(available_buses)} total available buses.")
 
     # Populate technical configurations for each PV generator based on the sampled buses
     for bus in PVbuses.index:
@@ -127,7 +140,7 @@ def PVCreator(QtdPVs,
             'PV_phases': (int(PVbuses.loc[bus, 'phases'])),
             'PV_bus': (PVbuses.loc[bus, 'bus']),
             # Voltage: kV base for 1-phase, kV L-L (base * sqrt(3)) for 3-phase
-            'PV_kv': float(((PVbuses.loc[bus, 'kv']) if (PVbuses.loc[bus, 'phases']) == 1 else round(((PVbuses.loc[bus, 'kv'])*(3**(1/2))), 2))),
+            'PV_kv': float(((PVbuses.loc[bus, 'L-N kv']) if (PVbuses.loc[bus, 'phases']) == 1 else round(((PVbuses.loc[bus, 'L-N kv'])*(3**(1/2))), 2))),
             'PV_kva': None,
             'PV_curve_id':None,
             'npts_origin': npts_origin})
@@ -367,7 +380,8 @@ class PVGenerator:
 PV_Dictionaries = [
     {'PV_phases': 3, 'PV_bus': '29.1.2.3', 'PV_kv': 4.16, 'PV_kva': 5000, 'PV_curve_id': None, 'npts_origin': npts_origin}
 ]
-PVGen = PVCreator(QtdPVs=3, PV_dictionaries_list=PV_Dictionaries)
+
+PVGen = PVCreator(QtdPVs=1, PV_dictionaries_list=PV_Dictionaries, ignore_buses=['149', '150', '19'])
 
 #PVGen = PVCreator(QtdPVs=2)
 PVGenerator.GenerateCSV(PVGen)
