@@ -9,20 +9,20 @@ from pathlib import Path
 # ==============================================================================
 CURRENT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT = CURRENT_DIR.parent
-DATA_DIR_HOST = PROJECT_ROOT / "data" / "123Bus"
-CIRCUITO_DSS_HOST = DATA_DIR_HOST / "run_ieee123_cosim_pv_5min.dss"
+DATA_DIR_HOST = PROJECT_ROOT / "data" / "13Bus"
+CIRCUITO_DSS_HOST = DATA_DIR_HOST / "run_ieee13_cosim_pv_5min.dss"
 OUTPUT_DIR_HOST = PROJECT_ROOT / "output"
 OUTPUT_DIR_HOST.mkdir(parents=True, exist_ok=True)
-ARQUIVO_RESULTADOS_CSV_HOST = OUTPUT_DIR_HOST / 'result_run_ieee123_cosim_pv_5min.csv'
+ARQUIVO_RESULTADOS_CSV_HOST = OUTPUT_DIR_HOST / 'result_run_ieee13_cosim_pv_5min.csv'
 
 # ==============================================================================
 # 2. CAMINHOS NO CONTAINER (Linux/Docker)
 # ==============================================================================
-CONTAINER_DATA = "/app/src/data/123Bus"
-CIRCUITO_DSS_CONT = f"{CONTAINER_DATA}/run_ieee123_cosim_pv_5min.dss"
-IRRADIANCE_CONT = f"{CONTAINER_DATA}/ieee123_shape_pv_5min.csv"
-TEMPERATURE_CONT = f"{CONTAINER_DATA}/ieee123_temperature_5min.csv"
-ARQUIVO_RESULTADOS_CSV_CONT = "/app/output/result_run_ieee123_cosim_pv_5min.csv"
+CONTAINER_DATA = "/app/src/data/13Bus"
+CIRCUITO_DSS_CONT = f"{CONTAINER_DATA}/run_ieee13_cosim_pv_5min.dss"
+IRRADIANCE_CONT = f"{CONTAINER_DATA}/ieee13_shape_pv_5min.csv"
+TEMPERATURE_CONT = f"{CONTAINER_DATA}/ieee13_temperature_5min.csv"
+ARQUIVO_RESULTADOS_CSV_CONT = "/app/output/result_run_ieee13_cosim_pv_5min.csv"
 
 START_DATE = "2026-01-01 00:00:00"
 STEP_SIZE = 60 * 5
@@ -139,8 +139,7 @@ def run_scenario():
                 world.connect(pv_dss_obj, monitor, 'P1', 'P2', 'P3', 'Q1', 'Q2', 'Q3')
 
 
-        # Monitorar Barra 149 e 97
-        target_names = ['149', '97']
+        target_names = ['650', '680', '611']
         for target_name in target_names:
             target_eid = f'Bus-{target_name}'
             bus_entities = [e for e in grid.children if e.eid == target_eid]
@@ -148,13 +147,13 @@ def run_scenario():
                 world.connect(bus_entities[0], monitor, 'V1_pu', 'V2_pu', 'V3_pu')
                 print(f"Monitorando Barra: {target_eid}")
 
-        # Monitorar Linha L115
-        target_name = 'L115'
-        target_eid = f'Line-{target_name}'
-        line_entities = [e for e in grid.children if e.eid.lower() == target_eid.lower()]
-        if line_entities:
-            world.connect(line_entities[0], monitor,
-                          'I1_A', 'I1_ang', 'I2_A', 'I2_ang', 'I3_A', 'I3_ang',
+        target_names = ['650632', '671680', '684611']
+        for target_name in target_names:
+            target_eid = f'Line-{target_name}'
+            line_entities = [e for e in grid.children if e.eid.lower() == target_eid.lower()]
+            if line_entities:
+                world.connect(line_entities[0], monitor,
+                              'I1_A', 'I1_ang', 'I2_A', 'I2_ang', 'I3_A', 'I3_ang',
                           'P1_w', 'Q1_var', 'P2_w', 'Q2_var', 'P3_w', 'Q3_var')
             print(f"Monitorando Linha: {target_eid}")
 

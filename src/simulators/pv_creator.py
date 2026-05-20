@@ -381,7 +381,7 @@ PV_Dictionaries = [
     {'PV_phases': 3, 'PV_bus': '29.1.2.3', 'PV_kv': 4.16, 'PV_kva': 5000, 'PV_curve_id': None, 'npts_origin': npts_origin}
 ]
 
-PVGen = PVCreator(QtdPVs=1, PV_dictionaries_list=PV_Dictionaries, ignore_buses=['149', '150', '19'])
+PVGen = PVCreator(QtdPVs=4, PV_dictionaries_list=PV_Dictionaries, ignore_buses=['149', '150', '19'])
 
 #PVGen = PVCreator(QtdPVs=2)
 PVGenerator.GenerateCSV(PVGen)

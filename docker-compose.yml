@@ -56,7 +56,7 @@ services:
   # 6. Simulador de Inversor Padrão
   inverter-std:
     build: .
-    command: python src/simulators/inverter_simulator.py --remote 0.0.0.0:5677
+    command: python src/simulators/smart_inverter_simulator.py --remote 0.0.0.0:5677
     ports:
       - "5677:5677"
     volumes:
