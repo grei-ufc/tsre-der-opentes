@@ -13,7 +13,7 @@ DATA_DIR_HOST = PROJECT_ROOT / "data" / "13Bus"
 CIRCUITO_DSS_HOST = DATA_DIR_HOST / "run_ieee13_cosim_pv_5min.dss"
 OUTPUT_DIR_HOST = PROJECT_ROOT / "output"
 OUTPUT_DIR_HOST.mkdir(parents=True, exist_ok=True)
-ARQUIVO_RESULTADOS_CSV_HOST = OUTPUT_DIR_HOST / 'result_run_ieee13_cosim_pv_5min.csv'
+ARQUIVO_RESULTADOS_CSV_HOST = OUTPUT_DIR_HOST / 'result_run_ieee13_cosim_COM_pv_5min.csv'
 
 # ==============================================================================
 # 2. CAMINHOS NO CONTAINER (Linux/Docker)
@@ -22,7 +22,7 @@ CONTAINER_DATA = "/app/src/data/13Bus"
 CIRCUITO_DSS_CONT = f"{CONTAINER_DATA}/run_ieee13_cosim_pv_5min.dss"
 IRRADIANCE_CONT = f"{CONTAINER_DATA}/ieee13_shape_pv_5min.csv"
 TEMPERATURE_CONT = f"{CONTAINER_DATA}/ieee13_temperature_5min.csv"
-ARQUIVO_RESULTADOS_CSV_CONT = "/app/output/result_run_ieee13_cosim_pv_5min.csv"
+ARQUIVO_RESULTADOS_CSV_CONT = "/app/output/result_run_ieee13_cosim_COM_pv_5min.csv"
 
 START_DATE = "2026-01-01 00:00:00"
 STEP_SIZE = 60 * 5
@@ -131,14 +131,14 @@ def run_scenario():
                     pt_curve_y=info['pt_curve_y'],
                 )[0]
 
-                # 2. Instancia o Smart Inverter (Adaptado sem os parâmetros antigos)
+                # 2. Instancia o Smart Inverter 
                 inv_obj = inv_sim.Inverter.create(
                     1,
                     kVA=info['kva'],
                     phase_mode='AVG', # Define o modo de fase compatível com inversores individuais
                     eff_curve_x=info['eff_curve_x'],
                     eff_curve_y=info['eff_curve_y'],
-                    ctrl_config={'Volt_Var': False, 'Const_PF': False} # Configuração de controle exigida pelo novo simulador
+                    ctrl_config={'Volt_Var': False, 'Const_PF': True} # Configuração de controle exigida pelo novo simulador
                 )[0]
 
                 # 3. Conexões Climáticas e Lado DC

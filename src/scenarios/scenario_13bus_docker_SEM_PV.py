@@ -22,7 +22,7 @@ CONTAINER_DATA = "/app/src/data/13Bus"
 CIRCUITO_DSS_CONT = f"{CONTAINER_DATA}/run_ieee13_cosim_pv_5min.dss"
 IRRADIANCE_CONT = f"{CONTAINER_DATA}/ieee13_shape_pv_5min.csv"
 TEMPERATURE_CONT = f"{CONTAINER_DATA}/ieee13_temperature_5min.csv"
-ARQUIVO_RESULTADOS_CSV_CONT = "/app/output/result_run_ieee13_cosim_pv_5min.csv"
+ARQUIVO_RESULTADOS_CSV_CONT = "/app/output/result_run_ieee13_cosim_SEM_pv_5min.csv"
 
 START_DATE = "2026-01-01 00:00:00"
 STEP_SIZE = 60 * 5
