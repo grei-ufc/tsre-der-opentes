@@ -40,7 +40,7 @@ SIM_CONFIG = {
         'connect': 'localhost:5678'
     },
     'InverterSim': {
-        'connect': 'localhost:5677' # Porta 5677 = inverter-std
+        'connect': 'localhost:5680' # Porta 5680 = inverter-smart
     },
     'CSV_Irr': {
         'connect': 'localhost:5675' # Porta 5675 = csv-data-1
