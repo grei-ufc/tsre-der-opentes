@@ -4,23 +4,91 @@ Repositório de código para armazenar as soluções desenvolvidas de simulaçã
 
 ## Como executar o projeto?
 
-Para executar esse projeto, recomendamos a utilização da ferramenta `uv`, tanto para executar seus scripts quanto para gerenciar de forma segura e eficiente suas dependências.
+**Execução recomendada (via Docker)**
 
-Depois de clonar o respositório, entre na pasta em que o repositório foi clonado e digite o seguinte comando para criar o ambiente de execução com `uv`:
+O projeto foi dockerizado: cada simulador roda em um container próprio e o cenário principal (`cenariodocker.py`) é executado no host, conectando-se aos simuladores via `localhost`.
+
+Pré-requisitos
+
+Antes de executar via Docker é necessário ter o Docker (e o Docker Compose) instalados no computador. Para Windows recomenda-se instalar o Docker Desktop.
+
+
+- Baixe e instale: https://www.docker.com/get-started
+- Página do Docker Desktop (Windows/macOS): https://www.docker.com/products/docker-desktop/
+
+Para Linux
+
+Se for usar Linux (ex.: Ubuntu/Debian), instale o Docker Engine seguindo a documentação oficial:
+
+- Guia de instalação do Docker Engine (Ubuntu): https://docs.docker.com/engine/install/ubuntu/
+- Guia geral de instalação: https://docs.docker.com/engine/install/
+
+Exemplo rápido (Ubuntu) — execute como root ou com `sudo`:
+
+```bash
+sudo apt update
+sudo apt install ca-certificates curl gnupg lsb-release
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo systemctl enable --now docker
+```
+
+Para confirmar a instalação, verifique as versões:
+
+```bash
+docker --version
+docker compose version
+```
+
+
+Importante: durante a execução o Docker precisa estar em execução. No Windows, abra o Docker Desktop e aguarde até o daemon estar ativo; no Linux, verifique que o serviço `docker` esteja em execução (`sudo systemctl status docker`).
+
+Passos rápidos:
+
+1. Construa a imagem (apenas na primeira vez ou após mudanças no Dockerfile/requirements):
+
+```bash
+docker build -t opentes-simulador .
+```
+
+2. Suba os serviços com o Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+3. Em outro terminal (no host), rode o cenário Docker:
+
+```bash
+uv run --no-sync python src/scenarios/cenariodocker.py
+```
+
+Observações importantes:
+
+- Os containers expõem portas TCP fixas (por exemplo `5671` para o `opendss`) para o handshake com o Mosaik. O cenário conecta-se em `localhost:<porta>`.
+- Volumes principais montados: `./src:/app/src` e `./output:/app/output`. Os resultados gerados dentro do container em `/app/output` aparecem no host em `output/`.
+- Arquivo de saída principal do cenário 123Bus: `output/result_run_ieee123_cosim_pv_5min.csv`.
+
+### Execução em segundo plano - Preferencialmente, execute dessa forma
+
+Se preferir deixar os containers rodando em background e iniciar o cenário imediatamente, execute ambos os comandos em sequência no mesmo terminal:
+
+```bash
+docker compose up -d
+uv run --no-sync python src/scenarios/cenariodocker.py
+```
+
+**Execução sem Docker (opcional / legado)**
+
+Ainda é possível executar localmente usando `uv` e ambientes Python, quando necessário. Para criar o ambiente com `uv`:
 
 ```sh
 uv sync
 ```
 
-Automaticamente o `uv`criará o ambiente virtual Python com a versão correta do Python e de todas as bibliotecas necessárias.
-
-Após o término da instalação dos requisitos necessários, para executar a co-simulação propriamente dita, digite no terminal:
-
-```sh
-uv run tsre
-```
-
-Se tudo ocorrer conforme o esperado a co-simulação deve ser iniciada. Os resultados gerados serão armazenados no arquivo `results.csv` que ficará armazenado na pasta `src/output`.
+Para executar cenários locais (modo legado), use `uv run` apontando para o script de cenário desejado. Note que alguns simuladores esperam o modo remoto via TCP quando dockerizados.
 
 ## Desenvolvedores
 

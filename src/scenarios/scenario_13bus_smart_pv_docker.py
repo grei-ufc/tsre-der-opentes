@@ -141,9 +141,16 @@ def run_scenario():
                     ctrl_config={'Volt_Var': False, 'Const_PF': False} # Configuração de controle exigida pelo novo simulador
                 )[0]
 
-                # 3. Conexões Climáticas e Lado DC
-                world.connect(csv_data_irr[0], pv_panel_obj, ('my_shape2_pv', 'irradiance'))
-                world.connect(csv_data_temp[0], pv_panel_obj, ('temperature', 'temperature'))
+                # 3. Conexões Climáticas Dinâmicas e Lado DC
+                # Se pv_name for "PV1", extraímos o número "1" para mapear a coluna certa do CSV
+                pv_number = ''.join(filter(str.isdigit, pv_name))
+                # Monta o nome exato das colunas geradas no arquivo CSV consolidado
+                col_irrad = f"my_shape{pv_number}_irrad"
+                col_temp = f"my_shape{pv_number}_temperature"
+                # Conecta as colunas dinâmicas calculadas ao respectivo painel físico
+                world.connect(csv_data_irr[0], pv_panel_obj, (col_irrad, 'irradiance'))
+                world.connect(csv_data_temp[0], pv_panel_obj, (col_temp, 'temperature'))
+                # Mantém a conexão DC para o Inversor
                 world.connect(pv_panel_obj, inv_obj, ('P_dc', 'P_dc'))
 
                 # 4. FECHAMENTO DE MALHA: Envia as medições de tensão do OpenDSS para o Inversor

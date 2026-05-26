@@ -9,14 +9,19 @@ from random import choice, seed  # Random node selection and reproducibility see
 BASE_DIR = Path(".").resolve()
 INFO_PV_FILE = BASE_DIR/'src'/'data'/'InfoPV'/'power_station_metadata.csv'
 SOLAR_STATION_FILES = BASE_DIR/'src'/'data'/'InfoPV'/'solar_station'
-OUTPUT_DIR = BASE_DIR/'src'/'output'
-SCRIPT_DSS = BASE_DIR/'src'/'data'/'123Bus'/'run_ieee123_cosim_pv_5min.dss'
+SCRIPT_DSS = BASE_DIR/'src'/'data'/'13Bus'/'IEEE13Nodeckt.dss'
+OUTPUT_DIR = BASE_DIR/'src'/'data'/'13Bus'
+OUTPUT_IRRAD_CSV = OUTPUT_DIR/'ieee13_shape_pv_5min.csv'
+OUTPUT_TEMP_CSV = OUTPUT_DIR/'ieee13_temperature_5min.csv'
+OUTPUT_DSS_FILE = OUTPUT_DIR/'ieee13_pv.dss'
+
 PV_list = pd.read_csv(INFO_PV_FILE)
 
 # --- Simulation Control Variables ---
 t_simulation = 24*60*1              # Total simulation time in minutes
 npts_origin = ceil(t_simulation/15) # Original data points (15-min base)
-step = '1min'                       # Target simulation time step
+step = '5min'                       # Target simulation time step (e.g., '5s', '5min', '2h')
+start_date = "2026-01-01 00:00:00"  # Target simulation start timestamp for the final outputs 
 my_seed = 25                        # Seed for reproducibility of random bus sampling
 
 def PVCreator(QtdPVs,
@@ -251,7 +256,7 @@ class PVGenerator:
 
         # --- CURVES PROCESSING ---
         self.npts = npts_origin
-        data_slice = slice(start, self.npts + start)
+        data_slice = slice(start, self.npts + start + 1)
         
         # 1. Process Irradiance (Normalize, clip negatives, fill NaNs)
         self.irrad_curve = (self.solar_station_curves['poa_irradiance_wm2'].iloc[data_slice] / self.irrad).reset_index(drop=True)
@@ -275,22 +280,39 @@ class PVGenerator:
         self.irrad_curve = self.irrad_curve.set_index('datetime')
         self.temperature_curve = self.temperature_curve.set_index('datetime')
 
-    def CurveLinearInterpolation(self, new_rate=step):
+    def CurveLinearInterpolation(self, new_rate=step, npts_base_15min=npts_origin, start_date=start_date):
         """
         Resamples a time-series curve to a new time frequency using linear interpolation.
         
         Args:
             new_rate (str): Pandas offset alias for frequency (e.g., '5s', '1h', '15min').
         """
+
+        # Define Timedelta parameters natively to handle any scale (seconds, minutes, hours)
+        base_delta = pd.Timedelta('15min')
+        new_delta = pd.Timedelta(new_rate)
+        
+        # Calculate expected array size dynamically
+        expected_points = ceil(npts_base_15min * (base_delta / new_delta))
+
         # --- RESAMPLING & LINEAR INTERPOLATION ---
         # 1. resample: Groups data into the new time interval (new_rate)
         # 2. mean: Aggregates points for downsampling or creates NaNs for upsampling
         # 3. interpolate: Fills gaps using time-proportional linear connection
-        
         self.irrad_curve = (self.irrad_curve.resample(new_rate).mean().interpolate(method='time')).round(6)
-        
         self.temperature_curve = (self.temperature_curve.resample(new_rate).mean().interpolate(method='time')).round(6)
         
+        # Discard the temporary anchor points using structural slicing
+        self.irrad_curve = self.irrad_curve.iloc[:expected_points]
+        self.temperature_curve = self.temperature_curve.iloc[:expected_points]
+
+        # Generate a clean sequential timeline starting exactly at START_DATE matching the required points
+        new_timeline = pd.date_range(start=start_date, periods=expected_points, freq=new_rate)
+        
+        # Assign the new timeline back as the dataframe index
+        self.irrad_curve.index = new_timeline
+        self.temperature_curve.index = new_timeline
+
         # Reset index to restore numerical indexing and convert time back to a column
         self.irrad_curve = self.irrad_curve.reset_index()
         self.temperature_curve = self.temperature_curve.reset_index()
@@ -322,8 +344,8 @@ class PVGenerator:
         all_temperature_curves = pd.concat(temp_list, axis=1)
 
         # 3. Export to CSV
-        all_irrad_curves.to_csv(OUTPUT_DIR / 'data_irrad.csv', index=False)
-        all_temperature_curves.to_csv(OUTPUT_DIR / 'data_temperature.csv', index=False)
+        all_irrad_curves.to_csv(OUTPUT_IRRAD_CSV, index=False)
+        all_temperature_curves.to_csv(OUTPUT_TEMP_CSV, index=False)
         print(f"  Success: CSV files saved to {OUTPUT_DIR}")
 
     @staticmethod
@@ -361,7 +383,7 @@ class PVGenerator:
             dss_lines.append(pv_command)
 
         # 3. Write the file using pathlib
-        with open(OUTPUT_DIR / 'data_pv.dss', "w") as f:
+        with open(OUTPUT_DSS_FILE, "w") as f:
             # Join all lines with a newline separator
             f.write("\n".join(dss_lines))
         print(f"  Success: 'data_pv.dss' saved to {OUTPUT_DIR}")
@@ -378,10 +400,10 @@ class PVGenerator:
 # - PV_curve_id: String or None; identifies a specific irradiance/temperature curve to be assigned.
 # - npts_origin: Integer indicating the number of points in the original time series data.
 PV_Dictionaries = [
-    {'PV_phases': 3, 'PV_bus': '29.1.2.3', 'PV_kv': 4.16, 'PV_kva': 5000, 'PV_curve_id': None, 'npts_origin': npts_origin}
+    {'PV_phases': 3, 'PV_bus': '646.1.2.3', 'PV_kv': 4.16, 'PV_kva': 5000, 'PV_curve_id': None, 'npts_origin': npts_origin}
 ]
 
-PVGen = PVCreator(QtdPVs=4, PV_dictionaries_list=PV_Dictionaries, ignore_buses=['149', '150', '19'])
+PVGen = PVCreator(QtdPVs=4, PV_dictionaries_list=PV_Dictionaries, ignore_buses=['650', '670'])
 
 #PVGen = PVCreator(QtdPVs=2)
 PVGenerator.GenerateCSV(PVGen)
