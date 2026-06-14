@@ -1,7 +1,7 @@
 New XYCurve.MyPvsT npts=4 xarray=[0, 25, 75, 100] yarray=[1.2, 1.0, 0.8, 0.6]
 New XYCurve.MyEff npts=4 xarray=[0.1, 0.2, 0.4, 1.0] yarray=[0.86, 0.90, 0.93, 0.97]
 
-New PVSystem.PV1 phases=3 Bus1=646.1.2.3 kV=4.16 kVA=5000 irrad=0.8 Pmpp=5000
+New PVSystem.PV1 phases=1 Bus1=646.3 kV=2.4 kVA=5000 irrad=0.8 Pmpp=5000
 ~ temperature=25 PF=1 EffCurve=MyEff P-TCurve=MyPvsT
 ~ Daily=my_shape1_irrad TDaily=my_shape1_temperature
 ~ Vminpu=0.001 Model=1

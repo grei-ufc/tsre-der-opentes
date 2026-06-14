@@ -141,13 +141,26 @@ def run_scenario():
                     ctrl_config={'Volt_Var': False, 'Const_PF': False} # Configuração de controle exigida pelo novo simulador
                 )[0]
 
-                # 3. Conexões Climáticas Dinâmicas e Lado DC
-                # Se pv_name for "PV1", extraímos o número "1" para mapear a coluna certa do CSV
-                pv_number = ''.join(filter(str.isdigit, pv_name))
-                # Monta o nome exato das colunas geradas no arquivo CSV consolidado
-                col_irrad = f"my_shape{pv_number}_irrad"
-                col_temp = f"my_shape{pv_number}_temperature"
-                # Conecta as colunas dinâmicas calculadas ao respectivo painel físico
+                # 3. Conexões Climáticas e Lado DC
+
+                # Lê os cabeçalhos removendo a coluna de tempo (antiga ou nova)
+                cols_irr = [c for c in pd.read_csv(DATA_DIR_HOST / "ieee13_shape_pv_5min.csv", nrows=0).columns if c.lower() != 'time']
+                cols_tmp = [c for c in pd.read_csv(DATA_DIR_HOST / "ieee13_temperature_5min.csv", nrows=0).columns if c.lower() != 'time']
+                
+                is_dynamic = len(cols_irr) > 1
+
+                if is_dynamic:
+                    # Se pv_name for "PV1", extraímos o número "1" para mapear a coluna certa do CSV
+                    pv_number = ''.join(filter(str.isdigit, pv_name))
+                    # Monta o nome exato das colunas geradas no arquivo CSV consolidado
+                    col_irrad = f"my_shape{pv_number}_irrad"
+                    col_temp = f"my_shape{pv_number}_temperature"
+                else:
+                    # Se não é dinâmico, só existe uma coluna de dados disponível em cada arquivo
+                    col_irrad = cols_irr[0]
+                    col_temp = cols_tmp[0]
+
+                # Conecta ao respectivo painel
                 world.connect(csv_data_irr[0], pv_panel_obj, (col_irrad, 'irradiance'))
                 world.connect(csv_data_temp[0], pv_panel_obj, (col_temp, 'temperature'))
                 # Mantém a conexão DC para o Inversor

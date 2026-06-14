@@ -1,4 +1,4 @@
-index,my_shape1_temperature,my_shape2_temperature,my_shape3_temperature,my_shape4_temperature,my_shape5_temperature
+Date,my_shape1_temperature,my_shape2_temperature,my_shape3_temperature,my_shape4_temperature,my_shape5_temperature
 2026-01-01 00:00:00,0.765809,0.764465,0.764411,0.794785,0.831197
 2026-01-01 00:05:00,0.765206,0.766209,0.766186,0.793857,0.823596
 2026-01-01 00:10:00,0.764603,0.767953,0.767961,0.792928,0.815996
