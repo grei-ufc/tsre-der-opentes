@@ -162,20 +162,20 @@ def add_line_edges(
         for _ in range(dss.lines.count):
 
             bus1 = (
-            dss.lines.bus1()
+            dss.lines.bus1
             .split(".")[0]
             .lower()
             )
 
             bus2 = (
-                dss.lines.bus2()
+                dss.lines.bus2
                 .split(".")[0]
                 .lower()
             )
 
             graph.add_edge(
                 NetworkEdge(
-                    id=f"line_{dss.lines.name()}",
+                    id=f"line_{dss.lines.name}",
                     source=bus1,
                     target=bus2,
                     edge_type="line",
