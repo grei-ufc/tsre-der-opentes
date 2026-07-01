@@ -80,7 +80,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self.detected_storages = []
         self.storage_map = {}
 
-    def init(self, sid, time_resolution, topofile, step_size=900, **sim_params):
+    def init(self, sid, time_resolution, topofile, step_size=900, output_graph_path=None, **sim_params):
         self.sid = sid
         self.time_resolution = time_resolution
         self.step_size = step_size
@@ -89,6 +89,10 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             time_step=datetime.timedelta(seconds=self.step_size),
             start_time=datetime.datetime(2025, 1, 1)
         )
+
+        if output_graph_path is not None:
+            self.dss_wrapper.grafo_tsdq(output_graph_path)
+        
         return self.meta
 
     def create(self, num, model, **model_params):

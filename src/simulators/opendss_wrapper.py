@@ -898,4 +898,4 @@ class OpenDSS:
         }
 
         with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(grafo_dict, f, ident=4, ensure_ascii=False)
+            json.dump(grafo_dict, f, indent=4, ensure_ascii=False)
