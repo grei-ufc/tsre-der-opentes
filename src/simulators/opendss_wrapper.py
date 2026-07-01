@@ -3,6 +3,10 @@ import datetime as dt
 import numpy as np
 import pandas as pd
 from typing import List, Union, Tuple, Dict, Any, Optional
+from dataclasses import asdict
+from .topology_builder import build_graph
+import json
+
 
 LINE_CLASSES = ['Line', 'Xfmr', 'Capacitor']
 
@@ -876,3 +880,22 @@ class OpenDSS:
             }
             
         return storage_infos
+    
+    def grafo_tsdq(self, output_path):
+
+        """
+        Exporta o grafo do circuito em formato JSON, incluindo nós e arestas.
+
+        Padrão utilizado na plataforma `tsdq-dataview-opentes`
+    
+        """
+
+        grafo = build_graph(self.dss)
+
+        grafo_dict = {
+            "nodes": [asdict(node) for node in grafo.nodes.values()],
+            "edges": [asdict(edge) for edge in grafo.edges.values()]
+        }
+
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(grafo_dict, f, indent=4, ensure_ascii=False)
