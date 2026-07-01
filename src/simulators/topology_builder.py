@@ -63,20 +63,25 @@ def get_transformer_buses(dss):
 
     buses = set()
 
-    if not dss.Transformers.First():
+    try:
 
-        return buses
+        if dss.transformers.first():
 
-    while True:
+            dss.transformers.first()
 
-        for bus in dss.CktElement.BusNames():
+            for _ in range(dss.transformers.count):
 
-            buses.add(
-                bus.split(".")[0].lower()
-            )
+                for bus in dss.cktelement.bus_names:
 
-        if dss.Transformers.Next() == 0:
-            break
+                    buses.add(
+                        bus.split(".")[0].lower()
+                    )
+
+                dss.transformers.next()
+
+    except Exception:
+
+        pass
 
     return buses
 
