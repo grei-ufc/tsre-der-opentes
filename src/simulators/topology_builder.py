@@ -128,7 +128,7 @@ def add_nodes(
     transformer_buses,
 ):
 
-    for bus in dss.Circuit.AllBusNames():
+    for bus in dss.circuit.buses_names:
 
         bus_id = bus.lower()
 
@@ -155,34 +155,35 @@ def add_line_edges(
     dss,
 ):
 
-    if not dss.Lines.First():
-        return
+    if dss.lines.first():
+        
+        dss.lines.first()
 
-    while True:
+        for _ in range(dss.lines.count):
 
-        bus1 = (
-            dss.Lines.Bus1()
+            bus1 = (
+            dss.lines.bus1()
             .split(".")[0]
             .lower()
-        )
-
-        bus2 = (
-            dss.Lines.Bus2()
-            .split(".")[0]
-            .lower()
-        )
-
-        graph.add_edge(
-            NetworkEdge(
-                id=f"line_{dss.Lines.Name()}",
-                source=bus1,
-                target=bus2,
-                edge_type="line",
             )
-        )
 
-        if dss.Lines.Next() == 0:
-            break
+            bus2 = (
+                dss.lines.bus2()
+                .split(".")[0]
+                .lower()
+            )
+
+            graph.add_edge(
+                NetworkEdge(
+                    id=f"line_{dss.lines.name()}",
+                    source=bus1,
+                    target=bus2,
+                    edge_type="line",
+                )
+            )
+
+            dss.lines.next()
+
 
 
 # =====================================================
@@ -194,7 +195,7 @@ def add_transformer_edges(
     dss,
 ):
 
-    if not dss.Transformers.First():
+    if not dss.transformers.first():
         return
 
     added = set()
