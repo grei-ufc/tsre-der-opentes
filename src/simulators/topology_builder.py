@@ -27,12 +27,12 @@ def get_load_buses(dss):
                 buses.add(bus)
                 dss.loads.next()
 
-        return buses
 
     except Exception:
 
         pass
 
+    return buses
 
 def get_pv_buses(dss):
 
@@ -40,20 +40,18 @@ def get_pv_buses(dss):
 
     try:
 
-        if dss.PVsystems.First():
+        if dss.pvsystems.first():
 
-            while True:
+            dss.pvsystems.first()
 
+            for _ in range(dss.pvsystems.count):
                 bus = (
-                    dss.CktElement.BusNames()[0]
-                    .split(".")[0]
-                    .lower()
+                    dss.cktelement.bus_names[0].split(".")[0]
                 )
 
                 buses.add(bus)
+                dss.pvsystems.next()
 
-                if dss.PVsystems.Next() == 0:
-                    break
 
     except Exception:
 
