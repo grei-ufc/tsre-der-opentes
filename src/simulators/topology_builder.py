@@ -194,38 +194,38 @@ def add_transformer_edges(
     graph,
     dss,
 ):
-
-    if not dss.transformers.first():
-        return
-
+    
     added = set()
 
-    while True:
+    if dss.transformers.first():
+        
+        dss.transformers.first()
 
-        buses = dss.CktElement.BusNames()
+        for _ in range(dss.transformers.count):
 
-        if len(buses) >= 2:
+            buses = dss.cktelement.bus_names
+            
+            if len(buses) >= 2:
 
-            bus1 = buses[0].split(".")[0].lower()
-            bus2 = buses[1].split(".")[0].lower()
+                bus1 = buses[0].split(".")[0].lower()
+                bus2 = buses[1].split(".")[0].lower()
 
-            edge_id = f"{bus1}_{bus2}"
+                edge_id = f"{bus1}_{bus2}"
 
-            if edge_id not in added:
+                if edge_id not in added:
 
-                graph.add_edge(
-                    NetworkEdge(
-                        id=edge_id,
-                        source=bus1,
-                        target=bus2,
-                        edge_type="transformer",
+                    graph.add_edge(
+                        NetworkEdge(
+                            id=edge_id,
+                            source=bus1,
+                            target=bus2,
+                            edge_type="transformer",
+                        )
                     )
-                )
 
-                added.add(edge_id)
+                    added.add(edge_id)
 
-        if dss.Transformers.Next() == 0:
-            break
+            dss.transformers.next()
 
 
 # =====================================================
