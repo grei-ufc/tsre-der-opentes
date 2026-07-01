@@ -13,22 +13,25 @@ def get_load_buses(dss):
 
     buses = set()
 
-    if dss.Loads.First():
+    try:
 
-        while True:
+        if dss.loads.first():
 
-            bus = (
-                dss.CktElement.BusNames()[0]
-                .split(".")[0]
-                .lower()
-            )
+            dss.loads.first()
 
-            buses.add(bus)
+            for _ in range(dss.loads.count):
+                bus = (
+                    dss.cktelement.bus_names[0].split(".")[0]
+                )
 
-            if dss.Loads.Next() == 0:
-                break
+                buses.add(bus)
+                dss.loads.next()
 
-    return buses
+        return buses
+
+    except Exception:
+
+        pass
 
 
 def get_pv_buses(dss):
