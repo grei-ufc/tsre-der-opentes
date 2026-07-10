@@ -73,6 +73,10 @@ __version__ = "1.0.0"
 # LIBRARY IMPORTS & CONSTANTS
 # ==============================================================================
 # --- Library Imports ---
+from unittest import case
+
+from unittest import case
+
 import pandas as pd              # Data manipulation and CSV file handling
 import py_dss_interface          # Python interface for OpenDSS (EPRI)
 import logging                   # Logging for debugging and information output
@@ -235,18 +239,39 @@ class PVGenerator:
         self.bus = PV_bus
         self.kv = PV_kv
         
-        # KVA Setup: Use metadata if PV_kva is NaN. Scale by 3 for 3-phase systems.
-        # If PV_kva is not provided, fetch from metadata (and convert to VA)
-        if pd.isna(PV_kva):
-            base_kva = int(PV_list.iloc[self.curve_id-1]['nominal_power_mw']) * 1000
-            # Scale by 3 for three-phase systems when using baseline metadata
-            self.kva = base_kva * 3 if PV_phases == 3 else base_kva
-        else:
-            # Use the manually defined capacity directly
-            self.kva = int(PV_kva)
+        inversores_1f_BT = pd.Series([1, 1.5, 2, 2.5, 3, 3.6, 4, 5, 6, 7, 7.5, 8, 9, 10])
+        inversores_3f_BT = pd.Series([4, 5, 6, 8, 10, 12, 15, 17, 20, 25, 27, 30, 33, 36, 40, 45, 50, 60, 75])
+        inversores_3f_MT = pd.Series([12, 15, 17, 20, 25, 27, 30, 33, 36, 40, 50, 75, 100, 110, 125, 150, 220, 250, 330, 350])
 
-        # --- ELECTRICAL & THERMAL PANEL PARAMETERS ---
-        # Base irradiance, max power (Pmpp), reference temperature, and power factor
+        if pd.isna(PV_kva):
+            match (self.phases):
+                case (1) if self.kv <= 1.0:
+                    self.kva = (choice(inversores_1f_BT.tolist()))
+                case (1) if self.kv > 1.0:
+                    self.kva = (choice(inversores_1f_BT.tolist()))
+                case (3) if self.kv <= 1.0:
+                    self.kva = (choice(inversores_3f_BT.tolist()))
+                case (3) if self.kv > 1.0:
+                    self.kva = (choice(inversores_3f_MT.tolist()))
+                case _:
+                    raise ValueError(f"Número de fases inválido ({self.phases}) para o PV {self.name}. Deve ser 1 ou 3.")
+        else:
+            match (self.phases):
+                case (1) if self.kv <= 1.0:
+                    valor_comercial = inversores_1f_BT.iloc[(inversores_1f_BT - PV_kva).abs().idxmin()]
+                    self.kva = valor_comercial  
+                case (1) if self.kv > 1.0:
+                    valor_comercial = inversores_1f_BT.iloc[(inversores_1f_BT - PV_kva).abs().idxmin()]
+                    self.kva = valor_comercial      
+                case (3) if self.kv <= 1.0:
+                    valor_comercial = inversores_3f_BT.iloc[(inversores_3f_BT - PV_kva).abs().idxmin()]
+                    self.kva = valor_comercial   
+                case (3) if self.kv > 1.0:
+                    valor_comercial = inversores_3f_MT.iloc[(inversores_3f_MT - PV_kva).abs().idxmin()]
+                    self.kva = valor_comercial
+                case _:
+                    raise ValueError(f"Número de fases inválido ({self.phases}) para o PV {self.name}. Deve ser 1 ou 3.")
+    
         self.irrad = 0.8 * 1000
         self.pmpp = self.kva
         self.temperature = 25
@@ -679,7 +704,7 @@ def PVCreator(QtdPVs,
             # Resample curves to the simulation time step (step)
             new_pv.CurveLinearInterpolation(step)
             PVGen.append(new_pv)
-            logger.info(f"   > {new_pv.name} configured at bus {new_pv.bus} ({new_pv.kva} kVA)")
+            logger.info(f"   > {new_pv.name} configured at bus {new_pv.bus} ({new_pv.kva/1000} kVA)")
         print("")
         logger.info("--- STARTING DSS AND CSV FILES CREATION ---")
         print("")
@@ -712,7 +737,7 @@ if __name__ == "__main__":
     
     # Define Explicit Input Conditions
     PV_Dictionaries = [
-        {'PV_phases': 2, 'PV_bus': '646.2.3', 'PV_kv': 4.16, 'PV_kva': 5000, 'PV_curve_id': None}
+        {'PV_phases': 2, 'PV_bus': '646.2.3', 'PV_kv': 4.16, 'PV_kva': 5, 'PV_curve_id': None}
     ]
     
     # Run the Allocation Engine
