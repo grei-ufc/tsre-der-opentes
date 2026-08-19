@@ -1,58 +1,48 @@
-"""
-Modelo unificado de inversor para co-simulacao mosaik.
+"""Unified inverter model for mosaik co-simulation.
 
-Combina:
-- Logica de cut-in / cut-out e eficiencia (inverter_simulator.py)
-- Prioridade Ativa/Reativa com limites de kVA
-- Integracao opcional com OpenDER (smart_inverter_simulator_2.py)
-- Suporte a modos de fase AVG / INDEP (smart_inverter_simulator.py)
+Combines:
+- Cut-in / cut-out logic and efficiency (inverter_simulator.py)
+- Active/Reactive priority with kVA limits
+- Optional OpenDER integration (smart_inverter_simulator_2.py)
+- AVG / INDEP phase mode support (smart_inverter_simulator.py)
 """
+
 import math
 import statistics
-from typing import Dict, List, Optional
 
 import numpy as np
 
 
 class InverterModel:
-    """Modelo fisico e de controle de um inversor fotovoltaico.
+    """Physical and control model of a photovoltaic inverter.
 
-    Recebe potencia DC (P_dc) e tensao da rede (V_meas),
-    aplica eficiencia do inversor, limites de kVA, e opcionalmente
-    roda as malhas de controle IEEE 1547 via OpenDER.
+    Receives DC power (P_dc) and grid voltage (V_meas), applies inverter
+    efficiency, kVA limits, and optionally runs IEEE 1547 control loops
+    via OpenDER.
 
-    Parameters
-    ----------
-    kVA : float
-        Potencia aparente nominal do inversor (kVA).
-    priority : str
-        ``'Active'`` ou ``'Reactive'``.
-    eff_curve_x : list of float
-        Eixo X da curva de eficiencia (pu).
-    eff_curve_y : list of float
-        Eixo Y da curva de eficiencia (0..1).
-    pct_cutin : float
-        Potencia DC minima (%) para ligar o inversor.
-    pct_cutout : float
-        Potencia DC minima (%) para desligar o inversor.
-    ctrl_config : dict, optional
-        Configuracao de controle remoto (OpenDER).
-        Chaves: ``'volt_var'``, ``'volt_watt'``, ``'Const_PF'``, ``'PF'``.
-    phase_mode : str
-        ``'AVG'`` ou ``'INDEP'``.
+    Attributes:
+        kVA: Rated apparent power of the inverter (kVA).
+        priority: ``'Active'`` or ``'Reactive'``.
+        eff_curve_x: X-axis of the efficiency curve (pu).
+        eff_curve_y: Y-axis of the efficiency curve (0..1).
+        pct_cutin: Minimum DC power (%) to turn the inverter on.
+        pct_cutout: Minimum DC power (%) to turn the inverter off.
+        ctrl_config: Remote control configuration (OpenDER).
+            Keys: ``'volt_var'``, ``'volt_watt'``, ``'Const_PF'``, ``'PF'``.
+        phase_mode: ``'AVG'`` or ``'INDEP'``.
     """
 
     def __init__(
         self,
         kVA: float,
         priority: str = "Active",
-        eff_curve_x: Optional[List[float]] = None,
-        eff_curve_y: Optional[List[float]] = None,
+        eff_curve_x: list[float] | None = None,
+        eff_curve_y: list[float] | None = None,
         pct_cutin: float = 20.0,
         pct_cutout: float = 20.0,
-        ctrl_config: Optional[Dict] = None,
+        ctrl_config: dict | None = None,
         phase_mode: str = "AVG",
-    ):
+    ) -> None:
         self.kVA = kVA
         self.priority = priority
         self.eff_curve_x = eff_curve_x if eff_curve_x is not None else [0.0, 1.0]
@@ -65,22 +55,22 @@ class InverterModel:
         self.is_on = False
         self.P_dc = 0.0
         self.Q_des = 0.0
-        self.V_meas = [1.0, 1.0, 1.0]
+        self.V_meas: list[float] = [1.0, 1.0, 1.0]
 
         self.P_ac = 0.0
         self.Q_ac = 0.0
-        self.P_ac_out = [0.0, 0.0, 0.0]
-        self.Q_ac_out = [0.0, 0.0, 0.0]
+        self.P_ac_out: list[float] = [0.0, 0.0, 0.0]
+        self.Q_ac_out: list[float] = [0.0, 0.0, 0.0]
 
-        self._der_objects = []
+        self._der_objects: list = []
         self._setup_opender()
 
     # ------------------------------------------------------------------
-    # Configuracao OpenDER
+    # OpenDER setup
     # ------------------------------------------------------------------
 
-    def _setup_opender(self):
-        """Configura os objetos DER_PV se ctrl_config exigir."""
+    def _setup_opender(self) -> None:
+        """Configure DER_PV objects if ctrl_config requires them."""
         has_vv = bool(self.ctrl_config.get("volt_var"))
         has_vw = bool(self.ctrl_config.get("volt_watt"))
         has_const_pf = bool(self.ctrl_config.get("Const_PF"))
@@ -92,14 +82,20 @@ class InverterModel:
 
         if self.phase_mode == "INDEP":
             kva_per_phase = self.kVA / 3.0
-            self._der_objects = [
-                self._create_der(DER_PV, kva_per_phase) for _ in range(3)
-            ]
+            self._der_objects = [self._create_der(DER_PV, kva_per_phase) for _ in range(3)]
         else:
             self._der_objects = [self._create_der(DER_PV, self.kVA)]
 
-    def _create_der(self, der_cls, kva_rating: float):
-        """Cria e configura uma instancia DER_PV."""
+    def _create_der(self, der_cls: type, kva_rating: float) -> object:
+        """Create and configure a DER_PV instance.
+
+        Args:
+            der_cls: The DER_PV class to instantiate.
+            kva_rating: kVA rating for this DER object.
+
+        Returns:
+            A configured DER_PV instance.
+        """
         der = der_cls()
         der.der_file.NP_VA_MAX = kva_rating * 1000.0
         der.der_file.NP_P_MAX = kva_rating * 1000.0
@@ -112,10 +108,14 @@ class InverterModel:
             if isinstance(vv, dict):
                 for key, attr in [
                     ("vref", "QV_VREF"),
-                    ("v1", "QV_CURVE_V1"), ("q1", "QV_CURVE_Q1"),
-                    ("v2", "QV_CURVE_V2"), ("q2", "QV_CURVE_Q2"),
-                    ("v3", "QV_CURVE_V3"), ("q3", "QV_CURVE_Q3"),
-                    ("v4", "QV_CURVE_V4"), ("q4", "QV_CURVE_Q4"),
+                    ("v1", "QV_CURVE_V1"),
+                    ("q1", "QV_CURVE_Q1"),
+                    ("v2", "QV_CURVE_V2"),
+                    ("q2", "QV_CURVE_Q2"),
+                    ("v3", "QV_CURVE_V3"),
+                    ("q3", "QV_CURVE_Q3"),
+                    ("v4", "QV_CURVE_V4"),
+                    ("q4", "QV_CURVE_Q4"),
                 ]:
                     if key in vv:
                         setattr(der.der_file, attr, vv[key])
@@ -124,8 +124,10 @@ class InverterModel:
             der.der_file.PV_MODE_ENABLE = True
             if isinstance(vw, dict):
                 for key, attr in [
-                    ("v1", "PV_CURVE_V1"), ("p1", "PV_CURVE_P1"),
-                    ("v2", "PV_CURVE_V2"), ("p2", "PV_CURVE_P2"),
+                    ("v1", "PV_CURVE_V1"),
+                    ("p1", "PV_CURVE_P1"),
+                    ("v2", "PV_CURVE_V2"),
+                    ("p2", "PV_CURVE_P2"),
                 ]:
                     if key in vw:
                         setattr(der.der_file, attr, vw[key])
@@ -138,11 +140,15 @@ class InverterModel:
         return der
 
     # ------------------------------------------------------------------
-    # Calculo por step
+    # Step calculation
     # ------------------------------------------------------------------
 
     def calculate_step(self) -> None:
-        """Executa um passo de simulacao do inversor."""
+        """Execute one simulation step of the inverter.
+
+        Applies cut-in/cut-out logic, efficiency curve, optional OpenDER
+        control, and kVA-priority clamping to produce the AC outputs.
+        """
         p_ac = 0.0
         q_ac = 0.0
 
@@ -164,26 +170,33 @@ class InverterModel:
             self._set_outputs(0.0, 0.0)
             return
 
-        # --- Eficiencia do inversor ---
+        # --- Inverter efficiency ---
         p_pu = self.P_dc / self.kVA
         eff = float(np.interp(p_pu, self.eff_curve_x, self.eff_curve_y))
         p_ac_uncapped = self.P_dc * eff
 
-        # --- OpenDER (se configurado) ---
+        # --- OpenDER (if configured) ---
         if self._der_objects:
             p_ac, q_ac = self._run_opender(p_ac_uncapped)
         else:
-            # Sem OpenDER: usa Q_des direto
+            # No OpenDER: use Q_des directly
             p_ac = p_ac_uncapped
             q_ac = self.Q_des
 
-        # --- Filtro de prioridade (kVA circle) ---
+        # --- Priority filter (kVA circle) ---
         p_ac, q_ac = self._apply_priority(p_ac, q_ac)
 
         self._set_outputs(p_ac, q_ac)
 
-    def _run_opender(self, p_ac_uncapped: float):
-        """Roda o OpenDER e retorna (P_ac, Q_ac)."""
+    def _run_opender(self, p_ac_uncapped: float) -> tuple[float, float]:
+        """Run the OpenDER and return (P_ac, Q_ac).
+
+        Args:
+            p_ac_uncapped: Uncapped AC active power (kW) before OpenDER.
+
+        Returns:
+            A tuple ``(P_ac, Q_ac)`` in kW/kVAR after OpenDER processing.
+        """
         if self.phase_mode == "INDEP":
             p_per_phase = p_ac_uncapped / 3.0
             p_outs = [0.0, 0.0, 0.0]
@@ -191,7 +204,11 @@ class InverterModel:
 
             for i, der in enumerate(self._der_objects):
                 v_pu = self.V_meas[i] if self.V_meas[i] > 0.1 else 1.0
-                p_pu = (p_per_phase * 1000.0) / der.der_file.NP_P_MAX if der.der_file.NP_P_MAX > 0 else 0.0
+                p_pu = (
+                    (p_per_phase * 1000.0) / der.der_file.NP_P_MAX
+                    if der.der_file.NP_P_MAX > 0
+                    else 0.0
+                )
                 der.update_der_input(v_pu=v_pu, f=60.0, p_dc_pu=p_pu)
                 p_w, q_var = der.run()
                 p_outs[i] = p_w / 1000.0
@@ -201,12 +218,14 @@ class InverterModel:
             self.Q_ac_out = q_outs
             return sum(p_outs), sum(q_outs)
 
-        # Modo AVG
+        # AVG mode
         valid_v = [v for v in self.V_meas if v > 0.1]
         v_avg = statistics.mean(valid_v) if valid_v else 1.0
 
         der = self._der_objects[0]
-        p_pu = (p_ac_uncapped * 1000.0) / der.der_file.NP_P_MAX if der.der_file.NP_P_MAX > 0 else 0.0
+        p_pu = (
+            (p_ac_uncapped * 1000.0) / der.der_file.NP_P_MAX if der.der_file.NP_P_MAX > 0 else 0.0
+        )
         der.update_der_input(v_pu=v_avg, f=60.0, p_dc_pu=p_pu)
         p_w, q_var = der.run()
 
@@ -216,8 +235,16 @@ class InverterModel:
         self.Q_ac_out = [q_total / 3.0] * 3
         return p_total, q_total
 
-    def _apply_priority(self, p_ac: float, q_ac: float):
-        """Aplica filtro de prioridade Ativa/Reativa dentro do ciculo de kVA."""
+    def _apply_priority(self, p_ac: float, q_ac: float) -> tuple[float, float]:
+        """Apply Active/Reactive priority filter within the kVA circle.
+
+        Args:
+            p_ac: Active power (kW).
+            q_ac: Reactive power (kVAR).
+
+        Returns:
+            A tuple ``(P_ac, Q_ac)`` clamped according to the priority rule.
+        """
         if self.priority == "Active":
             p_ac = min(p_ac, self.kVA)
             q_max = math.sqrt(max(0, self.kVA**2 - p_ac**2))
@@ -228,8 +255,13 @@ class InverterModel:
             p_ac = min(p_ac, p_max)
         return p_ac, q_ac
 
-    def _set_outputs(self, p_ac: float, q_ac: float):
-        """Define as saidoras do inversor."""
+    def _set_outputs(self, p_ac: float, q_ac: float) -> None:
+        """Set inverter AC output values.
+
+        Args:
+            p_ac: Total active power output (kW).
+            q_ac: Total reactive power output (kVAR).
+        """
         self.P_ac = p_ac
         self.Q_ac = q_ac
         if not self._der_objects or self.phase_mode != "INDEP":
