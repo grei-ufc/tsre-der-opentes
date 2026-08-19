@@ -26,10 +26,10 @@ END_TIME = N_PASSOS * STEP_SIZE
 # --- Configuração dos Simuladores ---
 SIM_CONFIG = {
     'DSS': {
-        'python': 'simulators.api_opendss:OpenDSSSimulator',
+        'python': 'simulators.opendss.api_opendss:OpenDSSSimulator',
     },
     'Collector': {
-        'python': 'simulators.collector:Collector',
+        'python': 'simulators.collector.collector:Collector',
     },
 }
 
