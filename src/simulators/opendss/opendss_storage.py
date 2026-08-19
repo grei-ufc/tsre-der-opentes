@@ -1,22 +1,24 @@
+"""Storage element operations on the OpenDSS circuit.
+
+Standalone functions that receive an active ``py_dss_interface.DSS`` instance
+and encapsulate reading of static battery parameters.
 """
-Operacoes de Storage no OpenDSS.
 
-Funcoes standalone que recebem a instancia ``dss`` (py_dss_interface.DSS)
-e encapsulam leitura de parametros estaticos de baterias.
-"""
-from typing import Dict
+from __future__ import annotations
+
+from typing import Any
 
 
-def get_all_storages_info(dss) -> Dict[str, dict]:
-    """Retorna dados estaticos de todos os elementos Storage.
+def get_all_storages_info(dss: Any) -> dict[str, dict[str, Any]]:
+    """Return static data for every Storage element in the circuit.
 
     Args:
-        dss: Instancia py_dss_interface.DSS ativa.
+        dss: Active ``py_dss_interface.DSS`` instance.
 
     Returns:
-        Dict mapeando nome_do_Storage -> dict com parametros.
+        Dictionary mapping Storage names to parameter dictionaries.
     """
-    storage_infos: Dict[str, dict] = {}
+    storage_infos: dict[str, dict[str, Any]] = {}
 
     dss.circuit.set_active_class("Storage")
     if dss.active_class.count == 0:

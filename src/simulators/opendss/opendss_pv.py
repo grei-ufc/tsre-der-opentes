@@ -1,27 +1,28 @@
+"""PVSystem operations on the OpenDSS circuit.
+
+Standalone functions that receive an active ``py_dss_interface.DSS`` instance
+and encapsulate parameter reading, XY-curve lookups, PQ control, and
+measurements.
 """
-Operacoes de PVSystem no OpenDSS.
 
-Funcoes standalone que recebem a instancia ``dss`` (py_dss_interface.DSS)
-e encapsulam leitura de parametros, curvas XY, controle PQ e medicao.
-"""
-from typing import Dict, Tuple
+from __future__ import annotations
 
-import numpy as np
+from typing import Any
 
 
-def get_all_pvsystems_info(dss) -> Dict[str, dict]:
-    """Retorna dados estaticos e curvas de todos os PVSystems.
+def get_all_pvsystems_info(dss: Any) -> dict[str, dict[str, Any]]:
+    """Return static data and curves for every PVSystem in the circuit.
 
-    Le automaticamente as XYCurves (P-TCurve, EffCurve) atreladas
-    a cada inversor.
+    Automatically reads the attached XYCurves (``P-TCurve``, ``EffCurve``)
+    for each inverter.
 
     Args:
-        dss: Instancia py_dss_interface.DSS ativa.
+        dss: Active ``py_dss_interface.DSS`` instance.
 
     Returns:
-        Dict mapeando nome_do_PVSystem -> dict com parametros.
+        Dictionary mapping PVSystem names to parameter dictionaries.
     """
-    pv_infos: Dict[str, dict] = {}
+    pv_infos: dict[str, dict[str, Any]] = {}
     names = dss.pvsystems.names
 
     if not names or names[0].upper() == "NONE":
@@ -63,38 +64,35 @@ def get_all_pvsystems_info(dss) -> Dict[str, dict]:
     return pv_infos
 
 
-def set_pvsystem_pq(dss, name: str, p_des: float, q_des: float) -> None:
-    """Forca valores de P e Q em um PVSystem, desacoplando das curvas.
+def set_pvsystem_pq(dss: Any, name: str, p_des: float, q_des: float) -> None:
+    """Force active and reactive power values on a PVSystem, bypassing curves.
 
     Args:
-        dss: Instancia py_dss_interface.DSS ativa.
-        name: Nome do PVSystem (sem o prefixo 'PVSystem.').
-        p_des: Potencia ativa desejada (kW, sinalizado por injecao).
-        q_des: Potencia reativa desejada (kvar).
+        dss: Active ``py_dss_interface.DSS`` instance.
+        name: PVSystem name (without the ``PVSystem.`` prefix).
+        p_des: Desired active power (kW, signed for injection).
+        q_des: Desired reactive power (kvar).
     """
     dss.circuit.set_active_element(f"PVSystem.{name}")
     p_abs = abs(p_des)
 
     if p_abs > 0.001:
-        cmd = (
-            f"Edit PVSystem.{name} pmpp={p_abs} "
-            f"irradiance=1.0 kvar={q_des}"
-        )
+        cmd = f"Edit PVSystem.{name} pmpp={p_abs} irradiance=1.0 kvar={q_des}"
         dss.text(cmd)
     else:
         cmd = f"Edit PVSystem.{name} irradiance=0.0 kvar={q_des}"
         dss.text(cmd)
 
 
-def get_pvsystem_power(dss, name: str) -> Tuple[float, float]:
-    """Le a potencia ativa e reativa de um PVSystem.
+def get_pvsystem_power(dss: Any, name: str) -> tuple[float, float]:
+    """Read active and reactive power from a PVSystem.
 
     Args:
-        dss: Instancia py_dss_interface.DSS ativa.
-        name: Nome do PVSystem (sem o prefixo 'PVSystem.').
+        dss: Active ``py_dss_interface.DSS`` instance.
+        name: PVSystem name (without the ``PVSystem.`` prefix).
 
     Returns:
-        Tuple (P_kW, Q_kvar) com sinal invertido (conv. injecao).
+        Tuple ``(P_kW, Q_kvar)`` with inverted sign convention (injection).
     """
     dss.circuit.set_active_element(f"PVSystem.{name}")
     powers = dss.cktelement.powers
@@ -104,11 +102,20 @@ def get_pvsystem_power(dss, name: str) -> Tuple[float, float]:
 
 
 # ------------------------------------------------------------------
-# Helpers internos
+# Internal helpers
 # ------------------------------------------------------------------
 
-def _read_xy_curve(dss, curve_name: str):
-    """Le os arrays X e Y de uma XYCurve do OpenDSS."""
+
+def _read_xy_curve(dss: Any, curve_name: str) -> tuple[list[float], list[float]]:
+    """Read the X and Y arrays from an OpenDSS XYCurve.
+
+    Args:
+        dss: Active ``py_dss_interface.DSS`` instance.
+        curve_name: Name of the XYCurve element.
+
+    Returns:
+        Tuple of ``(x_values, y_values)`` as lists of floats.
+    """
     if not curve_name:
         return [], []
     dss.xycurves.name = curve_name

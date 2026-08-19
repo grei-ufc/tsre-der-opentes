@@ -1,24 +1,26 @@
+"""Voltage regulator operations on the OpenDSS circuit.
+
+Standalone functions that receive an active ``py_dss_interface.DSS`` instance
+and encapsulate regulator detection, parameter reading, and measurements.
 """
-Operacoes de Regulador de Tensao no OpenDSS.
 
-Funcoes standalone que recebem a instancia ``dss`` (py_dss_interface.DSS)
-e encapsulam deteccao de reguladores, leitura de parametros e medicoes.
-"""
-from typing import Dict, List
+from __future__ import annotations
+
+from typing import Any
 
 
-def get_all_regulators_info(dss) -> List[Dict[str, object]]:
-    """Detecta todos os RegControls e retorna seus dados estaticos.
+def get_all_regulators_info(dss: Any) -> list[dict[str, Any]]:
+    """Detect every RegControl and return its static data.
 
-    Inclui topologia (Transformer, Winding, Bus, Phase).
+    Includes topology information (Transformer, Winding, Bus, Phase).
 
     Args:
-        dss: Instancia py_dss_interface.DSS ativa.
+        dss: Active ``py_dss_interface.DSS`` instance.
 
     Returns:
-        Lista de dicts, um por regulador detectado.
+        List of dictionaries, one per detected regulator.
     """
-    reg_list: List[Dict[str, object]] = []
+    reg_list: list[dict[str, Any]] = []
 
     try:
         names = dss.regcontrols.names
@@ -30,7 +32,7 @@ def get_all_regulators_info(dss) -> List[Dict[str, object]]:
         dss.regcontrols.max_tap_change = 0
         dss.regcontrols.tap_number = 0
 
-        info = {
+        info: dict[str, Any] = {
             "name": name,
             "vreg": dss.regcontrols.forward_vreg,
             "band": dss.regcontrols.forward_band,
@@ -67,17 +69,18 @@ def get_all_regulators_info(dss) -> List[Dict[str, object]]:
     return reg_list
 
 
-def get_regulator_measurements(dss, reg_info: dict) -> Dict[str, object]:
-    """Le tensao, corrente e tap de um regulador.
+def get_regulator_measurements(dss: Any, reg_info: dict[str, Any]) -> dict[str, Any]:
+    """Read voltage, current, and tap position of a regulator.
 
     Args:
-        dss: Instancia py_dss_interface.DSS ativa.
-        reg_info: Dict retornado por ``get_all_regulators_info``.
+        dss: Active ``py_dss_interface.DSS`` instance.
+        reg_info: Dictionary returned by :func:`get_all_regulators_info`.
 
     Returns:
-        Dict com chaves ``'v'`` (complex), ``'i'`` (complex), ``'tap'`` (int).
+        Dictionary with keys ``'v'`` (complex), ``'i'`` (complex),
+        and ``'tap'`` (int).
     """
-    res: Dict[str, object] = {"v": 0j, "i": 0j, "tap": 0}
+    res: dict[str, Any] = {"v": 0j, "i": 0j, "tap": 0}
 
     try:
         dss.regcontrols.name = reg_info["name"]
@@ -90,9 +93,7 @@ def get_regulator_measurements(dss, reg_info: dict) -> Dict[str, object]:
         res["v"] = complex(v_r, v_i)
 
         # Corrente no transformer
-        dss.circuit.set_active_element(
-            f"Transformer.{reg_info['trafo']}"
-        )
+        dss.circuit.set_active_element(f"Transformer.{reg_info['trafo']}")
         n_phases = dss.cktelement.num_phases
         winding = reg_info["winding"]
         start = (winding - 1) * (2 * n_phases + 2)
@@ -110,14 +111,23 @@ def get_regulator_measurements(dss, reg_info: dict) -> Dict[str, object]:
 
 
 # ------------------------------------------------------------------
-# Helpers internos
+# Internal helpers
 # ------------------------------------------------------------------
 
-def _get_bus_voltage_raw(dss, bus: str, phase: int):
-    """Retorna (real, imag) da tensao de uma fase de uma barra, em Volts."""
+
+def _get_bus_voltage_raw(dss: Any, bus: str, phase: int) -> tuple[float, float]:
+    """Return the (real, imaginary) voltage for a single bus phase in Volts.
+
+    Args:
+        dss: Active ``py_dss_interface.DSS`` instance.
+        bus: Bus name to query.
+        phase: Phase number (1-based) to extract.
+
+    Returns:
+        Tuple of ``(real_voltage, imag_voltage)`` in Volts.
+    """
     dss.circuit.set_active_bus(bus)
     v = dss.bus.voltages
-    n_nodes = dss.bus.num_nodes
     nodes = dss.bus.nodes
 
     real = v[0::2]
