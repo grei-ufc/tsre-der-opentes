@@ -1,26 +1,24 @@
+import mosaik_api_v3
 import pandas as pd
 
-import mosaik_api_v3
-
-DATE_FORMAT = 'YYYY-MM-DD HH:mm:ss'
+DATE_FORMAT = "YYYY-MM-DD HH:mm:ss"
 
 SENTINEL = object()
 
 
 class CSV(mosaik_api_v3.Simulator):
     def __init__(self):
-        super().__init__({'api_version': '3.0', 'models': {}})
+        super().__init__({"api_version": "3.0", "models": {}})
         self.start_date = None
         self.data = None
         self.attrs = None
         self.cache = None
         self.sid = None
         self.eid = None
-        
-    def init(self, sid, time_resolution, sim_start, datafile, date_format=None,
-             continuous=True):
+
+    def init(self, sid, time_resolution, sim_start, datafile, date_format=None, continuous=True):
         self.sid = sid
-        self.time_res = pd.Timedelta(time_resolution, unit='seconds')
+        self.time_res = pd.Timedelta(time_resolution, unit="seconds")
         start_date = self.start_date = pd.to_datetime(sim_start, format=date_format)
         self.next_date = self.start_date
 
@@ -28,27 +26,26 @@ class CSV(mosaik_api_v3.Simulator):
         # or a model name:
         with open(datafile) as f:
             first_line = f.readline()
-        if len(first_line.split(',')) == 1:
+        if len(first_line.split(",")) == 1:
             header = 1
         else:
             header = 0
 
-        data = self.data = pd.read_csv(datafile, index_col=0, parse_dates=True,
-                                       header=header)
+        data = self.data = pd.read_csv(datafile, index_col=0, parse_dates=True, header=header)
         data.rename(columns=lambda x: x.strip(), inplace=True)
 
         self.attrs = [attr.strip() for attr in data.columns]
 
-        self.meta['type'] = 'hybrid'
+        self.meta["type"] = "hybrid"
         if continuous:
             non_persistent = []
         else:
             non_persistent = True
-        self.meta['models']['Data'] = {
-            'public': True,
-            'params': [],
-            'attrs': self.attrs,
-            'non-persistent': non_persistent,
+        self.meta["models"]["Data"] = {
+            "public": True,
+            "params": [],
+            "attrs": self.attrs,
+            "non-persistent": non_persistent,
         }
 
         # Find first relevant value:
@@ -66,18 +63,20 @@ class CSV(mosaik_api_v3.Simulator):
         return self.meta
 
     def create(self, num, model):
-        if model != 'Data':
+        if model != "Data":
             raise ValueError('Invalid model "%s" % model')
 
         if num > 1 or self.eid is not None:
             raise ValueError(f"Only one entity allowed for simulator {self.sid}.")
 
-        self.eid = 'csv-0'
+        self.eid = "csv-0"
         entities = [
-            {'eid': self.eid,
-             'type': model,
-             'rel': [],
-            }]
+            {
+                "eid": self.eid,
+                "type": model,
+                "rel": [],
+            }
+        ]
 
         return entities
 
@@ -91,7 +90,7 @@ class CSV(mosaik_api_v3.Simulator):
         self.next_index += 1
         try:
             next_date = self.data.index[self.next_index]
-            next_step = int((next_date - self.start_date)/self.time_res)
+            next_step = int((next_date - self.start_date) / self.time_res)
         except IndexError:
             next_step = max_advance
 
@@ -112,8 +111,8 @@ class CSV(mosaik_api_v3.Simulator):
 
 
 def main():
-    return mosaik_api_v3.start_simulation(CSV(), 'mosaik-csv simulator')
+    return mosaik_api_v3.start_simulation(CSV(), "mosaik-csv simulator")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
