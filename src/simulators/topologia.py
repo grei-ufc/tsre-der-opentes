@@ -1,6 +1,6 @@
 import json
 from dataclasses import asdict
-from .topology_builder import build_graph
+from .opendss.topology_builder import build_graph
 import py_dss_interface
 
 def exportar_topologia(dss_path, caminho_json_saida):
