@@ -32,10 +32,10 @@ END_TIME = N_PASSOS * STEP_SIZE
 # --- Configuração dos Simuladores ---
 SIM_CONFIG = {
     'DSS': {
-        'python': 'simulators.api_opendss:OpenDSSSimulator',
+        'python': 'simulators.opendss.api_opendss:OpenDSSSimulator',
     },
     'Collector': {
-        'python': 'simulators.collector:Collector',
+        'python': 'simulators.collector.collector:Collector',
     },
 }
 
@@ -48,8 +48,8 @@ def run_scenario():
 
     try:
         # Importação local para evitar erros circulares e garantir que o path está certo
-        from simulators import api_opendss
-        from simulators import collector 
+        from simulators.opendss import api_opendss
+        from simulators.collector import collector 
     except ImportError as e:
         print(f"Erro de importação: {e}")
         print(f"Verifique se a pasta 'simulators' está em {PROJECT_ROOT}")
