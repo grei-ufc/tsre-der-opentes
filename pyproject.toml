@@ -37,3 +37,43 @@ where = ["src"]
 [tool.setuptools]
 # Mapeia o diretório raiz de pacotes para 'src'.
 package-dir = { "" = "src" }
+
+# ============================
+# Ruff (linter + formatter)
+# ============================
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "scenarios"]
+
+[tool.ruff.lint]
+select = [
+    "F",     # Pyflakes
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "I",     # isort (import sorting)
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "SIM",   # flake8-simplify
+    "RUF",   # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function call in default argument (mosaik pattern)
+    "SIM108", # ternary operator (readability tradeoff)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/simulators/old/*" = ["F401", "E402", "F841"]  # deprecated code, don't lint
+"scenarios/*" = ["F841", "B006"]  # scenario scripts, allow unused vars
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "ruff>=0.16.3",
+]
