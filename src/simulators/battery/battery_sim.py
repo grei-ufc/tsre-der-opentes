@@ -1,7 +1,8 @@
-import mosaik_api 
-from simulators.battery_model import OpenDSSBattery
+import mosaik_api_v3
+from .battery_model import OpenDSSBattery
 
 META = {
+    'api_version': '3.0',
     'type': 'time-based',
     'models': {
         'Battery': {
@@ -28,7 +29,7 @@ META = {
     },
 }
 
-class BatterySim(mosaik_api.Simulator):
+class BatterySim(mosaik_api_v3.Simulator):
     def __init__(self):
         super().__init__(META)
         self.sid = None
@@ -101,4 +102,4 @@ class BatterySim(mosaik_api.Simulator):
         return data
 
 if __name__ == '__main__':
-    mosaik_api.start_simulation(BatterySim())
+    mosaik_api_v3.start_simulation(BatterySim())
