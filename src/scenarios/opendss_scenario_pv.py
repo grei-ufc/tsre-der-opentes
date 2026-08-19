@@ -19,11 +19,11 @@ END_TIME = N_PASSOS * STEP_SIZE
 START = '2026-01-01 00:00:00'  
 
 SIM_CONFIG = {
-    'CSV': {'python': 'simulators.csv_sim_pandas:CSV'},
-    'PVSimulator': {'python': 'simulators.pv_panel_simulator:PVPanelSim'},
-    'InverterSim': {'python': 'simulators.inverter_simulator:InverterSim'},
-    'OpenDSS': {'python': 'simulators.api_opendss:OpenDSSSimulator'},
-    'Collector': {'python': 'simulators.collector:Collector'}
+    'CSV': {'python': 'simulators.collector.csv_sim_pandas:CSV'},
+    'PVSimulator': {'python': 'simulators.pv.pv_panel_simulator:PVPanelSim'},
+    'InverterSim': {'python': 'simulators.inverter.inverter_simulator:InverterSim'},
+    'OpenDSS': {'python': 'simulators.opendss.api_opendss:OpenDSSSimulator'},
+    'Collector': {'python': 'simulators.collector.collector:Collector'}
 }
 
 def main():
