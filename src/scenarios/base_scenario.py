@@ -15,10 +15,10 @@ parent_dir = current_dir.parent
 # - 'controller_des_VW': com GD adicional, com controle Volt-Watt
 sim_config = {
     'Grid': {'python': 'mosaik_pandapower.simulator:Pandapower'},
-    'CSV': {'python': 'simulators.csv_sim_pandas:CSV'},
-    'PV': {'python': 'simulators.pv_simulator:PvAdapter'},
-    'Ctrl': {'python': 'simulators.controller_des_SEM:Controller'},
-    'Collector': {'python': 'simulators.collector:Collector'},
+    'CSV': {'python': 'simulators.collector.csv_sim_pandas:CSV'},
+    'PV': {'python': 'simulators.old.pv_simulator:PvAdapter'},
+    'Ctrl': {'python': 'simulators.old.controller_des_SEM:Controller'},
+    'Collector': {'python': 'simulators.collector.collector:Collector'},
 }# - 'controller_des_VV': com GD adicional, com controle Volt-Var
 
 
