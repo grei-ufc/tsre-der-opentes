@@ -5,6 +5,7 @@ __pycache__/
 
 teste/
 mosaik/
+output/
 
 # C extensions
 *.so
