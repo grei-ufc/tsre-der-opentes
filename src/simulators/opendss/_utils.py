@@ -1,14 +1,19 @@
-"""
-Funções helper reutilizáveis para normalização de dados trifásicos
-retornados pelo OpenDSS.
-"""
-from typing import Any, Dict, List, Tuple, Union
+"""Reusable helpers for normalizing three-phase data returned by OpenDSS."""
+
+from typing import Any
 
 
-def to_3phase(value: Union[float, Tuple, List, None]) -> List[float]:
-    """
-    Normaliza qualquer retorno do OpenDSS (escalar, tupla, lista)
-    para uma lista de 3 elementos, preenchendo com 0.0 quando necessário.
+def to_3phase(value: float | tuple | list | None) -> list[float]:
+    """Normalize any OpenDSS return (scalar, tuple, list) to a 3-element list.
+
+    Fills missing positions with ``0.0``.
+
+    Args:
+        value: Raw value from OpenDSS — may be a scalar, tuple, list,
+            or ``None``.
+
+    Returns:
+        A list of exactly three floats representing the three phases.
     """
     if value is None:
         return [0.0, 0.0, 0.0]
@@ -22,49 +27,54 @@ def to_3phase(value: Union[float, Tuple, List, None]) -> List[float]:
 
 
 def extract_3phase_pq(
-    dss_wrapper,
+    dss_wrapper: Any,
     name: str,
     element: str,
-    attrs: Dict[str, Any],
+    attrs: dict[str, Any],
     sign: int = -1,
     line_bus: int = 1,
-) -> Dict[str, float]:
-    """
-    Extrai potências e correntes trifásicas de um elemento e mapeia
-    para os atributos do Mosaik (Storage, PVSystem, etc.).
+) -> dict[str, float]:
+    """Extract three-phase powers and currents and map them to Mosaik attributes.
 
-    Atributos suportados: P1/P2/P3, Q1/Q2/Q3, I1_A/I2_A/I3_A,
-    e totais P_act/Q_act (ou P_meas/Q_meas) quando presentes em attrs.
+    Supported attributes: P1/P2/P3, Q1/Q2/Q3, I1_A/I2_A/I3_A,
+    and totals P_act/Q_act (or P_meas/Q_meas) when present in *attrs*.
 
     Args:
-        dss_wrapper: Instância de OpenDSS wrapper.
-        name: Nome do elemento.
-        element: Classe do elemento ('Storage', 'PVSystem', etc.).
-        attrs: Dicionário de atributos solicitados pelo Mosaik.
-        sign: Sinal de inversão (-1 para injeção, 1 para consumo).
-        line_bus: Terminal para elementos de linha (1 ou 2).
+        dss_wrapper: OpenDSS wrapper instance.
+        name: Element name.
+        element: Element class (``'Storage'``, ``'PVSystem'``, etc.).
+        attrs: Dictionary of attributes requested by Mosaik.
+        sign: Inversion sign (``-1`` for injection, ``1`` for consumption).
+        line_bus: Terminal for line elements (1 or 2).
 
     Returns:
-        Dict com valores dos atributos solicitados.
+        Dictionary mapping attribute names to their float values.
     """
-    data: Dict[str, float] = {}
+    data: dict[str, float] = {}
 
     # Potências por fase
     p_raw, q_raw = dss_wrapper.get_power(
-        name=name, element=element, total=False, line_bus=line_bus,
+        name=name,
+        element=element,
+        total=False,
+        line_bus=line_bus,
     )
     p_list = to_3phase(p_raw)
     q_list = to_3phase(q_raw)
 
     # Correntes por fase
     curr_mag, _ = dss_wrapper.get_current(
-        name, element=element, polar=True, mag_only=False, line_bus=line_bus,
+        name,
+        element=element,
+        polar=True,
+        mag_only=False,
+        line_bus=line_bus,
     )
     i_mags = to_3phase(curr_mag)
 
-    p_map = {'P1': 0, 'P2': 1, 'P3': 2}
-    q_map = {'Q1': 0, 'Q2': 1, 'Q3': 2}
-    i_map = {'I1_A': 0, 'I2_A': 1, 'I3_A': 2}
+    p_map = {"P1": 0, "P2": 1, "P3": 2}
+    q_map = {"Q1": 0, "Q2": 1, "Q3": 2}
+    i_map = {"I1_A": 0, "I2_A": 1, "I3_A": 2}
 
     for attr in attrs:
         if attr in p_map:
@@ -73,9 +83,9 @@ def extract_3phase_pq(
             data[attr] = sign * q_list[q_map[attr]]
         elif attr in i_map:
             data[attr] = i_mags[i_map[attr]]
-        elif attr in ('P_act', 'P_meas'):
+        elif attr in ("P_act", "P_meas"):
             data[attr] = sign * sum(p_list)
-        elif attr in ('Q_act', 'Q_meas'):
+        elif attr in ("Q_act", "Q_meas"):
             data[attr] = sign * sum(q_list)
 
     return data

@@ -20,14 +20,11 @@ class NetworkNode:
 
     voltage_pu: float | None = None
 
-    metadata: dict = field(
-        default_factory=dict
-    )
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
 class NetworkEdge:
-
     id: str
 
     source: str
@@ -35,13 +32,10 @@ class NetworkEdge:
 
     edge_type: str
 
-    metadata: dict = field(
-        default_factory=dict
-    )
+    metadata: dict = field(default_factory=dict)
 
 
 class NetworkGraph:
-
     def __init__(self):
 
         self.nodes = {}

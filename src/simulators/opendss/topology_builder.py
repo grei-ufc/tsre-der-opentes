@@ -1,93 +1,78 @@
 from .graph_model import (
+    NetworkEdge,
     NetworkGraph,
     NetworkNode,
-    NetworkEdge,
 )
-
 
 # =====================================================
 # COLETA DE INFORMAÇÕES
 # =====================================================
+
 
 def get_load_buses(dss):
 
     buses = set()
 
     try:
-
         if dss.loads.first():
-
             dss.loads.first()
 
             for _ in range(dss.loads.count):
-                bus = (
-                    dss.cktelement.bus_names[0].split(".")[0]
-                )
+                bus = dss.cktelement.bus_names[0].split(".")[0]
 
                 buses.add(bus)
                 dss.loads.next()
 
-
     except Exception:
-
         pass
 
     return buses
+
 
 def get_pv_buses(dss):
 
     buses = set()
 
     try:
-
         if dss.pvsystems.first():
-
             dss.pvsystems.first()
 
             for _ in range(dss.pvsystems.count):
-                bus = (
-                    dss.cktelement.bus_names[0].split(".")[0]
-                )
+                bus = dss.cktelement.bus_names[0].split(".")[0]
 
                 buses.add(bus)
                 dss.pvsystems.next()
 
-
     except Exception:
-
         pass
 
     return buses
+
 
 def get_transformer_buses(dss):
 
     buses = set()
 
     try:
-
         if dss.transformers.first():
-
             dss.transformers.first()
 
             for _ in range(dss.transformers.count):
-
                 for bus in dss.cktelement.bus_names:
-
-                    buses.add(
-                        bus.split(".")[0].lower()
-                    )
+                    buses.add(bus.split(".")[0].lower())
 
                 dss.transformers.next()
 
     except Exception:
-
         pass
 
     return buses
 
+
 # =====================================================
 # CLASSIFICAÇÃO
 # =====================================================
+
 
 def get_node_type(
     bus_id,
@@ -116,9 +101,11 @@ def get_node_type(
 
     return "bus"
 
+
 # =====================================================
 # NÓS
 # =====================================================
+
 
 def add_nodes(
     graph,
@@ -129,7 +116,6 @@ def add_nodes(
 ):
 
     for bus in dss.circuit.buses_names:
-
         bus_id = bus.lower()
 
         graph.add_node(
@@ -150,28 +136,19 @@ def add_nodes(
 # ARESTAS - LINHAS
 # =====================================================
 
+
 def add_line_edges(
     graph,
     dss,
 ):
 
     if dss.lines.first():
-        
         dss.lines.first()
 
         for _ in range(dss.lines.count):
+            bus1 = dss.lines.bus1.split(".")[0].lower()
 
-            bus1 = (
-            dss.lines.bus1
-            .split(".")[0]
-            .lower()
-            )
-
-            bus2 = (
-                dss.lines.bus2
-                .split(".")[0]
-                .lower()
-            )
+            bus2 = dss.lines.bus2.split(".")[0].lower()
 
             graph.add_edge(
                 NetworkEdge(
@@ -185,35 +162,31 @@ def add_line_edges(
             dss.lines.next()
 
 
-
 # =====================================================
 # ARESTAS - TRANSFORMADORES
 # =====================================================
+
 
 def add_transformer_edges(
     graph,
     dss,
 ):
-    
+
     added = set()
 
     if dss.transformers.first():
-        
         dss.transformers.first()
 
         for _ in range(dss.transformers.count):
-
             buses = dss.cktelement.bus_names
-            
-            if len(buses) >= 2:
 
+            if len(buses) >= 2:
                 bus1 = buses[0].split(".")[0].lower()
                 bus2 = buses[1].split(".")[0].lower()
 
                 edge_id = f"{bus1}_{bus2}"
 
                 if edge_id not in added:
-
                     graph.add_edge(
                         NetworkEdge(
                             id=edge_id,
@@ -232,6 +205,7 @@ def add_transformer_edges(
 # BUILD
 # =====================================================
 
+
 def build_graph(dss):
 
     graph = NetworkGraph()
@@ -240,9 +214,7 @@ def build_graph(dss):
 
     pv_buses = get_pv_buses(dss)
 
-    transformer_buses = get_transformer_buses(
-        dss
-    )
+    transformer_buses = get_transformer_buses(dss)
 
     add_nodes(
         graph,

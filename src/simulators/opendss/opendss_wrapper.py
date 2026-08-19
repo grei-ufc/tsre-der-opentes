@@ -1,35 +1,42 @@
-import py_dss_interface
 import datetime as dt
+import json
+from dataclasses import asdict
+from typing import Any
+
 import numpy as np
 import pandas as pd
-from typing import List, Union, Tuple, Dict, Any, Optional
-from dataclasses import asdict
+import py_dss_interface
+
+from . import opendss_pv, opendss_regulator, opendss_storage
 from .topology_builder import build_graph
-from . import opendss_pv, opendss_storage, opendss_regulator
-import json
 
+LINE_CLASSES = ["Line", "Xfmr", "Capacitor"]
 
-LINE_CLASSES = ['Line', 'Xfmr', 'Capacitor']
 
 class OpenDSSException(Exception):
     """Custom exception for OpenDSS interface related errors."""
+
     pass
+
 
 class OpenDSS:
     """
     Wrapper class to manage the interface with OpenDSS (via py_dss_interface).
 
-    It handles circuit compilation, time flow management, data extraction, 
+    It handles circuit compilation, time flow management, data extraction,
     and element control (Loads, PVs, Storage, etc.).
-    """ 
-    name = 'DSS'
+    """
 
-    def __init__(self, 
-                 redirects: Union[str, List[str]], 
-                 time_step: dt.timedelta, 
-                 start_time: dt.datetime, 
-                 fail_on_error: bool = True, 
-                 **kwargs):
+    name = "DSS"
+
+    def __init__(
+        self,
+        redirects: str | list[str],
+        time_step: dt.timedelta,
+        start_time: dt.datetime,
+        fail_on_error: bool = True,
+        **kwargs,
+    ):
         """
         Initializes the OpenDSS instance.
 
@@ -43,7 +50,7 @@ class OpenDSS:
         self.dss = py_dss_interface.DSS()
         self.fail_on_error = fail_on_error
 
-        self.print('Compiling...')
+        self.print("Compiling...")
         if not isinstance(redirects, list):
             redirects = [redirects]
         for redirect in redirects:
@@ -51,25 +58,25 @@ class OpenDSS:
 
         # Checks for the existence of specific elements to optimize data retrieval
         self.includes_elements = {
-            'Load': len(self.dss.loads.names) > 0,
-            'PVSystem': len(self.dss.pvsystems.names) > 0,
-            'Generator': len(self.dss.generators.names) > 0,
+            "Load": len(self.dss.loads.names) > 0,
+            "PVSystem": len(self.dss.pvsystems.names) > 0,
+            "Generator": len(self.dss.generators.names) > 0,
         }
-        
+
         # Specific logic to handle Storage elements
         self.dss.circuit.set_active_class("Storage")
         storages_names = self.dss.active_class.names
-        
+
         if storages_names and storages_names[0] is not None:
-            self.includes_elements['Storage'] = True
+            self.includes_elements["Storage"] = True
             self.storage_names = storages_names
         else:
-            self.includes_elements['Storage'] = False
+            self.includes_elements["Storage"] = False
             self.storage_names = []
 
         self.dss.solution.mode = 0  # Snapshot mode (initialization)
         self.dss.solution.number = 1
-        
+
         day_of_year = start_time.timetuple().tm_yday - 1
         self.dss.solution.hour = day_of_year * 24 + start_time.hour
 
@@ -77,7 +84,7 @@ class OpenDSS:
         self.run_dss()
         self.dss.solution.step_size = time_step.total_seconds()
 
-        self.print(f'Compiled Circuit: {self.dss.circuit.name}')
+        self.print(f"Compiled Circuit: {self.dss.circuit.name}")
 
     def run_command(self, cmd: str) -> None:
         """
@@ -91,9 +98,9 @@ class OpenDSS:
         """
         status = self.dss.text(cmd)
         if status and "error" in status.lower() and self.fail_on_error:
-            self.fail(f'Status ({cmd}): {status}')
+            self.fail(f"Status ({cmd}): {status}")
         if status:
-             self.print(f'Status ({cmd}): {status}')
+            self.print(f"Status ({cmd}): {status}")
 
     def redirect(self, filename: str) -> None:
         """
@@ -102,7 +109,7 @@ class OpenDSS:
         Args:
             filename (str): Path to the file.
         """
-        self.print(f'Running file: {filename}')
+        self.print(f"Running file: {filename}")
         self.dss.text(f'compile "{filename}"')
 
     def run_dss(self, no_controls: bool = False) -> None:
@@ -119,19 +126,19 @@ class OpenDSS:
                 self.dss.solution.solve()
 
             # Manually update storage state after solution
-            if self.includes_elements.get('Storage', False):
-                self.dss.text('UpdateStorage')
+            if self.includes_elements.get("Storage", False):
+                self.dss.text("UpdateStorage")
 
         except Exception as e:
-            self.dss.text('export Eventlog')
+            self.dss.text("export Eventlog")
             self.fail(f"An error occurred during DSS solution: {e}")
 
-    def get_circuit_power(self) -> Tuple[float, float]:
+    def get_circuit_power(self) -> tuple[float, float]:
         """
         Gets the total active and reactive power of the circuit.
-        
+
         Note: This inverts the standard OpenDSS sign convention (where generation is positive)
-        so that grid consumption is positive and injection into the grid is negative 
+        so that grid consumption is positive and injection into the grid is negative
         (or vice versa, depending on reference, but signs are flipped from native output).
 
         Returns:
@@ -139,12 +146,12 @@ class OpenDSS:
         """
         p_kw, q_kvar = self.dss.circuit.total_power
         p_kw, q_kvar = -p_kw, -q_kvar
-        
+
         if np.isnan(p_kw) or np.isnan(q_kvar):
-            self.fail(f'NaN output for circuit power: ({p_kw}, {q_kvar})')
+            self.fail(f"NaN output for circuit power: ({p_kw}, {q_kvar})")
         return p_kw, q_kvar
 
-    def get_losses(self) -> Tuple[float, float]:
+    def get_losses(self) -> tuple[float, float]:
         """
         Gets the total circuit losses.
 
@@ -154,7 +161,7 @@ class OpenDSS:
         p_w, q_var = self.dss.circuit.losses
         return p_w / 1000.0, q_var / 1000.0
 
-    def get_total_power(self, element: str = 'Load') -> Tuple[float, float]:
+    def get_total_power(self, element: str = "Load") -> tuple[float, float]:
         """
         Calculates the aggregated power for a specific class of elements.
 
@@ -165,29 +172,29 @@ class OpenDSS:
             Tuple[float, float]: Total (P_kW, Q_kvar).
         """
         p_total, q_total = 0.0, 0.0
-        
+
         try:
             self.dss.circuit.set_active_class(element)
         except py_dss_interface.errors.DSSException:
-             return 0.0, 0.0
+            return 0.0, 0.0
 
         if self.dss.active_class.count == 0:
             return 0.0, 0.0
-            
+
         idx = self.dss.active_class.first()
         while idx > 0:
             powers = self.dss.cktelement.powers
             p_total += sum(powers[0::2])
             q_total += sum(powers[1::2])
             idx = self.dss.active_class.next()
-            
+
         # For Storage, we invert the sign to match injection/consumption conventions
-        if element == 'Storage':
+        if element == "Storage":
             return -p_total, -q_total
-        
+
         return p_total, q_total
 
-    def get_circuit_info(self) -> Dict[str, float]:
+    def get_circuit_info(self) -> dict[str, float]:
         """
         Runs a power flow and returns a summary dictionary of the system status.
 
@@ -195,34 +202,39 @@ class OpenDSS:
             Dict[str, float]: Dictionary containing Total P/Q (MW/MVAR) and Losses.
         """
         self.run_dss()
-        
+
         p_total_kw, q_total_kvar = self.get_circuit_power()
         p_loss_kw, q_loss_kvar = self.get_losses()
-        total_by_class = {class_name: self.get_total_power(class_name) for class_name, included in
-                          self.includes_elements.items() if included}
+        total_by_class = {
+            class_name: self.get_total_power(class_name)
+            for class_name, included in self.includes_elements.items()
+            if included
+        }
 
         out = {
-            'Total P (MW)': p_total_kw / 1000,
-            'Total Loss P (MW)': p_loss_kw / 1000,
+            "Total P (MW)": p_total_kw / 1000,
+            "Total Loss P (MW)": p_loss_kw / 1000,
         }
-        for class_name, (p, q) in total_by_class.items():
-            display_name = 'PV' if class_name == 'PVSystem' else class_name
-            out[f'Total {display_name} P (MW)'] = p / 1000
+        for class_name, (p, _q) in total_by_class.items():
+            display_name = "PV" if class_name == "PVSystem" else class_name
+            out[f"Total {display_name} P (MW)"] = p / 1000
 
-        out.update({
-            'Total Q (MVAR)': q_total_kvar / 1000,
-            'Total Loss Q (MVAR)': q_loss_kvar / 1000,
-        })
-        for class_name, (p, q) in total_by_class.items():
-            display_name = 'PV' if class_name == 'PVSystem' else class_name
-            out[f'Total {display_name} Q (MVAR)'] = q / 1000
+        out.update(
+            {
+                "Total Q (MVAR)": q_total_kvar / 1000,
+                "Total Loss Q (MVAR)": q_loss_kvar / 1000,
+            }
+        )
+        for class_name, (_p, q) in total_by_class.items():
+            display_name = "PV" if class_name == "PVSystem" else class_name
+            out[f"Total {display_name} Q (MVAR)"] = q / 1000
         return out
 
-    def get_all_buses(self) -> List[str]:
+    def get_all_buses(self) -> list[str]:
         """Returns a list of all bus names in the circuit."""
         return self.dss.circuit.buses_names
 
-    def get_all_elements(self, element: str = 'Load') -> pd.DataFrame:
+    def get_all_elements(self, element: str = "Load") -> pd.DataFrame:
         """
         Returns a DataFrame containing all properties for all elements of a specific class.
 
@@ -237,7 +249,7 @@ class OpenDSS:
         except Exception:
             # Se a própria classe for inválida
             return pd.DataFrame()
-        
+
         # CORREÇÃO DEFINITIVA: Checa se existem elementos antes de acessar os nomes
         if self.dss.active_class.count == 0:
             return pd.DataFrame()
@@ -246,28 +258,34 @@ class OpenDSS:
         names = self.dss.active_class.names
 
         # Dupla checagem de segurança
-        if not names or names[0] is None or names[0].lower() == 'none':
+        if not names or names[0] is None or names[0].lower() == "none":
             return pd.DataFrame()
-        
+
         all_data = {}
         for name in names:
             full_name = f"{element}.{name}"
             self.dss.circuit.set_active_element(full_name)
-            
+
             element_data = {}
             prop_names = self.dss.dsselement.property_names
             for i, prop_name in enumerate(prop_names, 1):
                 element_data[prop_name] = self.dss.dssproperties.value_read(str(i))
-            
+
             all_data[full_name] = element_data
-            
-        df = pd.DataFrame.from_dict(all_data, orient='index')
+
+        df = pd.DataFrame.from_dict(all_data, orient="index")
         return df
-        
-    def get_bus_voltage(self, bus: str, phase: Optional[int] = None, 
-                        pu: bool = True, polar: bool = True, 
-                        mag_only: bool = True, average: bool = False,
-                        zero_voltage_error: bool = False) -> Union[float, Tuple, List[float]]:
+
+    def get_bus_voltage(
+        self,
+        bus: str,
+        phase: int | None = None,
+        pu: bool = True,
+        polar: bool = True,
+        mag_only: bool = True,
+        average: bool = False,
+        zero_voltage_error: bool = False,
+    ) -> float | tuple | list[float]:
         """
         Gets the voltage of a specific bus with flexible formatting options.
 
@@ -284,26 +302,26 @@ class OpenDSS:
             Union[float, Tuple, List]: Voltage value(s) in the requested format.
         """
         self.dss.circuit.set_active_bus(bus)
-        
+
         if polar:
             v = self.dss.bus.vmag_angle_pu if pu else self.dss.bus.vmag_angle
         else:
             v = self.dss.bus.pu_voltages if pu else self.dss.bus.voltages
 
         if not v or any(np.isnan(x) for x in v):
-            self.fail(f'NaN or empty output for bus voltage: {bus}')
-        
+            self.fail(f"NaN or empty output for bus voltage: {bus}")
+
         n_phases = self.dss.bus.num_nodes
         nodes = self.dss.bus.nodes
         real_or_mag = tuple(v[0::2])
         imag_or_ang = tuple(v[1::2])
 
         real_or_mag = tuple(
-            [real_or_mag[nodes.index(i+1)] if (i+1) in nodes else 0.0 for i in range(3)]
+            [real_or_mag[nodes.index(i + 1)] if (i + 1) in nodes else 0.0 for i in range(3)]
         )
 
         imag_or_ang = tuple(
-            [imag_or_ang[nodes.index(i+1)] if (i+1) in nodes else 0.0 for i in range(3)]
+            [imag_or_ang[nodes.index(i + 1)] if (i + 1) in nodes else 0.0 for i in range(3)]
         )
 
         if polar and zero_voltage_error and any([mag <= 1e-10 for mag in real_or_mag]):
@@ -319,12 +337,12 @@ class OpenDSS:
             else:
                 return real_or_mag, imag_or_ang
         elif phase - 1 in range(n_phases):
-             if polar and mag_only:
+            if polar and mag_only:
                 return real_or_mag[phase - 1]
-             else:
+            else:
                 return real_or_mag[phase - 1], imag_or_ang[phase - 1]
         else:
-            raise OpenDSSException(f'Bad phase for {n_phases}-phase Bus {bus}: {phase}')
+            raise OpenDSSException(f"Bad phase for {n_phases}-phase Bus {bus}: {phase}")
 
     def set_element(self, name: str, element: str) -> None:
         """
@@ -337,12 +355,14 @@ class OpenDSS:
         full_name = f"{element}.{name}"
         self.dss.circuit.set_active_element(full_name)
         if self.dss.cktelement.name.lower() != full_name.lower():
-             raise OpenDSSException(f'{element} "{name}" does not exist')
-    
-    def get_voltage(self, name: str, element: str = 'Load', line_bus: int = 1, **kwargs) -> Union[float, Tuple, Any]:
+            raise OpenDSSException(f'{element} "{name}" does not exist')
+
+    def get_voltage(
+        self, name: str, element: str = "Load", line_bus: int = 1, **kwargs
+    ) -> float | tuple | Any:
         """
         Gets the voltage at the terminals of a specific element.
-        
+
         Args:
             name (str): Element name.
             element (str): Element class.
@@ -354,10 +374,10 @@ class OpenDSS:
         # Selects the correct bus if it's a line element, otherwise picks the first one
         bus = buses[line_bus - 1 if element in LINE_CLASSES else 0]
         if self.dss.cktelement.num_phases == 1:
-            kwargs['phase'] = 1
+            kwargs["phase"] = 1
         return self.get_bus_voltage(bus, **kwargs)
 
-    def get_all_bus_voltages(self, **kwargs) -> Dict[str, Union[float, Tuple]]:
+    def get_all_bus_voltages(self, **kwargs) -> dict[str, float | tuple]:
         """
         Gets voltages for all buses in the system.
 
@@ -373,14 +393,20 @@ class OpenDSS:
             v = self.get_bus_voltage(bus, **kwargs)
             if isinstance(v, tuple) and v and not isinstance(v[0], tuple):
                 # If tuple of phases is returned, expand to individual keys
-                data.update({bus + '.' + str(i + 1): v_ph for i, v_ph in enumerate(v)})
+                data.update({bus + "." + str(i + 1): v_ph for i, v_ph in enumerate(v)})
             else:
                 data[bus] = v
         return data
 
-    def get_power(self, name: str, element: str = 'Load', 
-                  phase: Optional[int] = None, total: bool = False, 
-                  line_bus: int = 1, raw: bool = False) -> Tuple:
+    def get_power(
+        self,
+        name: str,
+        element: str = "Load",
+        phase: int | None = None,
+        total: bool = False,
+        line_bus: int = 1,
+        raw: bool = False,
+    ) -> tuple:
         """
         Gets the power (P, Q) of a specific element.
 
@@ -396,8 +422,8 @@ class OpenDSS:
             Tuple: (P, Q) or tuple of tuples depending on arguments.
         """
         self.set_element(name, element)
-        powers = self.dss.cktelement.powers 
-        
+        powers = self.dss.cktelement.powers
+
         if raw:
             return tuple(powers)
 
@@ -407,13 +433,13 @@ class OpenDSS:
             end_idx = start_idx + 2 * n_phases
             powers = powers[start_idx:end_idx]
         else:
-            powers = powers[:2 * n_phases]
+            powers = powers[: 2 * n_phases]
 
         p_vals = powers[0::2]
         q_vals = powers[1::2]
 
         if n_phases == 1:
-            return (p_vals[0], q_vals[0]) if p_vals else (0,0)
+            return (p_vals[0], q_vals[0]) if p_vals else (0, 0)
         elif n_phases in [2, 3]:
             if phase is None:
                 if total:
@@ -421,18 +447,26 @@ class OpenDSS:
                 else:
                     return tuple(p_vals), tuple(q_vals)
             if phase - 1 in range(n_phases):
-                return p_vals[phase-1], q_vals[phase-1]
+                return p_vals[phase - 1], q_vals[phase - 1]
             else:
-                raise OpenDSSException(f'Unknown phase for {element} {name}: {phase}')
+                raise OpenDSSException(f"Unknown phase for {element} {name}: {phase}")
         else:
-            raise OpenDSSException(f'Cannot parse powers for {element} {name}, num phases={n_phases}')
-            
-    def set_power(self, name: str, p: float = None, q: float = None, 
-                  element: str = 'Load', size: float = None) -> None:
+            raise OpenDSSException(
+                f"Cannot parse powers for {element} {name}, num phases={n_phases}"
+            )
+
+    def set_power(
+        self,
+        name: str,
+        p: float | None = None,
+        q: float | None = None,
+        element: str = "Load",
+        size: float | None = None,
+    ) -> None:
         """
         Sets the active and reactive power of an element.
 
-        For 'Storage': Automatically calculates state (Charging/Discharging) and 
+        For 'Storage': Automatically calculates state (Charging/Discharging) and
         Power Factor based on the sign of 'p'.
 
         Args:
@@ -442,8 +476,8 @@ class OpenDSS:
             element (str): Class ('Load', 'PV', 'Storage').
             size (float): Rated power (only for Storage).
         """
-        element_class = 'PVSystem' if element == 'PV' else element
-        if element_class != 'Storage':
+        element_class = "PVSystem" if element == "PV" else element
+        if element_class != "Storage":
             cmd = f"edit {element_class}.{name}"
             if p is not None:
                 cmd += f" kW={p}"
@@ -452,8 +486,10 @@ class OpenDSS:
             self.run_command(cmd)
         else:
             # Specific logic for Storage
-            if p is None: return
-            if q is None: q = 0.0
+            if p is None:
+                return
+            if q is None:
+                q = 0.0
 
             if p > 0:
                 state_str = "Discharging"
@@ -469,11 +505,18 @@ class OpenDSS:
 
             self.run_command(cmd)
 
-    def get_current(self, name: str, element: str = 'Load', 
-                    polar: bool = True, mag_only: bool = True, 
-                    line_bus: int = 1, phase: Optional[int] = None, 
-                    total: bool = False, raw: bool = False,
-                    winding: int = 1) -> Union[float, Tuple]:
+    def get_current(
+        self,
+        name: str,
+        element: str = "Load",
+        polar: bool = True,
+        mag_only: bool = True,
+        line_bus: int = 1,
+        phase: int | None = None,
+        total: bool = False,
+        raw: bool = False,
+        winding: int = 1,
+    ) -> float | tuple:
         """
         Gets the current of an element.
 
@@ -509,18 +552,17 @@ class OpenDSS:
             start_idx = (winding - 1) * (2 * n_phases + 2)
             end_idx = start_idx + 2 * n_phases
             currents = currents[start_idx:end_idx]
-        elif element.lower() == "storage":
-            currents = currents[:-2]
-        elif element.lower() == "pvsystem":
+        elif element.lower() == "storage" or element.lower() == "pvsystem":
             currents = currents[:-2]
         else:
-            currents = currents[:2 * n_phases]
-            
+            currents = currents[: 2 * n_phases]
+
         real_or_mag = tuple(currents[0::2])
         imag_or_ang = tuple(currents[1::2])
 
         if n_phases == 1:
-            if not real_or_mag: return 0 if mag_only else (0,0)
+            if not real_or_mag:
+                return 0 if mag_only else (0, 0)
             return real_or_mag[0] if mag_only and polar else (real_or_mag[0], imag_or_ang[0])
         elif n_phases in [2, 3]:
             if phase is None:
@@ -531,31 +573,35 @@ class OpenDSS:
             if phase - 1 in range(n_phases):
                 return real_or_mag[phase - 1], imag_or_ang[phase - 1]
             else:
-                raise OpenDSSException(f'Unknown phase for {element} {name}: {phase}')
+                raise OpenDSSException(f"Unknown phase for {element} {name}: {phase}")
         else:
-            raise OpenDSSException(f'Cannot parse currents for {element} {name}, num phases={n_phases}')
+            raise OpenDSSException(
+                f"Cannot parse currents for {element} {name}, num phases={n_phases}"
+            )
 
-    def get_all_complex(self, name: str, element: str = 'Load') -> Dict[str, Tuple]:
+    def get_all_complex(self, name: str, element: str = "Load") -> dict[str, tuple]:
         """Returns a dictionary with all complex quantities (V, I, S) for the element."""
         self.set_element(name, element)
         return {
-            'Voltages': self.dss.cktelement.voltages,
-            'VoltagesMagAng': self.dss.cktelement.voltages_mag_ang,
-            'Currents': self.dss.cktelement.currents,
-            'CurrentsMagAng': self.dss.cktelement.currents_mag_ang,
-            'Powers': self.dss.cktelement.powers,
+            "Voltages": self.dss.cktelement.voltages,
+            "VoltagesMagAng": self.dss.cktelement.voltages_mag_ang,
+            "Currents": self.dss.cktelement.currents,
+            "CurrentsMagAng": self.dss.cktelement.currents_mag_ang,
+            "Powers": self.dss.cktelement.powers,
         }
 
-    def get_all_properties(self, name: str, element: str = 'Load') -> List[str]:
+    def get_all_properties(self, name: str, element: str = "Load") -> list[str]:
         """Returns a list of property names available for the element."""
         self.set_element(name, element)
         return self.dss.dsselement.property_names
 
-    def get_property(self, name: str, property_name: str, element: str = 'Load') -> Union[float, str]:
+    def get_property(self, name: str, property_name: str, element: str = "Load") -> float | str:
         """Reads the value of a specific property of an element."""
         all_properties = self.get_all_properties(name, element)
         if property_name.lower() not in [p.lower() for p in all_properties]:
-            raise OpenDSSException(f'Could not find {property_name} property for {element} "{name}"')
+            raise OpenDSSException(
+                f'Could not find {property_name} property for {element} "{name}"'
+            )
 
         idx = [p.lower() for p in all_properties].index(property_name.lower()) + 1
         value = self.dss.dssproperties.value_read(str(idx))
@@ -565,7 +611,9 @@ class OpenDSS:
         except (ValueError, TypeError):
             return value
 
-    def set_property(self, name: str, property_name: str, value: Any, element: str = 'Load') -> None:
+    def set_property(
+        self, name: str, property_name: str, value: Any, element: str = "Load"
+    ) -> None:
         """Sets the value of an element's property and verifies if it was applied."""
         full_element_name = f"{element}.{name}"
         cmd = f"edit {full_element_name} {property_name}={value}"
@@ -574,17 +622,19 @@ class OpenDSS:
         new_value = self.get_property(name, property_name, element)
         assert str(new_value) == str(value)
 
-    def remove_loadshape(self, name: str, element: str = 'Load') -> None:
+    def remove_loadshape(self, name: str, element: str = "Load") -> None:
         """Removes the associated loadshape, setting the mode to constant."""
-        self.set_property(name, 'yearly', 'constant', element)
+        self.set_property(name, "yearly", "constant", element)
 
-    def set_is_open(self, name: str, open: bool = True, element: str = 'Load', term: int = 1) -> None:
+    def set_is_open(
+        self, name: str, open: bool = True, element: str = "Load", term: int = 1
+    ) -> None:
         """Opens or closes the terminal of an element."""
         action = "Open" if open else "Close"
         full_name = f"{element}.{name}"
         self.run_command(f"{action} {full_name} term={term}")
 
-    def get_is_open(self, name: str, element: str = 'Load', term: int = 1) -> bool:
+    def get_is_open(self, name: str, element: str = "Load", term: int = 1) -> bool:
         """Checks if the element terminal is open."""
         self.set_element(name, element)
         return bool(self.dss.cktelement.is_terminal_open(term))
@@ -604,17 +654,17 @@ class OpenDSS:
 
     def set_pt_ratio(self, name: str, pt_ratio: float) -> None:
         """Sets the Potential Transformer (PT) Ratio of a CapControl."""
-        self.set_element(name, 'CapControl')
+        self.set_element(name, "CapControl")
         self.dss.capcontrols.pt_ratio = pt_ratio
 
     def get_pt_ratio(self, name: str) -> float:
         """Gets the PT Ratio of a CapControl."""
-        self.set_element(name, 'CapControl')
+        self.set_element(name, "CapControl")
         return self.dss.capcontrols.pt_ratio
 
     def print(self, *msg: Any) -> None:
         """Prints a message with timestamp and class name."""
-        print(f'{dt.datetime.now()} - {self.name}:', *msg)
+        print(f"{dt.datetime.now()} - {self.name}:", *msg)
 
     def fail(self, *msg: Any) -> None:
         """Raises an exception or prints an error depending on fail_on_error configuration."""
@@ -642,26 +692,25 @@ class OpenDSS:
     def get_all_pvsystems_info(self):
         """Retorna dados estaticos e curvas de todos os PVSystems."""
         return opendss_pv.get_all_pvsystems_info(self.dss)
-    
+
     def get_all_storages_info(self):
         """Retorna dados estaticos de todos os elementos Storage."""
         return opendss_storage.get_all_storages_info(self.dss)
-    
-    def grafo_tsdq(self, output_path):
 
+    def grafo_tsdq(self, output_path):
         """
         Exporta o grafo do circuito em formato JSON, incluindo nós e arestas.
 
         Padrão utilizado na plataforma `tsdq-dataview-opentes`
-    
+
         """
 
         grafo = build_graph(self.dss)
 
         grafo_dict = {
             "nodes": [asdict(node) for node in grafo.nodes.values()],
-            "edges": [asdict(edge) for edge in grafo.edges.values()]
+            "edges": [asdict(edge) for edge in grafo.edges.values()],
         }
 
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(grafo_dict, f, indent=4, ensure_ascii=False)
