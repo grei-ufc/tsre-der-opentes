@@ -1,6 +1,7 @@
-import mosaik_api
+import mosaik_api_v3
 
 META = {
+    'api_version': '3.0',
     'type': 'time-based',
     'models': {
         'Controller': {
@@ -24,7 +25,7 @@ META = {
     },
 }
 
-class BatteryControllerSim(mosaik_api.Simulator):
+class BatteryControllerSim(mosaik_api_v3.Simulator):
     def __init__(self):
         super().__init__(META)
         self.controllers = {}
@@ -124,4 +125,4 @@ class BatteryControllerSim(mosaik_api.Simulator):
         return data
 
 if __name__ == '__main__':
-    mosaik_api.start_simulation(BatteryControllerSim())
+    mosaik_api_v3.start_simulation(BatteryControllerSim())
