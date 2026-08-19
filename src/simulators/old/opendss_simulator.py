@@ -8,7 +8,6 @@ from importlib import import_module
 
 import mosaik_api_v3
 
-
 _module = import_module("simulators.api_opendss")
 
 OpenDSSSimulator = _module.OpenDSSSimulator
@@ -17,4 +16,4 @@ OpenDSSException = getattr(_module, "OpenDSSException", None)
 
 
 if __name__ == "__main__":
-	mosaik_api_v3.start_simulation(OpenDSSSimulator())
+    mosaik_api_v3.start_simulation(OpenDSSSimulator())
