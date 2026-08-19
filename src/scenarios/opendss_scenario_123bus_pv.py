@@ -23,19 +23,19 @@ END_TIME = N_PASSOS * STEP_SIZE
 # --- Configuração dos Simuladores ---
 SIM_CONFIG = {
     'DSS': {
-        'python': 'simulators.api_opendss:OpenDSSSimulator',
+        'python': 'simulators.opendss.api_opendss:OpenDSSSimulator',
     },
     'PVSimulator': {
-        'python': 'simulators.pv_panel_simulator:PVPanelSim'
+        'python': 'simulators.pv.pv_panel_simulator:PVPanelSim'
     },
     'InverterSim': {
-        'python': 'simulators.inverter_simulator:InverterSim'
+        'python': 'simulators.inverter.inverter_simulator:InverterSim'
     },
     'CSV': {
-        'python': 'simulators.csv_sim_pandas:CSV'
+        'python': 'simulators.collector.csv_sim_pandas:CSV'
     },
     'Collector': {
-        'python': 'simulators.collector:Collector',
+        'python': 'simulators.collector.collector:Collector',
     },
 }
 
