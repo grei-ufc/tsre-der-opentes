@@ -20,13 +20,13 @@ END_TIME = N_PASSOS * STEP_SIZE
 # --- Configuração dos Simuladores ---
 SIM_CONFIG = {
     'DSS': {
-        'python': 'simulators.api_opendss:OpenDSSSimulator',
+        'python': 'simulators.opendss.api_opendss:OpenDSSSimulator',
     },
     'RegControl': {
-        'python': 'simulators.regulator_control:RegulatorSimulator', # Certifique-se de ter criado este arquivo
+        'python': 'simulators.controller.regulator_control:RegulatorSimulator',
     },
     'Collector': {
-        'python': 'simulators.collector:Collector',
+        'python': 'simulators.collector.collector:Collector',
     },
 }
 
@@ -163,7 +163,7 @@ def run_scenario():
                     if cols:
                         print("\nResumo da Operação dos Taps:")
                         print(df[cols].describe())
-            except:
+            except Exception:
                 pass
 
 if __name__ == '__main__':
