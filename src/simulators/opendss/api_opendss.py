@@ -1,94 +1,68 @@
+import copy
 import datetime
 import math
 
 import mosaik_api_v3
 
-from ._utils import extract_3phase_pq, to_3phase
-from .opendss_wrapper import OpenDSS
+from .element_specs import MODEL_SPECS, build_meta
+from .opendss_wrapper import OpenDSS, OpenDSSException
 
-META = {
-    "api_version": "3.0",
-    "type": "time-based",
-    "models": {
-        "Grid": {"public": True, "params": ["topofile"], "attrs": []},
-        "Load": {
-            "public": False,
-            "params": [],
-            "attrs": ["P_mw", "Q_mvar", "P_out_mw", "Q_out_mvar"],
-        },
-        "Line": {
-            "public": False,
-            "params": [],
-            "attrs": [
-                "is_open",
-                "I1_A",
-                "I1_ang",
-                "I2_A",
-                "I2_ang",
-                "I3_A",
-                "I3_ang",
-                "P1_w",
-                "Q1_var",
-                "P2_w",
-                "Q2_var",
-                "P3_w",
-                "Q3_var",
-            ],
-        },
-        "Bus": {
-            "public": False,
-            "params": [],
-            "attrs": ["V1_pu", "V1_ang", "V2_pu", "V2_ang", "V3_pu", "V3_ang"],
-        },
-        "RegControl": {"public": False, "params": [], "attrs": ["tap", "v_meas", "i_meas"]},
-        "Storage": {
-            "public": True,
-            "params": [],
-            "attrs": [
-                "P_set",
-                "Q_set",
-                "SoC_set",
-                "P_act",
-                "Q_act",
-                "SoC",
-                "P1",
-                "P2",
-                "P3",
-                "Q1",
-                "Q2",
-                "Q3",
-                "I1_A",
-                "I2_A",
-                "I3_A",
-            ],
-        },
-        "PVSystem": {
-            "public": True,
-            "params": [],
-            "attrs": [
-                "P_des",
-                "Q_des",
-                "P_meas",
-                "Q_meas",
-                "P1",
-                "P2",
-                "P3",
-                "Q1",
-                "Q2",
-                "Q3",
-                "I1_A",
-                "I2_A",
-                "I3_A",
-            ],
-        },
-    },
-    "extra_methods": [
-        "get_dss_wrapper",
-        "get_detected_regulators",
-        "get_detected_pvsystems",
-        "get_detected_storages",
-    ],
-}
+
+def _parse_bus(bus_string):
+    """Separa a referência de barra do OpenDSS em nome e nós.
+
+    Args:
+        bus_string: Barra como o OpenDSS reporta, com ou sem nós
+            (``'671.1.2.3'``, ``'646.2'``, ``'634'``).
+
+    Returns:
+        Tupla ``(nome, nós)``. A lista de nós fica vazia quando a barra não
+        traz sufixo, caso em que o OpenDSS assume todas as fases do elemento.
+    """
+    name, _, nodes = str(bus_string or "").partition(".")
+    if not nodes:
+        return name, []
+    return name, [int(n) for n in nodes.split(".") if n.isdigit()]
+
+
+def _resolve_nodes(nodes, phases):
+    """Completa os nós implícitos de uma barra sem sufixo.
+
+    ``Bus1=634`` num elemento trifásico significa ``634.1.2.3``; o OpenDSS
+    simplesmente omite o sufixo. Sem essa resolução o cenário receberia uma
+    lista vazia e teria de tratar o caso à parte.
+
+    Args:
+        nodes: Nós explícitos vindos de :func:`_parse_bus`.
+        phases: Número de fases do elemento.
+
+    Returns:
+        Lista de nós; os ``phases`` primeiros quando não havia sufixo.
+    """
+    if nodes:
+        return nodes
+    return list(range(1, max(int(phases or 0), 0) + 1))
+
+
+def _as_float(value, default=0.0):
+    """Converte uma propriedade DSS (sempre string) para float, com fallback."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_int(value, default=0):
+    """Converte uma propriedade DSS (sempre string) para int, com fallback."""
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+# A META e derivada do registry em element_specs.py, nao escrita a mao:
+# assim ela nao pode declarar um atributo que o simulador nao implementa.
+META = build_meta()
 
 
 class OpenDSSSimulator(mosaik_api_v3.Simulator):
@@ -101,19 +75,85 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self.loads_with_profiles = {}
         self.shape_data_cache = {}
         self.time_resolution = 1.0
-        self.detected_regulators = []
-        self.regulator_map = {}
-        self.detected_pvsystems = []
-        self.pvsystem_map = {}
-        self.detected_storages = []
-        self.storage_map = {}
+
+        self.bypass_native_pv_curves = True
+        self._children = []
+        self._extra_info = {}
+        self._eids_by_type = {}
+        self._type_by_eid = {}
+        self._bus_eids = {}
+
+    # ------------------------------------------------------------------
+    # Metadados das entidades
+    # ------------------------------------------------------------------
+
+    def get_extra_info(self):
+        """Metadados estáticos de cada entidade, indexados por eid.
+
+        Em mosaik >= 3.3 os mesmos dados chegam ao cenário direto em
+        ``entity.extra_info``; este método dá acesso por eid sem percorrer a
+        árvore de filhos.
+        """
+        return self._extra_info
+
+    def _info_by_type(self, model_type):
+        return [self._extra_info[eid] for eid in self._eids_by_type.get(model_type, [])]
+
+    def _map_by_type(self, model_type):
+        return {eid: self._extra_info[eid] for eid in self._eids_by_type.get(model_type, [])}
+
+    @property
+    def detected_regulators(self):
+        return self._info_by_type("RegControl")
+
+    @property
+    def detected_pvsystems(self):
+        return self._info_by_type("PVSystem")
+
+    @property
+    def detected_storages(self):
+        return self._info_by_type("Storage")
+
+    @property
+    def regulator_map(self):
+        return self._map_by_type("RegControl")
+
+    @property
+    def pvsystem_map(self):
+        return self._map_by_type("PVSystem")
+
+    @property
+    def storage_map(self):
+        return self._map_by_type("Storage")
 
     def init(
-        self, sid, time_resolution, topofile, step_size=900, output_graph_path=None, **sim_params
+        self,
+        sid,
+        time_resolution,
+        topofile,
+        step_size=900,
+        output_graph_path=None,
+        bypass_native_pv_curves=True,
+        **sim_params,
     ):
+        """Inicializa o simulador e compila o circuito.
+
+        Args:
+            sid: Identificador do simulador no mosaik.
+            time_resolution: Resolução temporal do mosaik.
+            topofile: Arquivo ``.dss`` do circuito.
+            step_size: Passo de simulação, em segundos.
+            output_graph_path: Se informado, exporta o grafo do circuito.
+            bypass_native_pv_curves: Neutraliza as curvas de eficiência e
+                derating térmico dos PVSystems. Deixe ``True`` quando o
+                inversor for modelado por outro simulador — caso contrário a
+                penalidade é aplicada duas vezes. Use ``False`` para deixar o
+                OpenDSS cuidar da conversão DC/AC.
+        """
         self.sid = sid
         self.time_resolution = time_resolution
         self.step_size = step_size
+        self.bypass_native_pv_curves = bypass_native_pv_curves
         self.dss_wrapper = OpenDSS(
             redirects=topofile,
             time_step=datetime.timedelta(seconds=self.step_size),
@@ -126,120 +166,292 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         return self.meta
 
     def create(self, num, model, **model_params):
-        if model == "Grid":
-            return self._create_grid()
-        else:
+        if model != "Grid":
             raise ValueError(
                 "Use 'Grid' model to initialize the system. Access elements via children."
             )
+        if num != 1:
+            raise ValueError(f"exactly one Grid entity must be created, got num={num}")
+        if self._children:
+            raise ValueError("Grid was already created")
+
+        return self._create_grid()
+
+    def setup_done(self):
+        """Resolve o fluxo inicial depois de todas as entidades e conexões.
+
+        Sem isso, o primeiro ``get_data`` — o que alimenta as conexões
+        ``time_shifted`` com dados iniciais — leria a solução feita durante a
+        compilação, antes de qualquer ajuste feito na criação das entidades
+        (como o bypass das curvas nativas dos PVSystems).
+        """
+        self.dss_wrapper.run_dss()
+
+    # ------------------------------------------------------------------
+    # Criação de entidades
+    # ------------------------------------------------------------------
 
     def _create_grid(self):
-        child_entities = []
+        # As barras vêm primeiro: são as âncoras que todos os demais
+        # elementos referenciam em `rel`.
+        self._add_buses()
+        self._add_loads()
+        self._add_lines()
+        self._add_regulators()
+        self._add_storages()
+        self._add_pvsystems()
 
-        # --- Cargas ---
-        loads_df = self.dss_wrapper.get_all_elements("Load")
-        if not loads_df.empty:
-            for full_name in loads_df.index:
-                name = full_name.split(".")[1]
-                eid = f"Load-{name}"
-                self.entity_map[eid] = name
-                child_entities.append({"eid": eid, "type": "Load"})
-                self._check_load_profile(eid, name)
+        return [
+            {
+                "eid": "Grid-0",
+                "type": "Grid",
+                "children": self._children,
+                "rel": [],
+            }
+        ]
 
-        # --- Geradores (A incluir) ---
+    def _add_child(self, eid, model_type, name, rel=None, extra_info=None):
+        """Registra uma entidade filha com sua topologia e seus metadados.
 
-        # --- Linhas ---
-        lines_df = self.dss_wrapper.get_all_elements("Line")
-        if not lines_df.empty:
-            for full_name in lines_df.index:
-                name = full_name.split(".")[1]
-                eid = f"Line-{name}"
-                self.entity_map[eid] = name
-                child_entities.append({"eid": eid, "type": "Line"})
+        O ``extra_info`` entregue ao cenário é uma cópia. Compartilhar o objeto
+        daria ao cenário local uma referência viva para o estado interno do
+        simulador, enquanto um cenário remoto receberia um retrato congelado —
+        a mesma escrita produziria resultados diferentes conforme o transporte.
 
-        # --- Barras ---
-        buses = self.dss_wrapper.get_all_buses()
-        for name in buses:
+        Args:
+            eid: Identificador mosaik da entidade.
+            model_type: Nome do modelo declarado na META.
+            name: Nome do elemento no OpenDSS.
+            rel: eids aos quais a entidade está conectada (barras).
+            extra_info: Metadados estáticos expostos ao cenário.
+        """
+        self.entity_map[eid] = name
+        self._extra_info[eid] = extra_info or {}
+        self._eids_by_type.setdefault(model_type, []).append(eid)
+        self._type_by_eid[eid] = model_type
+        self._children.append(
+            {
+                "eid": eid,
+                "type": model_type,
+                "rel": rel or [],
+                "extra_info": copy.deepcopy(self._extra_info[eid]),
+            }
+        )
+
+    def _bus_rel(self, bus_string, owner):
+        """Resolve a referência de barra de um elemento para o eid da barra.
+
+        O mosaik constrói o grafo de entidades com ``add_edge``, que cria nós
+        inexistentes em silêncio — uma referência pendurada corromperia o grafo
+        sem erro nenhum. Por isso a resolução é validada aqui.
+
+        Args:
+            bus_string: Barra como o OpenDSS reporta (``'671.1.2.3'``).
+            owner: eid do elemento, usado só na mensagem de aviso.
+
+        Returns:
+            Lista com o eid da barra, ou lista vazia se a barra não existe.
+        """
+        bus_name, _ = _parse_bus(bus_string)
+        eid = self._bus_eids.get(bus_name.lower())
+
+        if eid is None:
+            print(
+                f"[OpenTES][AVISO] {owner}: barra '{bus_string}' nao esta na lista "
+                f"de barras do circuito; a entidade ficara sem topologia (rel)."
+            )
+            return []
+
+        return [eid]
+
+    def _add_buses(self):
+        dss = self.dss_wrapper.dss
+
+        for name in self.dss_wrapper.get_all_buses():
             eid = f"Bus-{name}"
-            self.entity_map[eid] = name
-            child_entities.append({"eid": eid, "type": "Bus"})
+            self._bus_eids[name.lower()] = eid
 
-        # --- Reguladores de tensão ---
-        if self.dss_wrapper.dss.regcontrols.count > 0:
-            reg_infos = self.dss_wrapper.get_all_regulators_info()
-
-            for info in reg_infos:
-                name = info["name"]
-                eid = f"RegControl-{name}"
-
-                info["eid_dss"] = eid
-
-                self.entity_map[eid] = name
-                self.detected_regulators.append(info)
-                self.regulator_map[eid] = info
-
-                child_entities.append({"eid": eid, "type": "RegControl"})
-                print(
-                    f"[OpenTES] Regulador detectado: {name} @ {info['target_bus']}.{info['target_phase']}"
-                )
-
-        # --- Baterias ---
-        storage_infos = self.dss_wrapper.get_all_storages_info()
-
-        if storage_infos:
-            for name, info in storage_infos.items():
-                eid = f"Storage-{name}"
-                info["eid_dss"] = eid
-                info["name"] = name
-
-                self.entity_map[eid] = name
-                self.detected_storages.append(info)
-                self.storage_map[eid] = info  # <--- Guardando a referência aqui!
-
-                child_entities.append({"eid": eid, "type": "Storage"})
-                print(
-                    f"[OpenTES] Storage detectado: {name} | kW_rated: {info['kw_rated']} | kWh_rated: {info['kwh_rated']}"
-                )
-
-        #  --- Sistema Fotovoltaico ---
-        pv_infos = self.dss_wrapper.get_all_pvsystems_info()  # Usa o método que criamos no wrapper
-
-        if pv_infos:
-            # 1. Criamos curvas IDEAIS no OpenDSS para que ele não aplique dupla penalidade
-            self.dss_wrapper.dss.text(
-                "New XYCurve.EffIdeal_Cosim npts=2 xarray=[0.0 1.0] yarray=[1.0 1.0]"
-            )
-            self.dss_wrapper.dss.text(
-                "New XYCurve.PTIdeal_Cosim npts=2 xarray=[0.0 100.0] yarray=[1.0 1.0]"
+            dss.circuit.set_active_bus(name)
+            self._add_child(
+                eid,
+                "Bus",
+                name,
+                rel=[],
+                extra_info={
+                    "name": name,
+                    "kv_base": dss.bus.kv_base,
+                    "nodes": list(dss.bus.nodes),
+                    "num_nodes": dss.bus.num_nodes,
+                    "x": dss.bus.x,
+                    "y": dss.bus.y,
+                },
             )
 
-            for name, info in pv_infos.items():
-                eid = f"PVSystem-{name}"
-                info["eid_dss"] = eid
-                info["name"] = name
+    def _add_loads(self):
+        loads_df = self.dss_wrapper.get_all_elements("Load")
+        if loads_df.empty:
+            return
 
-                self.entity_map[eid] = name
-                self.detected_pvsystems.append(info)
-                self.pvsystem_map[eid] = info
+        for full_name, row in loads_df.iterrows():
+            name = full_name.split(".")[1]
+            eid = f"Load-{name}"
+            bus_name, nodes = _parse_bus(row.get("bus1", ""))
+            phases = _as_int(row.get("phases"), len(nodes) or 3)
+            nodes = _resolve_nodes(nodes, phases)
 
-                child_entities.append({"eid": eid, "type": "PVSystem"})
-                print(
-                    f"[OpenTES] PVSystem detectado: {name} | Pmpp: {info['pmpp']} kW | kVA: {info['kva']}"
-                )
+            self._add_child(
+                eid,
+                "Load",
+                name,
+                rel=self._bus_rel(row.get("bus1", ""), eid),
+                extra_info={
+                    "name": name,
+                    "bus": bus_name,
+                    "nodes": nodes,
+                    "phases": phases,
+                    "kv": _as_float(row.get("kV")),
+                    "kw": _as_float(row.get("kW")),
+                    "kvar": _as_float(row.get("kvar")),
+                    "conn": row.get("conn", ""),
+                },
+            )
+            self._check_load_profile(eid, name)
 
-                # 2. Lobotomiza o elemento nativo: tira os cortes e atrela às curvas 100% ideais
-                cmd = f"Edit PVSystem.{name} %cutin=0.0001 %cutout=0.0001 EffCurve=EffIdeal_Cosim P-TCurve=PTIdeal_Cosim"
-                self.dss_wrapper.dss.text(cmd)
+    def _add_lines(self):
+        lines_df = self.dss_wrapper.get_all_elements("Line")
+        if lines_df.empty:
+            return
 
-        return [{"eid": "Grid-0", "type": "Grid", "children": child_entities}]
+        for full_name, row in lines_df.iterrows():
+            name = full_name.split(".")[1]
+            eid = f"Line-{name}"
+            bus1, nodes1 = _parse_bus(row.get("bus1", ""))
+            bus2, nodes2 = _parse_bus(row.get("bus2", ""))
+            phases = _as_int(row.get("phases"), len(nodes1) or 3)
+            nodes1 = _resolve_nodes(nodes1, phases)
+            nodes2 = _resolve_nodes(nodes2, phases)
+
+            self._add_child(
+                eid,
+                "Line",
+                name,
+                rel=(
+                    self._bus_rel(row.get("bus1", ""), eid)
+                    + self._bus_rel(row.get("bus2", ""), eid)
+                ),
+                extra_info={
+                    "name": name,
+                    "bus1": bus1,
+                    "bus2": bus2,
+                    "nodes1": nodes1,
+                    "nodes2": nodes2,
+                    "phases": phases,
+                    "length": _as_float(row.get("length")),
+                    "linecode": row.get("linecode", ""),
+                },
+            )
+
+    def _add_regulators(self):
+        if self.dss_wrapper.dss.regcontrols.count == 0:
+            return
+
+        for info in self.dss_wrapper.get_all_regulators_info():
+            name = info["name"]
+            eid = f"RegControl-{name}"
+            info["eid_dss"] = eid
+            info["bus"] = info["target_bus"]
+            info["phase"] = info["target_phase"]
+
+            self._add_child(
+                eid,
+                "RegControl",
+                name,
+                rel=self._bus_rel(info["target_bus"], eid),
+                extra_info=info,
+            )
+            print(
+                f"[OpenTES] Regulador detectado: {name} @ "
+                f"{info['target_bus']}.{info['target_phase']}"
+            )
+
+    def _add_storages(self):
+        for name, info in self.dss_wrapper.get_all_storages_info().items():
+            eid = f"Storage-{name}"
+            bus_name, nodes = _parse_bus(info.get("bus", ""))
+            phases = info.get("num_phases") or len(nodes) or 3
+            info["eid_dss"] = eid
+            info["name"] = name
+            info["bus"] = bus_name
+            info["nodes"] = _resolve_nodes(nodes, phases)
+            info["phases"] = phases
+
+            self._add_child(
+                eid,
+                "Storage",
+                name,
+                rel=self._bus_rel(bus_name, eid),
+                extra_info=info,
+            )
+            print(
+                f"[OpenTES] Storage detectado: {name} @ {bus_name} | "
+                f"kW_rated: {info['kw_rated']} | kWh_rated: {info['kwh_rated']}"
+            )
+
+    def _add_pvsystems(self):
+        pv_infos = self.dss_wrapper.get_all_pvsystems_info()
+        if not pv_infos:
+            return
+
+        if self.bypass_native_pv_curves:
+            self._bypass_native_pv_curves(pv_infos)
+
+        for name, info in pv_infos.items():
+            eid = f"PVSystem-{name}"
+            bus_name, nodes = _parse_bus(info.get("bus", ""))
+            phases = info.get("num_phases") or len(nodes) or 3
+            info["eid_dss"] = eid
+            info["name"] = name
+            info["bus"] = bus_name
+            info["nodes"] = _resolve_nodes(nodes, phases)
+            info["phases"] = phases
+
+            self._add_child(
+                eid,
+                "PVSystem",
+                name,
+                rel=self._bus_rel(bus_name, eid),
+                extra_info=info,
+            )
+            print(
+                f"[OpenTES] PVSystem detectado: {name} @ {bus_name} | "
+                f"Pmpp: {info['pmpp']} kW | kVA: {info['kva']}"
+            )
+
+    def _bypass_native_pv_curves(self, pv_infos):
+        """Neutraliza as curvas nativas dos PVSystems para a co-simulação.
+
+        Quem calcula eficiência e derating térmico é o simulador de inversor,
+        então deixar as curvas do OpenDSS ativas aplicaria a penalidade duas
+        vezes. As curvas originais continuam disponíveis em ``extra_info``
+        (``eff_curve_*`` e ``pt_curve_*``) para quem for modelá-las fora.
+        """
+        dss = self.dss_wrapper.dss
+        dss.text("New XYCurve.EffIdeal_Cosim npts=2 xarray=[0.0 1.0] yarray=[1.0 1.0]")
+        dss.text("New XYCurve.PTIdeal_Cosim npts=2 xarray=[0.0 100.0] yarray=[1.0 1.0]")
+
+        for name in pv_infos:
+            dss.text(
+                f"Edit PVSystem.{name} %cutin=0.0001 %cutout=0.0001 "
+                f"EffCurve=EffIdeal_Cosim P-TCurve=PTIdeal_Cosim"
+            )
 
     def _check_load_profile(self, eid, name):
-        """
-        Lógica auxiliar para carregar perfis de carga (LoadShapes)
+        """Registra a LoadShape associada a uma carga, se houver.
 
-        :param self: Description
+        Uma falha aqui não é inofensiva: sem perfil, a carga fica congelada no
+        valor nominal durante toda a simulação. Por isso é sinalizada em vez de
+        ignorada.
         """
-
         shape_name = None
         try:
             yearly = self.dss_wrapper.get_property(name, "yearly", "Load")
@@ -249,8 +461,11 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             if isinstance(daily, str) and daily.lower() not in ["none", "constant", ""]:
                 shape_name = daily
 
-        except Exception:
-            pass
+        except OpenDSSException as exc:
+            print(
+                f"[OpenTES][AVISO] Nao foi possivel ler o perfil de Load.{name}: {exc}. "
+                "A carga ficara fixa no valor nominal."
+            )
 
         if shape_name:
             base_kw = float(self.dss_wrapper.get_property(name, "kW", "Load") or 0.0)
@@ -265,11 +480,27 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 self._cache_loadshape(shape_name)
 
     def _cache_loadshape(self, shape_name):
+        """Lê uma LoadShape uma vez e guarda seus multiplicadores.
+
+        Se a leitura falhar, o perfil fica ausente do cache e ``step()`` deixa
+        as cargas que o usam paradas no valor nominal — daí o aviso dizer a
+        consequência, e não só o erro.
+        """
         try:
             self.dss_wrapper.dss.loadshapes.name = shape_name
             p_mult = list(self.dss_wrapper.dss.loadshapes.p_mult)
             q_mult = list(self.dss_wrapper.dss.loadshapes.q_mult)
             npts = self.dss_wrapper.dss.loadshapes.npts
+
+            # O npts declarado pode passar do array realmente entregue pelo
+            # motor. Ajustar aqui, uma vez, evita um IndexError por passo — e
+            # o fallback silencioso para o indice 0 que ele provocava.
+            if len(p_mult) < npts:
+                print(
+                    f"[OpenTES][AVISO] LoadShape '{shape_name}' declara npts={npts} "
+                    f"mas entregou {len(p_mult)} pontos; usando {len(p_mult)}."
+                )
+                npts = len(p_mult)
 
             if not q_mult or len(q_mult) < npts:
                 q_mult = p_mult
@@ -290,52 +521,14 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 "use_actual": bool(self.dss_wrapper.dss.loadshapes.use_actual),
             }
 
-            # print(f"[DEBUG] LoadShape '{shape_name}' cacheada com {npts} pontos.")
-
-        except Exception as e:
-            print(f"[ERRO] Erro ao ler LoadShape '{shape_name}': {e}")
+        except Exception as exc:
+            print(
+                f"[OpenTES][ERRO] Falha ao ler a LoadShape '{shape_name}': {exc}. "
+                "As cargas que a usam ficarao fixas no valor nominal."
+            )
 
     def step(self, time, inputs, max_advance):
-        # PROCESSAR INPUTS DE CONTROLE
-        for eid, attrs in inputs.items():
-            if eid not in self.entity_map:
-                continue
-            # Controle de Regulador
-
-            name = self.entity_map[eid]
-            model_type = eid.split("-")[0]
-
-            # --- Controle do Regulador ---
-            if model_type == "RegControl" and "tap" in attrs:
-                try:
-                    new_tap = int(list(attrs["tap"].values())[0])
-
-                    self.dss_wrapper.set_tap(name=name, tap=new_tap)
-
-                    # print(f"[LOG] {name} Tap alterado para {new_tap}")
-                except Exception as e:
-                    print(f"[ERRO] Falha ao ajustar tap de {name}: {e}")
-
-            # --- Controle de Bateria ---
-            elif model_type == "Storage":
-                try:
-                    p_val = list(attrs["P_set"].values())[0] if "P_set" in attrs else None
-                    q_val = list(attrs["Q_set"].values())[0] if "Q_set" in attrs else None
-                    soc_val = list(attrs["SoC_set"].values())[0] if "SoC_set" in attrs else None
-
-                    if p_val is not None or q_val is not None or soc_val is not None:
-                        self.dss_wrapper.set_power(name, p=p_val, q=q_val, element="Storage")
-
-                except Exception as e:
-                    print(f"[ERRO] Falha ao ajustar bateria {name}: {e}")
-
-            # --- Controle do PVSystem ---
-            elif model_type == "PVSystem":
-                # Pegar os valores desejados (se existirem na iteração atual), senão mantém 0
-                p_des = list(attrs.get("P_des", {}).values())[0] if "P_des" in attrs else 0.0
-                q_des = list(attrs.get("Q_des", {}).values())[0] if "Q_des" in attrs else 0.0
-
-                self.dss_wrapper.set_pvsystem_pq(name, p_des, q_des)
+        self._apply_inputs(inputs)
 
         # ATUALIZAÇÃO DAS CARGAS
         for eid, profile in self.loads_with_profiles.items():
@@ -343,17 +536,11 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             if shape_name not in self.shape_data_cache:
                 continue
             data = self.shape_data_cache[shape_name]
+            # npts foi conciliado com o tamanho real dos arrays em
+            # _cache_loadshape, entao o indice esta sempre dentro dos limites.
             idx = math.floor(time / data["interval_s"]) % data["npts"]
-
-            # Acesso seguro ao índice ---
-            try:
-                pmult = data["p_mult"][idx]
-                qmult = data["q_mult"][idx]
-            except IndexError:
-                # Fallback seguro caso algo muito estranho aconteça com os índices
-                pmult = data["p_mult"][0]
-                qmult = data["q_mult"][0]
-            # -------------------------------------------
+            pmult = data["p_mult"][idx]
+            qmult = data["q_mult"][idx]
 
             if data["use_actual"]:
                 p_set = pmult
@@ -373,142 +560,51 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
 
         return time + self.step_size
 
+    def _apply_inputs(self, inputs):
+        """Aplica as entradas do mosaik ao circuito, roteadas pelo registry.
+
+        Cada atributo é reduzido a um único valor pelo agregador declarado no
+        seu :class:`~.element_specs.InputSpec`, de modo que comandos
+        concorrentes sejam somados ou sinalizados — nunca descartados em
+        silêncio.
+        """
+        for eid, attrs in inputs.items():
+            spec = self._spec_of(eid)
+            if spec is None or spec.writer is None:
+                continue
+
+            values = {
+                attr: spec.inputs[attr].aggregator(attr, eid, sources.values())
+                for attr, sources in attrs.items()
+                if attr in spec.inputs and sources
+            }
+            if not values:
+                continue
+
+            try:
+                spec.writer(self, self.entity_map[eid], values)
+            except Exception as exc:
+                # Uma escrita de controle perdida faz a simulação divergir do
+                # que o controlador comandou, sem nada no resultado indicando
+                # isso. Parar é preferível a produzir um dia inteiro de dados
+                # silenciosamente errados.
+                raise OpenDSSException(f"Failed to apply {values} to {eid}: {exc}") from exc
+
     def get_data(self, outputs):
         data = {}
         for eid, attrs in outputs.items():
-            if eid not in self.entity_map:
+            spec = self._spec_of(eid)
+            if spec is None:
                 continue
-            name = self.entity_map[eid]
-            model_type = eid.split("-")[0]
-            data[eid] = {}
-
-            if model_type == "Load":
-                p_kw, _ = self.dss_wrapper.get_power(name, element="Load")
-                if "P_out_mw" in attrs:
-                    data[eid]["P_out_mw"] = p_kw / 1000.0
-
-            elif model_type == "Line":
-                data[eid].update(self._extract_line_data(name, attrs))
-
-            elif model_type == "Bus":
-                data[eid].update(self._extract_bus_data(name, attrs))
-
-            elif model_type == "RegControl":
-                info = self.regulator_map.get(eid)
-                if not info:
-                    continue
-                meas = self.dss_wrapper.get_regulator_measurements(info)
-                if "v_meas" in attrs:
-                    data[eid]["v_meas"] = meas["v"]
-                if "i_meas" in attrs:
-                    data[eid]["i_meas"] = meas["i"]
-                if "tap" in attrs:
-                    data[eid]["tap"] = meas["tap"]
-
-            elif model_type == "Storage":
-                data[eid].update(
-                    extract_3phase_pq(
-                        self.dss_wrapper,
-                        name,
-                        "Storage",
-                        attrs,
-                        sign=-1,
-                    )
-                )
-
-            elif model_type == "PVSystem":
-                data[eid].update(
-                    extract_3phase_pq(
-                        self.dss_wrapper,
-                        name,
-                        "PVSystem",
-                        attrs,
-                        sign=-1,
-                    )
-                )
-
+            data[eid] = spec.reader(self, self.entity_map[eid], attrs, spec)
         return data
 
-    # ------------------------------------------------------------------
-    # Helpers de extração de dados (usados por get_data)
-    # ------------------------------------------------------------------
-
-    def _extract_line_data(self, name, attrs):
-        """Extrai correntes e potências de uma linha, retornando dict de attrs."""
-        result = {}
-
-        # Correntes
-        curr_mag, curr_ang = self.dss_wrapper.get_current(
-            name,
-            element="Line",
-            polar=True,
-            mag_only=False,
-            line_bus=1,
-        )
-        mags = to_3phase(curr_mag)
-        angs = to_3phase(curr_ang)
-
-        current_map = {
-            "I1_A": mags[0],
-            "I2_A": mags[1],
-            "I3_A": mags[2],
-            "I1_ang": angs[0],
-            "I2_ang": angs[1],
-            "I3_ang": angs[2],
-        }
-        for attr in attrs:
-            if attr in current_map:
-                result[attr] = current_map[attr]
-
-        # Potências
-        p_w, q_var = self.dss_wrapper.get_power(
-            name,
-            element="Line",
-            line_bus=1,
-        )
-        ps = to_3phase(p_w)
-        qs = to_3phase(q_var)
-
-        power_map = {
-            "P1_w": ps[0],
-            "P2_w": ps[1],
-            "P3_w": ps[2],
-            "Q1_var": qs[0],
-            "Q2_var": qs[1],
-            "Q3_var": qs[2],
-        }
-        for attr in attrs:
-            if attr in power_map:
-                result[attr] = power_map[attr]
-
-        return result
-
-    def _extract_bus_data(self, name, attrs):
-        """Extrai tensões de uma barra, retornando dict de attrs."""
-        result = {}
-
-        volt_mag, volt_ang = self.dss_wrapper.get_bus_voltage(
-            bus=name,
-            pu=True,
-            mag_only=False,
-            polar=True,
-        )
-        mags = to_3phase(volt_mag)
-        angs = to_3phase(volt_ang)
-
-        voltage_map = {
-            "V1_pu": mags[0],
-            "V2_pu": mags[1],
-            "V3_pu": mags[2],
-            "V1_ang": angs[0],
-            "V2_ang": angs[1],
-            "V3_ang": angs[2],
-        }
-        for attr in attrs:
-            if attr in voltage_map:
-                result[attr] = voltage_map[attr]
-
-        return result
+    def _spec_of(self, eid):
+        """Especificação do modelo de *eid*, ou ``None`` se não for deste simulador."""
+        model_type = self._type_by_eid.get(eid)
+        if model_type is None:
+            return None
+        return MODEL_SPECS.get(model_type)
 
     def get_dss_wrapper(self):
         return self.dss_wrapper

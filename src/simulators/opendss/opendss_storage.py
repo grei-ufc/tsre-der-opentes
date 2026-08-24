@@ -31,6 +31,10 @@ def get_all_storages_info(dss: Any) -> dict[str, dict[str, Any]]:
     for full_name in names:
         name = full_name.split(".")[-1] if "." in full_name else full_name
 
+        dss.circuit.set_active_element(f"Storage.{name}")
+        bus = dss.cktelement.bus_names[0]
+        num_phases = dss.cktelement.num_phases
+
         kw_rated = float(dss.text(f"? Storage.{name}.kWrated"))
         kwh_rated = float(dss.text(f"? Storage.{name}.kWhrated"))
         kwh_stored = float(dss.text(f"? Storage.{name}.kWhstored"))
@@ -44,6 +48,8 @@ def get_all_storages_info(dss: Any) -> dict[str, dict[str, Any]]:
 
         storage_infos[name] = {
             "name": name,
+            "bus": bus,
+            "num_phases": num_phases,
             "kw_rated": kw_rated,
             "kwh_rated": kwh_rated,
             "kwh_stored": kwh_stored,

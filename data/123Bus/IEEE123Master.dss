@@ -220,3 +220,12 @@ Redirect IEEE123Loads.DSS
 
 Set VoltageBases = [4.16, 0.48]    ! ARRAY OF VOLTAGES IN KV
 CalcVoltageBases  ! PERFORMS ZERO LOAD POWER FLOW TO ESTIMATE VOLTAGE BASES
+
+! Coordenadas das barras, para exportacao de topologia e para os plots.
+! Ficam aqui, no master, e nao no arquivo de execucao: assim todo runner que
+! compila este arquivo as herda -- inclusive os de co-simulacao, que antes
+! exportavam o grafo sem coordenada nenhuma. Precisa vir depois de
+! CalcVoltageBases, que e quem monta a lista de barras.
+! As barras 300_open e 94_open nao constam do BusCoords.dat: sao artefatos
+! das chaves abertas em IEEE123Switches.dss.
+Buscoords BusCoords.dat
