@@ -7,6 +7,13 @@ teste/
 mosaik/
 output/
 
+# Repositorios clonados localmente como referencia de leitura (cada um tem
+# .git proprio - nunca devem ser versionados como conteudo deste repo).
+/OpenDER/
+/OpenDER_interface/
+/mosaik-pandapower-2/
+/py_dss_toolkit/
+
 # C extensions
 *.so
 
