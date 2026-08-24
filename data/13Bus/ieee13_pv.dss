@@ -6,7 +6,10 @@ New Tshape.MyTemp npts=288 mInterval=5 temp=[25.0, 25.0, 25.0, 25.0, 25.0, 25.0,
 
 ! New Tshape.Mytemp npts=24 interval=1 temp=[25, 25, 25, 25, 25, 25, 25, 25, 35, 40, 45, 50, 60, 60, 55, 40, 35, 30, 25, 25, 25, 25, 25, 25]
 
-New PVSystem.PV phases=3 Bus1=634 kV=0.277 kVA=1000 irrad=0.8 Pmpp=1000
+! kV de elemento trifasico em estrela e linha-linha: 634 e o secundario de
+! Transformer.XFM1 (wdg=2 conn=Wye kv=0.480). O valor anterior, 0.277, era o
+! linha-neutro usado pelas cargas monofasicas da mesma barra.
+New PVSystem.PV phases=3 Bus1=634 kV=0.48 kVA=1000 irrad=0.8 Pmpp=1000
 ~ temperature=25 PF=1 EffCurve=MyEff P-TCurve=MyPvsT
 ~ Daily=my_shape2_pv TDaily=MyTemp
 ~ Vminpu=0.001

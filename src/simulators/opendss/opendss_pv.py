@@ -40,6 +40,12 @@ def get_all_pvsystems_info(dss: Any) -> dict[str, dict[str, Any]]:
         cutout = float(dss.text(f"? PVSystem.{name}.%cutout"))
 
         bus_name = dss.cktelement.bus_names[0]
+        num_phases = dss.cktelement.num_phases
+
+        # Tensao nominal do elemento: linha-linha se trifasico, linha-neutro se
+        # monofasico. E a base de v_pu para as curvas volt-var e volt-watt do
+        # inversor, entao precisa acompanhar o PVSystem e nao a barra.
+        kv = _as_float(dss.text(f"? PVSystem.{name}.kV"))
 
         pt_curve_name = dss.text(f"? PVSystem.{name}.P-TCurve")
         eff_curve_name = dss.text(f"? PVSystem.{name}.EffCurve")
@@ -50,6 +56,7 @@ def get_all_pvsystems_info(dss: Any) -> dict[str, dict[str, Any]]:
         pv_infos[name] = {
             "pmpp": pmpp,
             "kva": kva,
+            "kv": kv,
             "irradiance": irradiance,
             "daily": daily,
             "pct_cutin": cutin,
@@ -59,6 +66,7 @@ def get_all_pvsystems_info(dss: Any) -> dict[str, dict[str, Any]]:
             "eff_curve_x": eff_x,
             "eff_curve_y": eff_y,
             "bus": bus_name,
+            "num_phases": num_phases,
         }
 
     return pv_infos
@@ -104,6 +112,14 @@ def get_pvsystem_power(dss: Any, name: str) -> tuple[float, float]:
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
+
+
+def _as_float(value: Any, default: float = 0.0) -> float:
+    """Converte uma propriedade DSS (sempre string) para float, com fallback."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _read_xy_curve(dss: Any, curve_name: str) -> tuple[list[float], list[float]]:
