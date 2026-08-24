@@ -25,6 +25,11 @@ uv run --no-sync python -m pytest tests/ -v
 uv run ruff check src/simulators/ scenarios/ tests/
 uv run ruff format src/simulators/ scenarios/ tests/
 
+# Docs (mkdocs lives in the `docs` group, not installed by a plain `uv sync`)
+uv sync --group docs                      # once
+uv run --group docs mkdocs serve          # live preview at http://127.0.0.1:8000
+uv run --group docs mkdocs build --strict # fail on broken links
+
 # Add a dependency
 uv add <package>
 ```
@@ -45,11 +50,13 @@ uv add <package>
 │       │   ├── _utils.py            # Shared helpers (to_3phase, extract_3phase_pq)
 │       │   ├── topology_builder.py  # Circuit graph builder
 │       │   └── graph_model.py       # Graph data classes
-│       ├── inverter/        # Inverter model and adapters
-│       │   ├── inverter.py              # Unified InverterModel (cut-in/out, efficiency, priority)
-│       │   ├── inverter_simulator.py      # Mosaik adapter (standard control)
-│       │   ├── smart_inverter_simulator.py # Compatibility shim → inverter.py
-│       │   └── smart_inverter_simulator_2.py # Mosaik adapter (smart control)
+│       ├── inverter/        # Smart inverter (IEEE 1547 via OpenDER)
+│       │   ├── config.py                # Validated control config (curves, mode, nameplate)
+│       │   ├── opender_factory.py       # ONLY place that builds DERCommonFileFormat / DER_PV
+│       │   ├── smart_inverter.py        # SmartInverterModel: P_dc + V → P_ac, Q_ac
+│       │   ├── smart_inverter_simulator.py # The single mosaik adapter (META derived)
+│       │   ├── inverter_simulator.py    # Compatibility shim → smart_inverter_simulator
+│       │   └── inverter.py              # Legacy InverterModel, no OpenDER
 │       ├── battery/         # Battery model and adapter
 │       │   ├── battery_model.py  # OpenDSSBattery physics model
 │       │   └── battery_sim.py    # Mosaik adapter
@@ -90,5 +97,35 @@ uv add <package>
 - `mosaik/` is a gitignored local clone — never edit framework code there for project changes.
 - Scenarios are standalone scripts, not importable modules. Each defines its own `SIM_CONFIG` and `run_scenario()`.
 - The `opendss/opendss_wrapper.py` is the single source of truth for all OpenDSS interactions. Do not call `py_dss_interface` directly from simulators.
-- `inverter/smart_inverter_simulator.py` is a compatibility shim — its logic lives in `inverter/inverter.py`.
 - Tests: `uv run --no-sync python -m pytest tests/ -v`. Lint: `uv run ruff check`. Format: `uv run ruff format`.
+
+## OpenDER (smart inverter) gotchas
+
+The OpenDER library validates settings in property *setters* that only
+`logging.warning` — they never raise. Several of its behaviours are silent
+traps; `inverter/config.py` and `inverter/opender_factory.py` exist to contain
+them. Read those two modules before touching inverter control.
+
+- **Never mutate `der.der_file` after construction.** The `NP_VA_MAX` setter
+  re-runs `initialize_NP_Q_CAPABILTY_BY_P_CURVE()` from the *current*
+  `NP_Q_MAX_INJ`. Scaling only the rating leaves reactive capability pinned at
+  the 44 kvar default. Build the full parameter dict, pass it to the
+  constructor, done. `build_der` asserts the resulting curve.
+- **`DER.t_s` is a class attribute**, global to the process. Set it once from
+  the mosaik step size via `opender_factory.set_time_step`. Left unset, the
+  100 000 s default makes every OLRT, ramp and trip timer inert.
+- **Reactive modes are mutually exclusive**, resolved by fixed priority
+  (`CONST_PF > VOLT_VAR > WATT_VAR > CONST_Q`). Volt-watt is a *P* function and
+  is orthogonal. Hence `ReactiveMode` is an enum, not flags.
+- **`ConditionalDelay` starts its timer at `math.inf`**, so the first true
+  evaluation satisfies any duration. To disable trip, move the *thresholds*
+  out of range — stretching `*_TRIP_T` does nothing.
+- **The low-pass filter short-circuits when `t_olrt < 1.15 * t_s`.** With a
+  300 s step, every IEEE-compliant OLRT gives an instantaneous response, so the
+  delayed voltage feedback has no damping. `olrt ≈ 2 × step` is the deliberate
+  numerical relaxation.
+- **A three-phase DER returns total P/Q, never per-phase.** Real single-phase
+  injection needs `NP_PHASE='SINGLE'`, one DER per element.
+- **Parameter write order matters** (setters cross-reference): `NP_V_DC` before
+  `NP_AC_V_NOM`; `NP_VA_MAX` before the `NP_Q_MAX_*` pair; `QV_CURVE_V2`/`V3`
+  before `V1`/`V4`; `PV_CURVE_P2` before `P1`.
