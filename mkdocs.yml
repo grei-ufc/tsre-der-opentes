@@ -1,0 +1,111 @@
+site_name: tsre-der-opentes
+site_description: Documentação técnica do projeto de co-simulação de recursos energéticos distribuídos
+site_url: ""
+repo_url: ""
+edit_uri: ""
+
+theme:
+  name: material
+  language: pt-BR
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: green
+      accent: green
+      toggle:
+        icon: material/brightness-7
+        name: Alternar para modo escuro
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: green
+      accent: green
+      toggle:
+        icon: material/brightness-4
+        name: Alternar para modo claro
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.indexes
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+
+extra_css:
+  - assets/grei-colors.css
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+  - tables
+  - def_list
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: ""
+
+nav:
+  - Início: index.md
+  - Primeiros Passos:
+      - getting-started/installation.md
+      - getting-started/first-simulation.md
+  - Tutoriais:
+      - tutorials/pv-pipeline-local.md
+      - tutorials/docker-co-simulation.md
+      - tutorials/smart-inverter-scenario.md
+  - Guias:
+      - how-to-guides/run-scenario-locally.md
+      - how-to-guides/deploy-with-docker.md
+      - how-to-guides/configure-regulator.md
+      - how-to-guides/configure-smart-inverter.md
+      - how-to-guides/add-battery-storage.md
+      - how-to-guides/generate-pv-systems.md
+      - how-to-guides/export-topology-json.md
+      - how-to-guides/troubleshoot-common-issues.md
+  - Referência:
+      - reference/opendss-wrapper.md
+      - reference/mosaik-adapters.md
+      - reference/inverter-model.md
+      - reference/battery-model.md
+      - reference/pv-panel-model.md
+      - reference/regulator-model.md
+      - reference/scenarios.md
+      - reference/docker-services.md
+      - reference/data-files.md
+      - reference/cli.md
+  - Conceitos:
+      - explanation/architecture.md
+      - explanation/co-simulation-concepts.md
+      - explanation/opendss-integration.md
+      - explanation/sign-convention.md
+      - explanation/design-decisions.md
+  - Contribuir:
+      - contributing/development-setup.md
+      - contributing/code-conventions.md
+      - contributing/testing.md
+  - Changelog: changelog.md
+  - Licença: license.md
