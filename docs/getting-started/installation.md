@@ -4,13 +4,10 @@
 
 | Requisito | Versão mínima | Observação |
 |---|---|---|
-| Python | 3.12+ | Recomendado; `pyproject.toml` declara `>=3.9` |
+| Python | 3.12+ | Exigido por `pyproject.toml` (`requires-python = ">=3.12"`) |
 | [uv](https://docs.astral.sh/uv/) | Qualquer | Gerenciador de dependências e ambientes virtuais |
 | Docker + Docker Compose | Qualquer | Apenas para execução via Docker |
 | Git | Qualquer | Para clonar o repositório |
-
-!!! note "Sobre Python 3.9"
-    O `pyproject.toml` declara `requires-python = ">=3.9"`, mas o alvo do Ruff e das dependências é Python 3.12. Recomenda-se fortemente usar Python 3.12+.
 
 ## Clonar o repositório
 

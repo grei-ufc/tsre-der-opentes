@@ -1,90 +1,99 @@
 # Primeira Simulação
 
-Este tutorial conduz passo a passo para executar a primeira co-simulação e gerar um arquivo de resultados CSV.
+Este tutorial executa a co-simulação mais simples do projeto — inteiramente em Python, sem Docker — e mostra como ler o resultado.
+
+## O que você vai obter
+
+Ao final, um arquivo CSV com tensão (p.u.) e corrente (A) de um ponto do alimentador IEEE 13 barras, a cada 10 minutos, ao longo de 24 horas simuladas (144 linhas). Estas são as duas primeiras linhas reais desse resultado:
+
+| date | DSS-0.Bus-rg60-V1_pu | DSS-0.Bus-rg60-V2_pu | DSS-0.Bus-rg60-V3_pu | DSS-0.Line-650632-I1_A |
+|---|---|---|---|---|
+| 2025-01-01 00:00:00 | 0.999991 | 1.000043 | 0.999993 | 242.41 |
+| 2025-01-01 00:10:00 | 1.000000 | 1.000050 | 1.000003 | 227.71 |
+
+O arquivo real tem 12 colunas — correntes e ângulos das 3 fases da linha `650632`, tensões e ângulos das 3 fases da barra `rg60`. A seção [Colunas do resultado](#colunas-do-resultado) explica cada uma.
 
 ## Objetivo
 
-Executar o cenário de co-simulação com Docker no caso IEEE 123-bus com sistemas fotovoltaicos e verificar o arquivo de saída.
+Executar `scenarios/opendss_scenario.py`: compilar o alimentador IEEE 13 barras no OpenDSS, resolver o fluxo de potência a cada 10 minutos por 24 horas, e gravar tensão/corrente de um ponto do circuito em CSV.
+
+!!! info "Por que este cenário, e não outro?"
+    É o cenário mais simples do catálogo (veja [Catálogo de Cenários](../reference/scenarios.md)): apenas dois simuladores (`DSS` + `Collector`), sem geração fotovoltaica e sem Docker — o caminho mais curto até o primeiro resultado. Depois deste tutorial, [Pipeline PV Local](../tutorials/pv-pipeline-local.md) mostra como adicionar geração distribuída, ainda em Python puro, e [Co-Simulação Docker](../tutorials/docker-co-simulation.md) mostra o modo recomendado para cenários completos — com cada simulador em seu próprio container. Nenhum dos dois é necessário para este primeiro contato.
 
 ## Pré-requisitos
 
-- Docker e Docker Compose instalados ([Instalação](../getting-started/installation.md))
-- uv instalado
+- Ambiente instalado (`uv sync`) — veja [Instalação](installation.md)
 - Repositório clonado
 
-## Passo 1: Construir a imagem Docker
+Docker **não** é necessário para este tutorial.
+
+## Passo 1: Executar o cenário
 
 Na raiz do repositório:
 
 ```bash
-docker build -t opentes-simulador .
+uv run --no-sync python scenarios/opendss_scenario.py
 ```
 
-Isso cria a imagem base utilizada por todos os simuladores. O processo leva alguns minutos na primeira vez.
+A execução é quase instantânea — o alimentador tem 13 barras e cada passo resolve em frações de segundo. O terminal mostra algo como:
 
-!!! info "Quando refazer o build?"
-    Apenas quando houver alterações no `dockerfile`, `requirements.txt` ou no código-fonte em `src/`.
-
-## Passo 2: Subir os containers
-
-```bash
-docker compose up -d
+```text
+DSS: Compiling...
+DSS: Compiled Circuit: ieee13nodeckt
+[OpenTES] Regulador detectado: reg1 @ rg60.1
+[OpenTES] Regulador detectado: reg2 @ rg60.2
+[OpenTES] Regulador detectado: reg3 @ rg60.3
+Monitorando Linha: 'Line-650632'
+Monitorando Barra: 'Bus-rg60'
+Iniciando simulação de 144 passos (Step=600s)...
+Simulação concluída.
 ```
 
-Isso inicia 10 containers, cada um com um simulador diferente. Os containers aguardam conexões TCP nas portas 5671–5680.
+## Passo 2: O que aconteceu por baixo dos panos
 
-Para verificar que todos estão rodando:
+1. O adaptador OpenDSS (`simulators.opendss.api_opendss`) compilou `data/13Bus/IEEE13Nodeckt_w_loadcurve.dss` e detectou automaticamente os 3 reguladores de tensão do circuito (`reg1`, `reg2`, `reg3`, todos na barra `rg60`).
+2. O cenário conectou dois pontos do circuito ao `Collector`: a linha `650632` (correntes e ângulos das 3 fases) e a barra `rg60` (tensões e ângulos das 3 fases).
+3. O Mosaik avançou 144 passos de 600 segundos (10 minutos) — 24 horas simuladas — resolvendo o fluxo de potência a cada passo.
+4. A cada passo, o `Collector` gravou uma linha no CSV.
 
-```bash
-docker compose ps
-```
+Consulte [Arquitetura](../explanation/architecture.md) para o funcionamento geral de um cenário, e [Conceitos de Co-Simulação](../explanation/co-simulation-concepts.md) para o papel do `step_size` e do Mosaik.
 
-Todos os serviços devem estar com status `Up`.
+## Passo 3: Verificar o resultado
 
-## Passo 3: Executar o cenário
-
-Em outro terminal, na raiz do repositório:
-
-```bash
-uv run --no-sync python scenarios/cenariodocker.py
-```
-
-!!! warning "Caminho do cenário"
-    O cenário está em `scenarios/cenariodocker.py` (na raiz), não em `src/scenarios/`. O README pode mencionar `src/scenarios/` em versões anteriores — o caminho correto é `scenarios/`.
-
-A execução pode levar alguns minutos. Durante a simulação, o terminal exibirá mensagens de progresso do mosaik.
-
-## Passo 4: Verificar o resultado
-
-O arquivo de saída é gerado em:
-
-```
-output/result_run_ieee123_cosim_pv_5min.csv
-```
-
-Cada linha contém um timestamp e os valores medidos de tensão, corrente e potência para os elementos monitorados.
-
-Para inspecionar rapidamente:
+O arquivo é gravado em `output/result_opendss.csv`. Para inspecionar:
 
 ```python
 import pandas as pd
 
-df = pd.read_csv("output/result_run_ieee123_cosim_pv_5min.csv")
+df = pd.read_csv("output/result_opendss.csv", index_col="date", parse_dates=True)
 print(df.head())
 print(f"Colunas: {list(df.columns)}")
 ```
 
-## O que aconteceu por baixo dos panos
+### Colunas do resultado
 
-1. O Mosaik conectou a 6 simuladores via TCP (portas 5671–5678)
-2. O adaptador OpenDSS compilou o circuito IEEE 123-bus e descobriu automaticamente os PVSystems definidos no arquivo `.dss`
-3. Para cada PVSystem, foi criada uma cadeia: CSV (irradiância/temperatura) → Painel PV → Inversor → OpenDSS
-4. Em cada passo de tempo (5 minutos), o fluxo de potência foi resolvido e os resultados coletados
+O nome de cada coluna segue o padrão `<simulador>.<entidade>-<atributo>`:
 
-Consulte [Arquitetura](../explanation/architecture.md) para uma explicação detalhada.
+| Coluna | Descrição |
+|---|---|
+| `DSS-0.Bus-rg60-V1_pu`, `V2_pu`, `V3_pu` | Tensão por fase na barra `rg60`, em p.u. |
+| `DSS-0.Bus-rg60-V1_ang`, `V2_ang`, `V3_ang` | Ângulo de tensão por fase, em graus |
+| `DSS-0.Line-650632-I1_A`, `I2_A`, `I3_A` | Corrente por fase na linha `650632`, em Amperes |
+| `DSS-0.Line-650632-I1_ang`, `I2_ang`, `I3_ang` | Ângulo de corrente por fase, em graus |
+
+## Variações
+
+- **Mudar a duração ou o passo de tempo**: `STEP_SIZE`, `N_PASSOS` e `END_TIME` estão no topo de `opendss_scenario.py`. O padrão usado nos demais cenários do projeto está em [Executar Cenário Local](../how-to-guides/run-scenario-locally.md).
+- **Monitorar outro ponto do circuito**: o cenário só conecta a linha `650632` e a barra `rg60` ao `Collector` porque foi assim que o script foi escrito — não é uma limitação do adaptador. Qualquer `Bus`, `Line`, `Load`, `PVSystem`, `Storage` ou `RegControl` do circuito pode ser conectado da mesma forma; veja os atributos disponíveis de cada modelo em [Adaptadores Mosaik](../reference/mosaik-adapters.md).
+- **Simular outro alimentador**: este script está fixo no IEEE 13 barras. Para 34 ou 123 barras, use os cenários prontos do catálogo — veja [Catálogo de Cenários](../reference/scenarios.md).
+
+## Erros comuns
+
+Consulte [Solução de Problemas Comuns](../how-to-guides/troubleshoot-common-issues.md) — os erros mais frequentes neste passo são `ModuleNotFoundError` (executar sem `uv run`) e `FileNotFoundError` para o arquivo `.dss` (executar fora da raiz do repositório).
 
 ## Próximos passos
 
-- [Tutorial: Pipeline PV Local](../tutorials/pv-pipeline-local.md) — entenda cada componente da cadeia
-- [Tutorial: Co-Simulação Docker](../tutorials/docker-co-simulation.md) — aprofunde no Docker
+- [Tutorial: Pipeline PV Local](../tutorials/pv-pipeline-local.md) — adicione geração fotovoltaica e um inversor à mesma base, ainda em Python puro
+- [Tutorial: Cenário Inversor Inteligente](../tutorials/smart-inverter-scenario.md) — controle Volt-Var via IEEE 1547
+- [Tutorial: Co-Simulação Docker](../tutorials/docker-co-simulation.md) — rode cada simulador em seu próprio container, o modo recomendado para cenários completos
 - [Catálogo de Cenários](../reference/scenarios.md) — veja todos os cenários disponíveis
