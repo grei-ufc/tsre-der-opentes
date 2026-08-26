@@ -12,6 +12,8 @@ Este documento lista os META dicts, atributos e parâmetros de todos os adaptado
 
 ### META
 
+A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo `MODEL_SPECS` em `opendss/element_specs.py` (`META = build_meta()`), o mesmo padrão usado pelo `Inverter` (veja adiante). O roteamento de entrada em `step()` e as leituras em `get_data()` vêm do mesmo registro, então um atributo não pode ser declarado aqui sem o código que o implementa — para adicionar um, veja [Decisões de Projeto](../explanation/design-decisions.md).
+
 ```python
 {
     "api_version": "3.0",

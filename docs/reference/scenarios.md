@@ -6,7 +6,7 @@ Todos os cenários estão em `scenarios/`. Cada um é um script standalone.
 
 | Cenário | Caso de Teste | Execução | DER | Inversor | Passo | Arquivo de saída |
 |---|---|---|---|---|---|---|
-| `opendss_scenario.py` | IEEE 13-bus | Local | Nenhum | — | 600s | `output/result_opendss_13bus.csv` |
+| `opendss_scenario.py` | IEEE 13-bus | Local | Nenhum | — | 600s | `output/result_opendss.csv` |
 | `opendss_scenario_pv.py` | teste-pv (custom) | Local | PV | Padrão | 3600s | `output/result_opendss_pv.csv` |
 | `opendss_scenario_34bus.py` | IEEE 34-bus | Local | Regulador | — | 300s | `output/result_opendss_34bus_regcontrol.csv` |
 | `opendss_scenario_123bus.py` | IEEE 123-bus | Local | Nenhum | — | 300s | `output/result_run_ieee123_cosim_5min_edited.csv` |
