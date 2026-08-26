@@ -42,10 +42,14 @@ Este cenário:
 
 ## Conexões de feedback
 
-```
-OpenDSS/RegControl-XX (v_meas) ──[time_shifted]──> RegController (v_meas)
-OpenDSS/RegControl-XX (i_meas) ──[time_shifted]──> RegController (i_meas)
-RegController (tap_cmd) ──────────────────────────> OpenDSS/RegControl (tap)
+```mermaid
+flowchart LR
+    DSS["OpenDSS<br/>RegControl-XX"]
+    Reg["RegController"]
+
+    DSS -.->|"v_meas (time_shifted)"| Reg
+    DSS -.->|"i_meas (time_shifted)"| Reg
+    Reg -->|tap| DSS
 ```
 
 O `time_shifted=True` é essencial para evitar ciclos causais.

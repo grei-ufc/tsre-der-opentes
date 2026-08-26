@@ -4,9 +4,6 @@
 
 A dockerização permite que cada simulador rode em seu próprio container Docker, conectando-se via TCP. Este é o **modo recomendado** para cenários completos.
 
-!!! info "Migração"
-    Este guia é uma versão expandida do documento original `docs/how-to-guides/dockerizacao_simuladores.md`.
-
 ## Arquitetura
 
 Cada container:
