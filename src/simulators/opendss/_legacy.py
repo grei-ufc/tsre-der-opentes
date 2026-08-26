@@ -102,7 +102,7 @@ class LegacyReadsMixin:
             raise OpenDSSException(f"Bad phase for {n_phases}-phase Bus {bus}: {phase}")
 
     def get_voltage(
-        self, name: str, element: str = "Load", line_bus: int = 1, **kwargs
+        self, name: str, element: str = "Load", line_bus: int = 1, **kwargs: object
     ) -> float | tuple | Any:
         """
         Gets the voltage at the terminals of a specific element.
@@ -121,7 +121,7 @@ class LegacyReadsMixin:
             kwargs["phase"] = 1
         return self.get_bus_voltage(bus, **kwargs)
 
-    def get_all_bus_voltages(self, **kwargs) -> dict[str, float | tuple]:
+    def get_all_bus_voltages(self, **kwargs: object) -> dict[str, float | tuple]:
         """
         Gets voltages for all buses in the system.
 

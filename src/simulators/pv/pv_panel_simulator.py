@@ -5,38 +5,24 @@ import numpy as np
 
 
 class PVPanelModel:
-    """
-    Emulates the physical and electrical behavior of a photovoltaic panel.
+    """Emulates the physical and electrical behavior of a photovoltaic panel.
 
     The model is independent from simulation frameworks and computes the
-    available DC power from irradiance and module temperature.
+    available DC power from irradiance and module temperature:
+    ``P_dc = p_mpp * irradiance_base * irradiance * pt_factor``, where
+    ``pt_factor`` is interpolated from ``pt_curve_x`` and ``pt_curve_y``.
 
-    Parameters
-    ----------
-    p_mpp : float
-        Maximum power point power in kilowatts.
-    irradiance_base : float
-        Reference irradiance used for normalization in kW/m².
-    pt_curve_x : list of float
-        Temperatures in degrees Celsius that define the power-temperature curve.
-    pt_curve_y : list of float
-        Dimensionless power factors corresponding to pt_curve_x.
+    Args:
+        p_mpp: Maximum power point power in kilowatts.
+        irradiance_base: Reference irradiance used for normalization in kW/m².
+        pt_curve_x: Temperatures in degrees Celsius that define the
+            power-temperature curve.
+        pt_curve_y: Dimensionless power factors corresponding to ``pt_curve_x``.
 
-    Attributes
-    ----------
-    irradiance : float
-        Current irradiance applied to the panel (0..1).
-    temperature : float
-        Current module temperature in degrees Celsius.
-    P_dc : float
-        Calculated DC power in kilowatts (non-negative).
-
-    Notes
-    -----
-    The calculation uses the relation:
-    P_dc = p_mpp * irradiance_base * irradiance * pt_factor
-    where pt_factor is interpolated from pt_curve_x and pt_curve_y.
-    See repository documentation for modeling details and validation.
+    Attributes:
+        irradiance: Current irradiance applied to the panel (0..1).
+        temperature: Current module temperature in degrees Celsius.
+        P_dc: Calculated DC power in kilowatts (non-negative).
     """
 
     def __init__(
@@ -85,26 +71,13 @@ class PVPanelSim(mosaik_api_v3.Simulator):
     """
     Mosaik simulator wrapper for PVPanelModel instances.
 
-    This class manages multiple `PVPanelModel` objects and exposes them to a
+    This class manages multiple ``PVPanelModel`` objects and exposes them to a
     Mosaik co-simulation. It translates Mosaik inputs into model state,
     triggers the physical calculation, and returns model attributes as outputs.
 
-    Parameters
-    ----------
-    None
-
-    Attributes
-    ----------
-    entities : dict
-        Mapping from entity id (str) to `PVPanelModel` instance.
-    step_size : int
-        Simulation step size in seconds used by the `step` method.
-
-    Notes
-    -----
-    - The simulator expects a `META` dictionary to be available in the module.
-    - `PVPanelModel` must be importable and follow the documented API:
-      it should expose `irradiance`, `temperature`, `P_dc`, and a `calculate_step()` method.
+    Attributes:
+        entities: Mapping from entity id (str) to ``PVPanelModel`` instance.
+        step_size: Simulation step size in seconds used by the ``step`` method.
     """
 
     def __init__(self) -> None:
@@ -156,9 +129,9 @@ class PVPanelSim(mosaik_api_v3.Simulator):
             panel = self.entities[eid]
 
             if "irradiance" in attrs:
-                panel.irradiance = float(list(attrs["irradiance"].values())[0])
+                panel.irradiance = float(next(iter(attrs["irradiance"].values())))
             if "temperature" in attrs:
-                panel.temperature = float(list(attrs["temperature"].values())[0])
+                panel.temperature = float(next(iter(attrs["temperature"].values())))
 
         # 2. Run physics for all panels
         for _eid, panel in self.entities.items():

@@ -82,9 +82,9 @@ class Collector(mosaik_api_v3.Simulator):
         if self.print_results:
             # print('Collected data:')
             for sim, sim_data in sorted(self.data.items()):
-                print("- %s:" % sim)
+                print(f"- {sim}:")
                 for attr, values in sorted(sim_data.items()):
-                    print("  - %s: %s" % (attr, values))
+                    print(f"  - {attr}: {values}")
 
 
 if __name__ == "__main__":

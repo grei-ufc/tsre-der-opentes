@@ -78,9 +78,9 @@ class BatterySim(mosaik_api_v3.Simulator):
                 attrs = inputs[eid]
                 if "P_ref" in attrs:
                     # Assume que vem de um controlador, pega o valor mais recente
-                    bat.p_ref_buffer = list(attrs["P_ref"].values())[0]
+                    bat.p_ref_buffer = next(iter(attrs["P_ref"].values()))
                 if "Q_ref" in attrs:
-                    bat.q_ref_buffer = list(attrs["Q_ref"].values())[0]
+                    bat.q_ref_buffer = next(iter(attrs["Q_ref"].values()))
 
             # 2. Executar Física
             bat.calculate_step(bat.p_ref_buffer, bat.q_ref_buffer, dt_seconds)

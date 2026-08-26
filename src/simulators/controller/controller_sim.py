@@ -69,9 +69,9 @@ class BatteryControllerSim(mosaik_api_v3.Simulator):
             # Leitura dos Inputs
             if eid in inputs:
                 if "SoC_in" in inputs[eid]:
-                    current_soc = list(inputs[eid]["SoC_in"].values())[0]
+                    current_soc = next(iter(inputs[eid]["SoC_in"].values()))
                 if "curve_value" in inputs[eid]:
-                    curve_value = list(inputs[eid]["curve_value"].values())[0]
+                    curve_value = next(iter(inputs[eid]["curve_value"].values()))
 
             ctrl["curve_value"] = curve_value
             # Potências constantes baseadas em %
@@ -94,10 +94,9 @@ class BatteryControllerSim(mosaik_api_v3.Simulator):
             # 3. Time Charge Trigger (Regra de horário para forçar carga)
             else:
                 trigger_h = ctrl["time_charge_trigger"]
-                if trigger_h >= 0:
-                    # Verifica se cruzamos a hora do gatilho NESTE step exato
-                    if trigger_h <= hour_of_day < (trigger_h + step_hours):
-                        ctrl["is_time_charging"] = True
+                # Verifica se cruzamos a hora do gatilho NESTE step exato
+                if trigger_h >= 0 and trigger_h <= hour_of_day < (trigger_h + step_hours):
+                    ctrl["is_time_charging"] = True
 
                 # Se estamos na janela de carregamento por tempo, comanda carga
                 if ctrl["is_time_charging"]:
@@ -108,10 +107,9 @@ class BatteryControllerSim(mosaik_api_v3.Simulator):
             # --- PROTEÇÕES DO CONTROLADOR ---
             # O controlador percebe que a bateria encheu e para de pedir carga.
             # (A bateria física já bloquearia, mas isso encerra a flag is_time_charging)
-            if current_soc is not None:
-                if current_soc >= 99.99 and ctrl["P_ref"] < 0:
-                    ctrl["P_ref"] = 0.0
-                    ctrl["is_time_charging"] = False  # Atingiu 100%, encerra o time charge
+            if current_soc is not None and current_soc >= 99.99 and ctrl["P_ref"] < 0:
+                ctrl["P_ref"] = 0.0
+                ctrl["is_time_charging"] = False  # Atingiu 100%, encerra o time charge
 
                 # Nota: A proteção de reserva na descarga (SoC <= %reserve) é operada
                 # inerentemente pela nossa classe OpenDSSBattery (física).

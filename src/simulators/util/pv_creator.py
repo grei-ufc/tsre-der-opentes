@@ -18,14 +18,14 @@ __version__ = "1.0.0"
 #    - Replace the circuit file: set SCRIPT_DSS to the path of your OpenDSS master
 #      script (e.g., 'path/to/your_circuit.dss').
 #    - Ensure the circuit has buses with purely numeric names (e.g., '650', '646').
-#      Buses with non‑digit names are automatically ignored during mapping.
+#      Buses with non-digit names are automatically ignored during mapping.
 #
 # 2. WEATHER STATION DATA
 #    - The script expects a directory (SOLAR_STATION_FILES) containing one CSV file
 #      per solar station, named exactly as specified in the metadata (e.g., 'station_01.csv').
 #    - Each CSV must have at least the following columns (with exactly these names):
 #        * datetime               : timestamp string (e.g., '2026-01-01 00:00:00')
-#        * poa_irradiance_wm2     : plane‑of‑array irradiance (W/m²)
+#        * poa_irradiance_wm2     : plane-of-array irradiance (W/m²)
 #        * panel_temperature_celsius : PV panel temperature (°C)
 #    - The metadata file (INFO_PV_FILE) is a CSV with at least the columns:
 #        * id                     : station identifier (used to build the CSV file name)
@@ -34,7 +34,7 @@ __version__ = "1.0.0"
 #
 # 3. SIMULATION PREFERENCES
 #    - t_simulation : total simulation length (minutes). The code assumes the weather
-#      data has a 15‑minute native resolution and calculates the required number of
+#      data has a 15-minute native resolution and calculates the required number of
 #      points automatically (npts_origin).
 #    - step : desired output time step (Pandas offset alias, e.g., '5min', '1h', '30s').
 #    - start_date : start date/time for the interpolated output series. Must be a
@@ -51,11 +51,11 @@ __version__ = "1.0.0"
 #    - QtdPVs : number of PV generators to randomly install on available buses.
 #    - PV_Dictionaries : list of dictionaries with manual PV definitions.
 #      Each dictionary accepts:
-#        'PV_phases' : 1 or 3 (2‑phase entries are automatically reduced to 1‑phase)
+#        'PV_phases' : 1 or 3 (2-phase entries are automatically reduced to 1-phase)
 #        'PV_bus'    : bus name with nodes (e.g., '646.2.3')
-#        'PV_kv'     : voltage (kV) – optional, will be calculated if missing
-#        'PV_kva'    : capacity (kVA) – optional, will use metadata if missing
-#        'PV_curve_id' : solar curve ID (1‑51, or None to use the station's position)
+#        'PV_kv'     : voltage (kV) - optional, will be calculated if missing
+#        'PV_kva'    : capacity (kVA) - optional, will use metadata if missing
+#        'PV_curve_id' : solar curve ID (1-51, or None to use the station's position)
 #    - ignore_buses : list (or single string) of base bus numbers to exclude from
 #      random allocation.
 #    - bus_multi_PV : set to True if you want to allow multiple PVs on the same bus.
@@ -76,6 +76,7 @@ import logging  # Logging for debugging and information output
 from math import ceil  # Ceiling function to calculate total simulation points
 from pathlib import Path  # Object-oriented filesystem paths
 from random import choice, seed  # Random node selection and reproducibility seeding
+from typing import ClassVar
 
 import pandas as pd  # Data manipulation and CSV file handling
 import py_dss_interface  # Python interface for OpenDSS (EPRI)
@@ -95,10 +96,10 @@ my_seed = 25  # Seed for reproducibility of random bus sampling
 
 # --- Paths Configurations ---
 BASE_DIR = Path(".").resolve()
-INFO_PV_FILE = BASE_DIR / "src" / "data" / "InfoPV" / "power_station_metadata.csv"
-SOLAR_STATION_FILES = BASE_DIR / "src" / "data" / "InfoPV" / "solar_station"
-SCRIPT_DSS = BASE_DIR / "src" / "data" / "13Bus" / "IEEE13Nodeckt.dss"
-OUTPUT_DIR = BASE_DIR / "src" / "data" / "13Bus"
+INFO_PV_FILE = BASE_DIR / "data" / "InfoPV" / "power_station_metadata.csv"
+SOLAR_STATION_FILES = BASE_DIR / "data" / "InfoPV" / "solar_station"
+SCRIPT_DSS = BASE_DIR / "data" / "13Bus" / "IEEE13Nodeckt.dss"
+OUTPUT_DIR = BASE_DIR / "data" / "13Bus"
 OUTPUT_IRRAD_CSV = OUTPUT_DIR / "ieee13_shape_pv_5min.csv"
 OUTPUT_TEMP_CSV = OUTPUT_DIR / "ieee13_temperature_5min.csv"
 OUTPUT_DSS_FILE = OUTPUT_DIR / "ieee13_pv.dss"
@@ -146,18 +147,18 @@ try:
         raise ValueError(
             f"The metadata file '{INFO_PV_FILE.name}' is empty or contains no data rows."
         )
-except FileNotFoundError:
-    raise FileNotFoundError(f"Critical Error: The file '{INFO_PV_FILE}' was not found.\n")
-except pd.errors.EmptyDataError:
+except FileNotFoundError as err:
+    raise FileNotFoundError(f"Critical Error: The file '{INFO_PV_FILE}' was not found.\n") from err
+except pd.errors.EmptyDataError as err:
     raise EOFError(
         f"Critical Error: The file '{INFO_PV_FILE}' is completely empty (0 bytes) or has no valid headers."
-    )
-except pd.errors.ParserError:
+    ) from err
+except pd.errors.ParserError as err:
     raise TypeError(
         f"Critical Error: The file '{INFO_PV_FILE}' is corrupted or poorly formatted.\n"
-    )
+    ) from err
 except Exception as val_err:
-    raise RuntimeError(f"Unexpected error while loading metadata: {val_err}")
+    raise RuntimeError(f"Unexpected error while loading metadata: {val_err}") from val_err
 
 logger.info("Success! Metadata loaded successfully.")
 
@@ -175,7 +176,7 @@ class PVGenerator:
     """
 
     # Cache shared across all instances to avoid redundant file loading if multiple PVs use the same curve_id
-    _solar_cache = {}
+    _solar_cache: ClassVar[dict] = {}
 
     def __init__(
         self,
@@ -225,8 +226,10 @@ class PVGenerator:
         if self.FILE_CSV not in PVGenerator._solar_cache:
             try:
                 PVGenerator._solar_cache[self.FILE_CSV] = pd.read_csv(self.SOLAR_STATION_FILE)
-            except FileNotFoundError:
-                raise FileNotFoundError(f"Error: Dataset file {self.SOLAR_STATION_FILE} not found.")
+            except FileNotFoundError as err:
+                raise FileNotFoundError(
+                    f"Error: Dataset file {self.SOLAR_STATION_FILE} not found."
+                ) from err
 
         # Copy the loaded curve data from the class cache to the instance variable for processing
         self.solar_station_curves = PVGenerator._solar_cache[self.FILE_CSV].copy()
@@ -457,7 +460,7 @@ def PVCreator(
     my_seed=my_seed,
     bus_multi_PV: bool = False,
     npts_origin: int = npts_origin,
-    ignore_buses: list = None,
+    ignore_buses: list | None = None,
 ):
     """
     Automates bus selection and creation of Photovoltaic (PV) systems in an OpenDSS circuit.
@@ -616,12 +619,12 @@ def PVCreator(
                 raise KeyError(
                     f"Missing key {e} in PV_Dictionaries at index {val_idx}. "
                     f"Each dictionary must contain at least 'PV_phases' and 'PV_bus'."
-                )
+                ) from e
             except ValueError as e:
                 raise ValueError(
                     f"Validation failed in PV_Dictionaries at index {val_idx}: {e}"
                     f" Ensure 'PV_phases' matches the number of nodes in 'PV_bus'."
-                )
+                ) from e
             val_pv_kv = val_dict.get("PV_kv", None)
             if val_pv_kv is None:
                 logger.warning(

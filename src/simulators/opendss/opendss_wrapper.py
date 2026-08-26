@@ -61,7 +61,7 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin, LegacyReadsMixin):
         time_step: dt.timedelta,
         start_time: dt.datetime,
         fail_on_error: bool = True,
-        **kwargs,
+        **kwargs: object,
     ):
         """
         Initializes the OpenDSS instance.
