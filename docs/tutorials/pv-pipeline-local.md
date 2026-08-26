@@ -13,16 +13,18 @@ Entender como cada componente da cadeia PV interage e como configurar um cenári
 
 ## O pipeline em seis etapas
 
+```mermaid
+flowchart LR
+    CSV["CSV Reader<br/>irradiância e temperatura"] --> Panel["PV Panel Simulator"]
+    Panel --> Inv["Inverter (Padrão)"]
+    Inv --> DSS["OpenDSS Grid Adapter"]
+
+    Panel -.->|P_dc| Mon["Monitor"]
+    Inv -.->|P_ac| Mon
+    DSS -.->|P_meas| Mon
 ```
-┌────────────┐    ┌────────────┐    ┌────────────┐    ┌────────────────┐
-│ CSV Reader │───>│  PV Panel  │───>│  Inverter  │───>│ OpenDSS Grid   │
-│ (irradiância│    │  Simulator │    │  (Padrão)  │    │ Adapter        │
-│  e temp.)  │    │            │    │            │    │                │
-└────────────┘    └────────────┘    └────────────┘    └────────────────┘
-     ▲                                    │                  │
-     │                                    │                  │
-     └────────────── Monitor <────────────┴──────────────────┘
-```
+
+As setas tracejadas são o monitoramento — cada componente conecta-se ao `Monitor` diretamente, não em cadeia através dos outros (confirmado na seção [Conexões mosaik](#conexoes-mosaik) abaixo).
 
 ### Etapa 1: Leitura de dados climáticos
 

@@ -68,11 +68,15 @@ O cenário `opendss_scenario_123bus_smart_pv.py` agrupa por barra: vários
 `PVSystem` na mesma barra viram uma entidade `Inverter`, mas **cada um mantém
 seu próprio objeto OpenDER**, medindo a tensão da sua fase.
 
-```
-Bus.1.2.3:
-  ├── PVSystem.1  (fase 1) → InverterUnit(phases=1, node=1) → DER_PV monofásico
-  ├── PVSystem.2  (fase 2) → InverterUnit(phases=1, node=2) → DER_PV monofásico
-  └── PVSystem.3  (fase 3) → InverterUnit(phases=1, node=3) → DER_PV monofásico
+```mermaid
+flowchart LR
+    Bus["Bus.1.2.3"] --> PV1["PVSystem.1<br/>(fase 1)"]
+    Bus --> PV2["PVSystem.2<br/>(fase 2)"]
+    Bus --> PV3["PVSystem.3<br/>(fase 3)"]
+
+    PV1 --> U1["InverterUnit<br/>phases=1, node=1"] --> DER1["DER_PV<br/>monofásico"]
+    PV2 --> U2["InverterUnit<br/>phases=1, node=2"] --> DER2["DER_PV<br/>monofásico"]
+    PV3 --> U3["InverterUnit<br/>phases=1, node=3"] --> DER3["DER_PV<br/>monofásico"]
 ```
 
 A injeção volta para cada `PVSystem` por `P_ac_k` / `Q_ac_k`, onde `k` é a

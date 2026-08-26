@@ -14,19 +14,30 @@ Executar o cenário IEEE 123-bus com PV usando Docker e gerar o arquivo de resul
 
 ## Arquitetura Docker
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Host Windows/Linux                                               │
-│                                                                  │
-│  cenariodocker.py ──── localhost:5671 ──> opendss (container)   │
-│       │              ──── localhost:5678 ──> pv-panel (container)│
-│       │              ──── localhost:5677 ──> inverter (container)│
-│       │              ──── localhost:5675 ──> csv-1 (container)   │
-│       │              ──── localhost:5676 ──> csv-2 (container)   │
-│       │              ──── localhost:5673 ──> collector (container)│
-│       │                                                          │
-│       └──> output/result_run_ieee123_cosim_pv_5min.csv          │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Host["Host (Windows/Linux)"]
+        Cenario["cenariodocker.py"]
+    end
+
+    subgraph Containers["Containers Docker"]
+        DSS["opendss<br/>:5671"]
+        PV["pv-panel<br/>:5678"]
+        InvC["inverter<br/>:5677"]
+        CSV1["csv-1<br/>:5675"]
+        CSV2["csv-2<br/>:5676"]
+        CollC["collector<br/>:5673"]
+    end
+
+    Output["output/result_run_ieee123_cosim_pv_5min.csv"]
+
+    Cenario -->|localhost:5671| DSS
+    Cenario -->|localhost:5678| PV
+    Cenario -->|localhost:5677| InvC
+    Cenario -->|localhost:5675| CSV1
+    Cenario -->|localhost:5676| CSV2
+    Cenario -->|localhost:5673| CollC
+    CollC -.->|grava| Output
 ```
 
 Cada container:
