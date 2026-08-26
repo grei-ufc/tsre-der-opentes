@@ -16,7 +16,7 @@ output/
 
 # C extensions
 *.so
-
+artigo-cba/
 # Distribution / packaging
 .Python
 build/
