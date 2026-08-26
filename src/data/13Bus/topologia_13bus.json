@@ -1,0 +1,223 @@
+{
+    "nodes": [
+        {
+            "id": "sourcebus",
+            "label": "sourcebus",
+            "node_type": "refbus",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "650",
+            "label": "650",
+            "node_type": "transformer_bus",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "rg60",
+            "label": "rg60",
+            "node_type": "transformer_bus",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "633",
+            "label": "633",
+            "node_type": "transformer_bus",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "634",
+            "label": "634",
+            "node_type": "pv",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "671",
+            "label": "671",
+            "node_type": "load",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "645",
+            "label": "645",
+            "node_type": "load",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "646",
+            "label": "646",
+            "node_type": "pv",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "692",
+            "label": "692",
+            "node_type": "pv",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "675",
+            "label": "675",
+            "node_type": "load",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "611",
+            "label": "611",
+            "node_type": "pv",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "652",
+            "label": "652",
+            "node_type": "pv",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "670",
+            "label": "670",
+            "node_type": "load",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "632",
+            "label": "632",
+            "node_type": "bus",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "680",
+            "label": "680",
+            "node_type": "pv",
+            "voltage_pu": null,
+            "metadata": {}
+        },
+        {
+            "id": "684",
+            "label": "684",
+            "node_type": "bus",
+            "voltage_pu": null,
+            "metadata": {}
+        }
+    ],
+    "edges": [
+        {
+            "id": "line_650632",
+            "source": "rg60",
+            "target": "632",
+            "edge_type": "line",
+            "metadata": {}
+        },
+        {
+            "id": "line_632670",
+            "source": "632",
+            "target": "670",
+            "edge_type": "line",
+            "metadata": {}
+        },
+        {
+            "id": "line_670671",
+            "source": "670",
+            "target": "671",
+            "edge_type": "line",
+            "metadata": {}
+        },
+        {
+            "id": "line_671680",
+            "source": "671",
+            "target": "680",
+            "edge_type": "line",
+            "metadata": {}
+        },
+        {
+            "id": "line_632633",
+            "source": "632",
+            "target": "633",
+            "edge_type": "line",
+            "metadata": {}
+        },
+        {
+            "id": "line_632645",
+            "source": "632",
+            "target": "645",
+            "edge_type": "line",
+            "metadata": {}
+        },
+        {
+            "id": "line_645646",
+            "source": "645",
+            "target": "646",
+            "edge_type": "line",
+            "metadata": {}
+        },
+        {
+            "id": "line_692675",
+            "source": "692",
+            "target": "675",
+            "edge_type": "line",
+            "metadata": {}
+        },
+        {
+            "id": "line_671684",
+            "source": "671",
+            "target": "684",
+            "edge_type": "line",
+            "metadata": {}
+        },
+        {
+            "id": "line_684611",
+            "source": "684",
+            "target": "611",
+            "edge_type": "line",
+            "metadata": {}
+        },
+        {
+            "id": "line_684652",
+            "source": "684",
+            "target": "652",
+            "edge_type": "line",
+            "metadata": {}
+        },
+        {
+            "id": "line_671692",
+            "source": "671",
+            "target": "692",
+            "edge_type": "line",
+            "metadata": {}
+        },
+        {
+            "id": "sourcebus_650",
+            "source": "sourcebus",
+            "target": "650",
+            "edge_type": "transformer",
+            "metadata": {}
+        },
+        {
+            "id": "650_rg60",
+            "source": "650",
+            "target": "rg60",
+            "edge_type": "transformer",
+            "metadata": {}
+        },
+        {
+            "id": "633_634",
+            "source": "633",
+            "target": "634",
+            "edge_type": "transformer",
+            "metadata": {}
+        }
+    ]
+}
