@@ -1,6 +1,7 @@
 import mosaik
 from pathlib import Path
 from mosaik.util import connect_many_to_one
+from simulators.topologia import exportar_topologia
 
 # ==============================================================================
 # 1. CAMINHOS NO HOST (Windows)
@@ -12,6 +13,7 @@ CIRCUITO_DSS_HOST = DATA_DIR_HOST / "run_LVTestCase.dss"
 OUTPUT_DIR_HOST = PROJECT_ROOT / "output"
 OUTPUT_DIR_HOST.mkdir(parents=True, exist_ok=True)
 ARQUIVO_RESULTADOS_CSV_HOST = OUTPUT_DIR_HOST / 'result_run_LVTestCase.csv'
+JSON_SAIDA = str(PROJECT_ROOT.parent / 'output' / 'topologia_LVTestCase.json')
 
 # ==============================================================================
 # 2. CAMINHOS NO CONTAINER (Linux/Docker)
@@ -21,8 +23,8 @@ CIRCUITO_DSS_CONT = f"{CONTAINER_DATA}/run_LVTestCase.dss"
 ARQUIVO_RESULTADOS_CSV_CONT = "/app/output/result_run_LVTestCase.csv"
 
 START_DATE = "2026-01-01 00:00:00"
-STEP_SIZE = 60 * 1
-N_PASSOS = 1440
+STEP_SIZE = 60 * 10
+N_PASSOS = 144
 END_TIME = N_PASSOS * STEP_SIZE
 
 # ==============================================================================
@@ -87,6 +89,14 @@ def run_scenario():
         # --- Check Rápido ---
         if ARQUIVO_RESULTADOS_CSV_HOST.exists():
             print(f"\nResultados salvos em: {ARQUIVO_RESULTADOS_CSV_HOST}")
-            
+
+
+# ==============================================================================
+# 4. GERA ARQUIVO JSON DA REDE
+# ==============================================================================
+
+print("Gerando topologia do cenário LV Test Case...")
+exportar_topologia(CIRCUITO_DSS_HOST, JSON_SAIDA)
+
 if __name__ == '__main__':
     run_scenario()
