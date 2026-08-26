@@ -31,13 +31,15 @@ O motor de fluxo de potência é o [OpenDSS](https://www.epri.com/pages/sa/opend
 # Instalar dependências
 uv sync
 
-# Executar cenário Docker
-docker build -t opentes-simulador .
-docker compose up -d
-uv run --no-sync python scenarios/cenariodocker.py
+# Rodar a primeira simulação (100% Python, sem Docker)
+uv run --no-sync python scenarios/opendss_scenario.py
 ```
 
-Consulte [Instalação](getting-started/installation.md) para detalhes completos.
+Consulte [Primeira Simulação](getting-started/first-simulation.md) para o passo a passo completo, ou [Instalação](getting-started/installation.md) para detalhes do ambiente. O modo Docker — recomendado para cenários completos com múltiplos simuladores — está em [Co-Simulação Docker](tutorials/docker-co-simulation.md).
+
+## Publicação
+
+Este projeto é descrito em um artigo aceito no Congresso Brasileiro de Automática (CBA) 2026. Veja [Citação](citation.md) para a referência completa, resumo e BibTeX.
 
 ## Licença
 
