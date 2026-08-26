@@ -104,11 +104,6 @@
   background-color: rgba(47, 93, 75, 0.06);
 }
 
-[data-md-color-scheme="default"] .md-typeset pre {
-  background-color: #2b2b40;
-  color: #F4FFEB;
-}
-
 [data-md-color-scheme="slate"] .md-typeset pre {
   background-color: #1a2e22;
 }
