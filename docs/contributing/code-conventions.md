@@ -96,10 +96,12 @@ if __name__ == "__main__":
 ## Testes
 
 - Framework: pytest
-- Testes de domínio: classes com `Test*`, métodos com `test_*`
-- Sem fixtures ou conftest (testes auto-contidos)
-- Sem mocking (testes instanciam modelos diretamente)
-- Sem dependência de OpenDSS (testes de domínio puro)
+- Classes com `Test*`, métodos com `test_*`
+- Sem `conftest.py` — cada arquivo declara suas próprias fixtures
+- Dois padrões, conforme o alvo (veja [Testes](testing.md)):
+  - **Domínio**: instancia o modelo diretamente, sem fixture, sem OpenDSS
+  - **Integração**: fixture de módulo compila um circuito IEEE real e usa `pytest.skip(...)` se o arquivo `.dss` ou o motor não estiverem disponíveis
+- `monkeypatch` (da própria biblioteca pytest) é usado nos testes de integração para simular falhas do engine — não há biblioteca de mocking externa
 
 ## Erros
 
