@@ -1,8 +1,8 @@
 site_name: tsre-der-opentes
 site_description: Documentação técnica do projeto de co-simulação de recursos energéticos distribuídos
-site_url: ""
-repo_url: ""
-edit_uri: ""
+site_url: "https://grei-ufc.github.io/tsre-der-opentes/"
+repo_url: "https://github.com/grei-ufc/tsre-der-opentes"
+edit_uri: "edit/main/docs/"
 
 theme:
   name: material
@@ -31,6 +31,7 @@ theme:
     - navigation.path
     - navigation.indexes
     - navigation.top
+    - navigation.footer
     - search.suggest
     - search.highlight
     - content.code.copy
@@ -44,7 +45,11 @@ extra_css:
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -62,11 +67,27 @@ markdown_extensions:
 
 plugins:
   - search
+  - git-revision-date-localized:
+      type: date
+      enable_creation_date: false
+      fallback_to_build_date: true
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            separate_signature: true
+            show_signature_annotations: true
+            merge_init_into_class: true
+            members_order: source
 
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: ""
+      link: "https://github.com/grei-ufc/tsre-der-opentes"
 
 nav:
   - Início: index.md
@@ -97,6 +118,13 @@ nav:
       - reference/docker-services.md
       - reference/data-files.md
       - reference/cli.md
+      - API (gerada):
+          - reference/api/index.md
+          - reference/api/opendss.md
+          - reference/api/inverter.md
+          - reference/api/battery.md
+          - reference/api/pv.md
+          - reference/api/regulator.md
   - Conceitos:
       - explanation/architecture.md
       - explanation/co-simulation-concepts.md
@@ -108,4 +136,5 @@ nav:
       - contributing/code-conventions.md
       - contributing/testing.md
   - Changelog: changelog.md
+  - Citação: citation.md
   - Licença: license.md
