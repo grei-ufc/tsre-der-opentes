@@ -6,50 +6,38 @@ tsre-der-opentes é um sistema de **co-simulação** distribuída. Cada componen
 
 ## Diagrama de componentes
 
+```mermaid
+flowchart TD
+    subgraph PV["Pipeline fotovoltaico"]
+        direction LR
+        CSVpv["csv_sim_pandas.py<br/>irradiância, temperatura"] -->|irradiance, temperature| Panel["pv_panel_simulator.py<br/>PVPanelModel"]
+        Panel -->|P_dc| Inv["inverter/*<br/>SmartInverterModel ou InverterModel"]
+    end
+
+    subgraph BAT["Pipeline de armazenamento"]
+        direction LR
+        CSVctrl["csv_sim_pandas.py<br/>curva de despacho"] -->|curve_value| Ctrl["controller_sim.py<br/>BatteryControllerSim"]
+        Ctrl -->|P_ref, Q_ref| Batt["battery_sim.py<br/>OpenDSSBattery"]
+        Batt -.->|SoC| Ctrl
+    end
+
+    DSS["api_opendss.py — OpenDSSSimulator<br/>opendss_wrapper.py compila o circuito e resolve o fluxo"]
+    Reg["regulator_control.py<br/>RegulatorSimulator"]
+    Coll["collector.py<br/>Collector (CSV)"]
+
+    Inv -->|"P_ac, Q_ac → P_des, Q_des"| DSS
+    Batt -->|"P_out, Q_out → P_set, Q_set"| DSS
+    DSS -.->|"V_pu → V_meas (smart, time-shifted)"| Inv
+    DSS -.->|"v_meas, i_meas (time-shifted)"| Reg
+    Reg -->|tap| DSS
+
+    DSS --> Coll
+    Panel --> Coll
+    Inv --> Coll
+    Batt --> Coll
 ```
-                          ┌──────────────────────┐
-                          │   csv_sim_pandas.py   │
-                          │  (leitura de CSVs     │
-                          │   de irradiância e     │
-                          │   temperatura)         │
-                          └──────────┬────────────┘
-                                     │ irradiância, temperatura
-                                     ▼
-                          ┌──────────────────────┐
-                          │  pv_panel_simulator.py│
-                          │  (modelo PV: irradiância
-                          │   × temperatura → P_dc)│
-                          └──────────┬────────────┘
-                                     │ P_dc
-                                     ▼
-                          ┌──────────────────────┐
-                          │    inverter.py        │
-                          │  (modelo de inversor: │
-                          │   cut-in/out, eficiência,
-                          │   controle Volt-Var)  │
-                          └──────────┬────────────┘
-                                     │ P_ac, Q_ac
-                                     ▼
-┌───────────────────────────────────────────────────────────────┐
-│                    api_opendss.py                             │
-│              (adaptador mosaik → OpenDSS)                     │
-│                                                               │
-│  Recebe: P_des/Q_des (PVSystem), P_set/Q_set (Storage),      │
-│          tap (RegControl)                                     │
-│  Envia:  V_pu (Bus), I/P (Line), P/Q (PVSystem/Storage)      │
-│  Interno: opendss_wrapper.py compila circuito, resolve fluxo  │
-└───────────────────────────────────────────────────────────────┘
-         ▲                    ▲                    │
-         │ v_meas, i_meas    │ P_ref, Q_ref       │ todos os
-         │ (time-shifted)     │                    │ sinais
-         ▼                    ▼                    ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│ regulator_      │  │ controller_sim  │  │   collector.py  │
-│ control.py      │  │ .py             │  │ (exportação CSV)│
-│ (controle de    │  │ (controle de    │  └─────────────────┘
-│  tap)           │  │  despacho)      │
-└─────────────────┘  └─────────────────┘
-```
+
+Setas tracejadas indicam realimentação (`time_shifted=True`): o valor usado é o do passo anterior, para quebrar o ciclo causal entre a tensão medida e a potência que a afeta. Veja [Conceitos de Co-Simulação](co-simulation-concepts.md#conexoes-no-mosaik).
 
 ## Camadas do sistema
 
@@ -81,6 +69,14 @@ Cada adaptador implementa a API v3 do mosaik (`mosaik_api_v3.Simulator`) e expõ
 | `pv/pv_panel_simulator.py` | time-based | PVPanel |
 | `collector/collector.py` | **event-based** | Monitor |
 | `collector/csv_sim_pandas.py` | **hybrid** | Data |
+
+#### META derivada de um registro declarativo
+
+Em `opendss/api_opendss.py` e em `inverter/smart_inverter_simulator.py`, a `META` não é escrita à mão: é gerada a partir de um registro declarativo (`opendss/element_specs.py::MODEL_SPECS`; `inverter/smart_inverter_simulator.py::INPUT_SPECS`/`OUTPUT_GETTERS`). O mesmo registro também alimenta o roteamento de entradas em `step()` e as leituras em `get_data()`.
+
+**Por quê**: com `META`, `step()` e `get_data()` editados separadamente, nada impede que um atributo apareça em um sem existir nos outros dois — um cenário conecta um atributo que a `META` promete, mas que `get_data()` nunca produz, e o erro só aparece como um valor ausente em tempo de execução. Derivar os três do mesmo registro torna essa divergência estruturalmente impossível: adicionar um atributo significa adicionar uma entrada ao registro, não editar três funções e torcer para que concordem. `tests/test_element_specs.py` (`TestGeneratedMeta`, `TestMetaMatchesImplementation`) é a suíte que garante isso.
+
+Os demais adaptadores (`battery_sim.py`, `pv_panel_simulator.py`, `controller_sim.py`, `regulator_control.py`) ainda declaram `META` como dict literal — é o padrão anterior, não um erro; adotar o registro declarativo nesses módulos é uma extensão possível, não uma correção pendente.
 
 ### 3. Wrapper OpenDSS
 

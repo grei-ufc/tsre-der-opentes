@@ -84,7 +84,7 @@ Para PVSystem e Storage, o adaptador usa `sign=-1` para inverter o sinal de gera
 
 ## Controle de PVSystem
 
-O adaptador接受 `P_des` e `Q_des` de entidades externas (inversores) e aplica ao OpenDSS:
+O adaptador aceita `P_des` e `Q_des` de entidades externas (inversores) e aplica ao OpenDSS:
 
 ```python
 # Em opendss_pv.py
@@ -100,7 +100,7 @@ Isso sobrepõe o controle nativo do OpenDSS, permitindo que o inversor mosaik co
 
 ## Controle de Storage
 
-Para elementos Storage, o adaptador接受 `P_set`, `Q_set` e `SoC_set`:
+Para elementos Storage, o adaptador aceita `P_set`, `Q_set` e `SoC_set`:
 
 - `P_set > 0`: descarga (modo gerador)
 - `P_set < 0`: carga (modo motor)

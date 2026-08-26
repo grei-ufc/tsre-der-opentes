@@ -128,7 +128,7 @@ Neste projeto, o OpenDSS é a **fonte de verdade** para o estado da rede elétri
 
 ## OpenDER
 
-[OpenDER](https://github.com/sayedali15/OpenDER) é uma biblioteca que implementa as curvas de controle do padrão **IEEE 1547** para inversores inteligentes:
+[OpenDER](https://github.com/epri-dev/OpenDER) é uma biblioteca que implementa as curvas de controle do padrão **IEEE 1547** para inversores inteligentes:
 
 - **Volt-Var**: injeta/absorve reativa com base na tensão
 - **Volt-Watt**: limita potência ativa com base na tensão

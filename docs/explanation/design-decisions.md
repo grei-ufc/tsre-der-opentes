@@ -12,7 +12,7 @@
 
 **Decisão**: Todos os adaptadores usam `mosaik_api_v3` com `api_version: '3.0'`.
 
-**Motivo**: A versão 3 é a atual do mosaik. Adaptadores em v2 foram migrados durante a refatoração (plano em `docs/how-to-guides/plano.md`).
+**Motivo**: A versão 3 é a atual do mosaik. Adaptadores em v2 foram migrados durante a refatoração.
 
 **Trade-off**: Cenários legados que ainda referenciam módulos antigos precisam ser atualizados.
 
@@ -109,4 +109,4 @@ atributo não pode ser declarado sem o código que o implementa.
 
 **Motivo**: Permite validação com dados reais e suporta cenários realistas.
 
-**Trade-off**: Aumenta o tamanho do repositório. Os dados não são versionados no Git (devem ser baixados separadamente — *verificar status atual*).
+**Trade-off**: Aumenta o tamanho do repositório. Os dados estão versionados no Git junto com o restante do código (`data/`), não em um repositório ou storage separado.
