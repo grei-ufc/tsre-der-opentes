@@ -3,6 +3,8 @@ import sys
 import pprint
 import pandas as pd
 from pathlib import Path
+from mosaik.util import connect_many_to_one
+from simulators.topologia import exportar_topologia
 
 # ==============================================================================
 # 1. CAMINHOS NO HOST (Windows)
@@ -14,6 +16,7 @@ CIRCUITO_DSS_HOST = DATA_DIR_HOST / "run_ieee13_cosim_pv_5min.dss"
 OUTPUT_DIR_HOST = PROJECT_ROOT / "output"
 OUTPUT_DIR_HOST.mkdir(parents=True, exist_ok=True)
 ARQUIVO_RESULTADOS_CSV_HOST = OUTPUT_DIR_HOST / 'result_run_ieee13_cosim_pv_5min.csv'
+JSON_SAIDA = str(PROJECT_ROOT.parent / 'output' / 'topologia_ieee13.json')
 
 # ==============================================================================
 # 2. CAMINHOS NO CONTAINER (Linux/Docker)
@@ -129,6 +132,7 @@ def run_scenario():
                     irradiance_base=0.8,
                     pt_curve_x=info['pt_curve_x'],
                     pt_curve_y=info['pt_curve_y'],
+                    bus_name=bus_base
                 )[0]
 
                 # 2. Instancia o Smart Inverter (Adaptado sem os parâmetros antigos)
@@ -138,7 +142,8 @@ def run_scenario():
                     phase_mode='AVG', # Define o modo de fase compatível com inversores individuais
                     eff_curve_x=info['eff_curve_x'],
                     eff_curve_y=info['eff_curve_y'],
-                    ctrl_config={'Volt_Var': False, 'Const_PF': False} # Configuração de controle exigida pelo novo simulador
+                    ctrl_config={'Volt_Var': False, 'Const_PF': False}, # Configuração de controle exigida pelo novo simulador
+                    bus_name=bus_base
                 )[0]
 
                 # 3. Conexões Climáticas e Lado DC
@@ -183,24 +188,26 @@ def run_scenario():
                 world.connect(pv_dss_obj, monitor, 'P1', 'P2', 'P3', 'Q1', 'Q2', 'Q3')
 
 
-        # Monitorar Barra 650, 680 e 611
-        target_names = ['650', '680', '611']
-        for target_name in target_names:
-            target_eid = f'Bus-{target_name}'
-            bus_entities = [e for e in grid.children if e.eid == target_eid]
-            if bus_entities:
-                world.connect(bus_entities[0], monitor, 'V1_pu', 'V2_pu', 'V3_pu')
-                print(f"Monitorando Barra: {target_eid}")
+        # ====================================================================
+        # MONITORES DE TODAS AS BARRAS (CSV)
+        # ====================================================================
+        print("Conectando todas as barras ao monitor...")
+        todas_as_barras = [e for e in grid.children if e.type == 'Bus']
+        connect_many_to_one(world, todas_as_barras, monitor, 'V1_pu', 'V2_pu', 'V3_pu')
 
-        target_names = ['650632', '671680', '684611']
-        for target_name in target_names:
-            target_eid = f'Line-{target_name}'
-            line_entities = [e for e in grid.children if e.eid.lower() == target_eid.lower()]
-            if line_entities:
-                world.connect(line_entities[0], monitor,
-                              'I1_A', 'I1_ang', 'I2_A', 'I2_ang', 'I3_A', 'I3_ang',
-                          'P1_w', 'Q1_var', 'P2_w', 'Q2_var', 'P3_w', 'Q3_var')
-            print(f"Monitorando Linha: {target_eid}")
+        # ====================================================================
+        # MONITORES DE TODAS AS LINHAS (Corrente e Potência)
+        # ====================================================================
+        print("Conectando todas as linhas ao monitor...")
+        todas_as_linhas = [e for e in grid.children if e.type == 'Line']
+        
+        connect_many_to_one(
+            world, 
+            todas_as_linhas, 
+            monitor, 
+            'I1_A', 'I1_ang', 'I2_A', 'I2_ang', 'I3_A', 'I3_ang',
+            'P1_w', 'Q1_var', 'P2_w', 'Q2_var', 'P3_w', 'Q3_var'
+        )
 
         print(f"\nInicializando simulação de {N_PASSOS} para (Step={STEP_SIZE}...)")
 
@@ -210,6 +217,13 @@ def run_scenario():
         # --- Check Rápido ---
         if ARQUIVO_RESULTADOS_CSV_HOST.exists():
             print(f"\nResultados salvos em: {ARQUIVO_RESULTADOS_CSV_HOST}")
-            
+
+# ==============================================================================
+# GERA ARQUIVO JSON DA REDE
+# ==============================================================================
+
+print("Gerando topologia do cenário LV Test Case...")
+exportar_topologia(CIRCUITO_DSS_HOST, JSON_SAIDA)
+
 if __name__ == '__main__':
     run_scenario()

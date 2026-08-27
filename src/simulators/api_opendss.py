@@ -1,6 +1,7 @@
 import mosaik_api_v3
 import datetime
 import math
+from importlib import import_module
 from simulators.opendss_wrapper import OpenDSS, OpenDSSException
  
 META = {
@@ -44,7 +45,7 @@ META = {
             'public': True,
             'params': [],
             'attrs': ['P_set', 'Q_set', 'SoC_set',
-                      'P_act', 'Q_atc', 'SoC',
+                      'P_act', 'Q_act', 'SoC',
                       'P1', 'P2', 'P3',
                       'Q1', 'Q2', 'Q3',
                       'I1_A', 'I2_A', 'I3_A']
@@ -79,7 +80,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self.detected_storages = []
         self.storage_map = {}
 
-    def init(self, sid, time_resolution, topofile, step_size=900, **sim_params):
+    def init(self, sid, time_resolution, topofile, step_size=900, output_graph_path=None, **sim_params):
         self.sid = sid
         self.time_resolution = time_resolution
         self.step_size = step_size
@@ -88,6 +89,10 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             time_step=datetime.timedelta(seconds=self.step_size),
             start_time=datetime.datetime(2025, 1, 1)
         )
+
+        if output_graph_path is not None:
+            self.dss_wrapper.grafo_tsdq(output_graph_path)
+        
         return self.meta
 
     def create(self, num, model, **model_params):
@@ -447,3 +452,5 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         return self.detected_pvsystems
     def get_detected_storages(self):
         return self.detected_storages
+
+

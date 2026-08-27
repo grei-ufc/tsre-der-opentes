@@ -255,7 +255,7 @@
         {
             "id": "36",
             "label": "36",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -269,14 +269,14 @@
         {
             "id": "38",
             "label": "38",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
         {
             "id": "39",
             "label": "39",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -437,7 +437,7 @@
         {
             "id": "62",
             "label": "62",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -528,7 +528,7 @@
         {
             "id": "75",
             "label": "75",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -689,7 +689,7 @@
         {
             "id": "98",
             "label": "98",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -976,7 +976,7 @@
         {
             "id": "139",
             "label": "139",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -1081,7 +1081,7 @@
         {
             "id": "154",
             "label": "154",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -1263,7 +1263,7 @@
         {
             "id": "180",
             "label": "180",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -1312,7 +1312,7 @@
         {
             "id": "187",
             "label": "187",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -1340,7 +1340,7 @@
         {
             "id": "191",
             "label": "191",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -1382,7 +1382,7 @@
         {
             "id": "197",
             "label": "197",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -1557,7 +1557,7 @@
         {
             "id": "222",
             "label": "222",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -1907,7 +1907,7 @@
         {
             "id": "272",
             "label": "272",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -2026,7 +2026,7 @@
         {
             "id": "289",
             "label": "289",
-            "node_type": "load",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -2145,7 +2145,7 @@
         {
             "id": "306",
             "label": "306",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -2572,7 +2572,7 @@
         {
             "id": "367",
             "label": "367",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -2614,7 +2614,7 @@
         {
             "id": "373",
             "label": "373",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -3104,14 +3104,14 @@
         {
             "id": "443",
             "label": "443",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
         {
             "id": "444",
             "label": "444",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -3265,7 +3265,7 @@
         {
             "id": "466",
             "label": "466",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -3286,7 +3286,7 @@
         {
             "id": "469",
             "label": "469",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -3524,7 +3524,7 @@
         {
             "id": "503",
             "label": "503",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -3573,7 +3573,7 @@
         {
             "id": "510",
             "label": "510",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -3636,7 +3636,7 @@
         {
             "id": "519",
             "label": "519",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -3650,7 +3650,7 @@
         {
             "id": "521",
             "label": "521",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -3755,7 +3755,7 @@
         {
             "id": "536",
             "label": "536",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -3776,7 +3776,7 @@
         {
             "id": "539",
             "label": "539",
-            "node_type": "load",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -3804,7 +3804,7 @@
         {
             "id": "543",
             "label": "543",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -3979,7 +3979,7 @@
         {
             "id": "568",
             "label": "568",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -4469,7 +4469,7 @@
         {
             "id": "638",
             "label": "638",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -4581,7 +4581,7 @@
         {
             "id": "654",
             "label": "654",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -4665,7 +4665,7 @@
         {
             "id": "666",
             "label": "666",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -4791,7 +4791,7 @@
         {
             "id": "684",
             "label": "684",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -4812,7 +4812,7 @@
         {
             "id": "687",
             "label": "687",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -4896,7 +4896,7 @@
         {
             "id": "699",
             "label": "699",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -4910,7 +4910,7 @@
         {
             "id": "701",
             "label": "701",
-            "node_type": "load",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -5008,7 +5008,7 @@
         {
             "id": "715",
             "label": "715",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -5078,7 +5078,7 @@
         {
             "id": "725",
             "label": "725",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -5204,7 +5204,7 @@
         {
             "id": "743",
             "label": "743",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -5498,7 +5498,7 @@
         {
             "id": "785",
             "label": "785",
-            "node_type": "load",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -5603,7 +5603,7 @@
         {
             "id": "800",
             "label": "800",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -5799,7 +5799,7 @@
         {
             "id": "828",
             "label": "828",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -6023,7 +6023,7 @@
         {
             "id": "860",
             "label": "860",
-            "node_type": "load",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },
@@ -6135,7 +6135,7 @@
         {
             "id": "876",
             "label": "876",
-            "node_type": "bus",
+            "node_type": "pv",
             "voltage_pu": null,
             "metadata": {}
         },

@@ -10,7 +10,7 @@ META = {
             'public': True,
             'params': [
                 'kVA', 'eff_curve_x', 'eff_curve_y', 
-                'ctrl_config', 'phase_mode'
+                'ctrl_config', 'phase_mode', 'bus_name'
             ],
             'attrs': [
                 'P_dc',       
@@ -139,7 +139,9 @@ class InverterSim(mosaik_api_v3.Simulator):
     def create(self, num, model, **model_params):
         entities = []
         for i in range(num):
-            eid = f'{model}_{len(self.entities) + i}'
+            bus_name = model_params.get('bus_name', '')
+            bus_suffix = f'_bus{bus_name}' if bus_name else ''
+            eid = f'{model}_{len(self.entities) + i}{bus_suffix}'
             inv_model = InverterModel(
                 kVA=model_params.get('kVA', 1000.0),
                 eff_curve_x=model_params.get('eff_curve_x', [0.0, 1.0]),

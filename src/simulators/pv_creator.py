@@ -74,14 +74,15 @@ __version__ = "1.1.0"
 # ==============================================================================
 # --- Library Imports ---
 
-import pandas as pd              # Data manipulation and CSV file handling
-import py_dss_interface          # Python interface for OpenDSS (EPRI)
-import logging                   # Logging for debugging and information output
-from pathlib import Path         # Object-oriented filesystem paths
-from math import ceil            # Ceiling function to calculate total simulation points
-from random import choice, seed  # Random node selection and reproducibility seeding
-import pv_validator as val        # Centralised validation and error-checking routines
-import topology_builder as tb     # Topology building and bus classification routines
+import pandas as pd                             # Data manipulation and CSV file handling
+import py_dss_interface                         # Python interface for OpenDSS (EPRI)
+import logging                                  # Logging for debugging and information output
+from pathlib import Path                        # Object-oriented filesystem paths
+from math import ceil                           # Ceiling function to calculate total simulation points
+from random import choice, seed                 # Random node selection and reproducibility seeding
+from scipy.interpolate import PchipInterpolator # Piecewise Cubic Hermite Interpolating Polynomial for smooth curve fitting
+import pv_validator as val                      # Centralised validation and error-checking routines
+import topology_builder as tb                   # Topology building and bus classification routines
 
 # --- Logging Configuration ---
 logging.basicConfig(
@@ -102,11 +103,11 @@ my_seed = 25                            # Seed for reproducibility of random bus
 BASE_DIR = Path(".").resolve()
 INFO_PV_FILE = BASE_DIR/'src'/'data'/'InfoPV'/'power_station_metadata.csv'
 SOLAR_STATION_FILES = BASE_DIR/'src'/'data'/'InfoPV'/'solar_station'
-SCRIPT_DSS = BASE_DIR/'src'/'data'/'13Bus'/'IEEE13Nodeckt.dss'
-OUTPUT_DIR = BASE_DIR/'src'/'data'/'13Bus'
-OUTPUT_IRRAD_CSV = OUTPUT_DIR/'ieee13_shape_pv_5min.csv'
-OUTPUT_TEMP_CSV = OUTPUT_DIR/'ieee13_temperature_5min.csv'
-OUTPUT_DSS_FILE = OUTPUT_DIR/'ieee13_pv.dss'
+SCRIPT_DSS = BASE_DIR/'src'/'data'/'LVTestCase'/'Master.dss'
+OUTPUT_DIR = BASE_DIR/'src'/'data'/'LVTestCase'
+OUTPUT_IRRAD_CSV = OUTPUT_DIR/'LVTestCase_shape_pv_5min.csv'
+OUTPUT_TEMP_CSV = OUTPUT_DIR/'LVTestCase_temperature_5min.csv'
+OUTPUT_DSS_FILE = OUTPUT_DIR/'LVTestCase_pv.dss'
 
 # --- Paths And Files Validation ---
 val.validate_paths(INFO_PV_FILE, SCRIPT_DSS, SOLAR_STATION_FILES, OUTPUT_DIR)
@@ -278,6 +279,56 @@ class PVGenerator:
         # 3. interpolate: Fills gaps using time-proportional linear connection
         self.irrad_curve = (self.irrad_curve.resample(new_rate).mean().interpolate(method='time')).round(6)
         self.temperature_curve = (self.temperature_curve.resample(new_rate).mean().interpolate(method='time')).round(6)
+        
+        # Discard the temporary anchor points using structural slicing
+        self.irrad_curve = self.irrad_curve.iloc[:expected_points]
+        self.temperature_curve = self.temperature_curve.iloc[:expected_points]
+
+        # Generate a clean sequential timeline starting exactly at START_DATE matching the required points
+        new_timeline = pd.date_range(start=start_date, periods=expected_points, freq=new_rate)
+        
+        # Assign the new timeline back as the dataframe index
+        self.irrad_curve.index = new_timeline
+        self.temperature_curve.index = new_timeline
+
+        # Reset index to restore numerical indexing and rename 'index' to 'Date'
+        self.irrad_curve = self.irrad_curve.reset_index().rename(columns={'index': 'Date'})
+        self.temperature_curve = self.temperature_curve.reset_index().rename(columns={'index': 'Date'})
+
+        # ==============================================================================
+        # INTERPOLATED DATA INTEGRITY CHECK
+        # ==============================================================================
+        val.validate_interpolated_curves(
+            self.name, self.irrad_curve, self.temperature_curve, expected_points, self.FILE_CSV
+        )
+
+    def CurvePCHIPInterpolation(self, new_rate=step, npts_base_15min=npts_origin, start_date=start_date):
+        """
+        Resamples a time-series curve to a new time frequency using PCHIP interpolation.
+    
+        Args:
+            new_rate (str): Pandas offset alias for the target frequency (e.g., '5s', '5min', '2h').
+            npts_base_15min (int): Number of points in the original 15-minute resolution time series.
+            start_date (str): Start date/time for the new interpolated timeline (format e.g., "2026-01-01 00:00:00").
+        """
+
+        # Define Timedelta parameters natively to handle any scale (seconds, minutes, hours)
+        base_delta = pd.Timedelta('15min')
+        new_delta = pd.Timedelta(new_rate)
+        
+        # Calculate expected array size dynamically
+        expected_points = ceil(npts_base_15min * (base_delta / new_delta))
+
+        # --- RESAMPLING & PCHIP INTERPOLATION ---
+        # 1. resample: Groups data into the new time interval (new_rate)
+        # 2. mean: Aggregates clustered points
+        # 3. interpolate: Fills gaps using PCHIP
+        irrad_res = self.irrad_curve.resample(new_rate).mean()
+        temp_res = self.temperature_curve.resample(new_rate).mean()
+        
+        # PCHIP interpolation works best with numeric indexes in pandas
+        self.irrad_curve = irrad_res.reset_index(drop=True).interpolate(method='pchip').round(6)
+        self.temperature_curve = temp_res.reset_index(drop=True).interpolate(method='pchip').round(6)
         
         # Discard the temporary anchor points using structural slicing
         self.irrad_curve = self.irrad_curve.iloc[:expected_points]
@@ -559,7 +610,7 @@ def PVCreator(QtdPVs,
                 PV_list = PV_list
             )
             # Resample curves to the simulation time step (step)
-            new_pv.CurveLinearInterpolation(step)
+            new_pv.CurvePCHIPInterpolation(step)
             PVGen.append(new_pv)
             logger.info(f"   > {new_pv.name} configured at bus {new_pv.bus} ({new_pv.kva/1000} kVA)")
         print("")
@@ -593,12 +644,13 @@ if __name__ == "__main__":
     print("")
     
     # Define Explicit Input Conditions
-    PV_Dictionaries = [
-        {'PV_phases': 2, 'PV_bus': '646.2.3', 'PV_kv': 4.16, 'PV_kva': 5, 'PV_curve_id': None}
-    ]
-    
+    # PV_Dictionaries = [
+    #     {'PV_phases': 2, 'PV_bus': '646.2.3', 'PV_kv': 4.16, 'PV_kva': 5, 'PV_curve_id': None}
+    # ]
+    #ignore_buses = None
+
     # Run the Allocation Engine
-    PVGen = PVCreator(QtdPVs=4, PV_dictionaries_list=PV_Dictionaries, ignore_buses=['650', '670'])
+    PVGen = PVCreator(QtdPVs=45)
 
     # Trigger Outputs Generation
     PVGenerator.GenerateCSV(PVGen)
