@@ -175,7 +175,10 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             self.dss_wrapper.dss.text("New XYCurve.PTIdeal_Cosim npts=2 xarray=[0.0 100.0] yarray=[1.0 1.0]")
             
             for name, info in pv_infos.items():
-                eid = f"PVSystem-{name}"
+                bus_full = info.get('bus', '')
+                bus_base = bus_full.split('.')[0]
+                bus_suffix = f'_bus{bus_base}' if bus_base else ''
+                eid = f"PVSystem-{name}{bus_suffix}"
                 info["eid_dss"] = eid
                 info["name"] = name
                 
