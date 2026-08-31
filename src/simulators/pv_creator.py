@@ -5,7 +5,7 @@ Generates interpolated irradiance/temperature profiles from weather station data
 and produces a corresponding OpenDSS script file for time-series power flow.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 # ==============================================================================
 # USER ADAPTATION GUIDE
 # ==============================================================================
@@ -218,7 +218,7 @@ class PVGenerator:
                 case _:
                     raise ValueError(f"Número de fases inválido ({self.phases}) para o PV {self.name}. Deve ser 1 ou 3.")
     
-        self.irrad = 0.8 * 1000
+        self.irrad = 1000
         self.pmpp = self.kva
         self.temperature = 25
         self.pf = 1
@@ -239,9 +239,9 @@ class PVGenerator:
         self.irrad_curve = self.irrad_curve.clip(lower=0).fillna(0)
         self.irrad_curve.name = f'my_shape{PV_id}_irrad'
 
-        # 2. Process Temperature (Normalize, fill NaNs)
-        self.temperature_curve = (self.solar_station_curves['panel_temperature_celsius'].iloc[data_slice] / self.temperature).reset_index(drop=True)
-        self.temperature_curve = self.temperature_curve.fillna(1)
+        # 2. Process Temperature (Raw values, fill NaNs)
+        self.temperature_curve = self.solar_station_curves['panel_temperature_celsius'].iloc[data_slice].reset_index(drop=True)
+        self.temperature_curve = self.temperature_curve.fillna(25)
         self.temperature_curve.name = f'my_shape{PV_id}_temperature'
 
         # 3. Handle Datetime & Indexing
@@ -397,15 +397,34 @@ class PVGenerator:
         
         # We use a list to collect lines for better performance (string building)
         dss_lines = []
+        irrad_shape_lines = []
+        temp_shape_lines = []
 
-        # 1. Add base curves shared by all PV units (from the first generator)
-        # Using f-strings without excessive (+) concatenation for clarity
-        dss_lines.append(f"{PVGen[0].ptcurve}")
-        dss_lines.append(f"{PVGen[0].effcurve}\n")
+        # 1. Determine number of points and interval
+        npts = len(PVGen[0].irrad_curve)
+        # Calculate interval in minutes from the time delta of the first two steps
+        try:
+            delta = PVGen[0].irrad_curve['Date'].iloc[1] - PVGen[0].irrad_curve['Date'].iloc[0]
+            minterval = delta.total_seconds() / 60.0
+        except Exception:
+            minterval = 5 # fallback if calculation fails
+
+        irrad_shape_file_name = OUTPUT_DSS_FILE.with_name(OUTPUT_DSS_FILE.stem + "_irrad_shapes.dss")
+        temp_shape_file_name = OUTPUT_DSS_FILE.with_name(OUTPUT_DSS_FILE.stem + "_temp_shapes.dss")
 
         # 2. Build commands for each PV generator
         for i, pv in enumerate(PVGen):
             pv_id = i + 1
+            
+            # Extract multipliers for LoadShapes
+            irrad_mults = pv.irrad_curve.iloc[:, 1].tolist()
+            temp_mults = pv.temperature_curve.iloc[:, 1].tolist()
+            
+            irrad_str = " ".join([f"{x:.4f}" for x in irrad_mults])
+            temp_str = " ".join([f"{x:.4f}" for x in temp_mults])
+            
+            irrad_shape_lines.append(f"New LoadShape.my_shape{pv_id}_irrad npts={npts} minterval={minterval} mult=[{irrad_str}]")
+            temp_shape_lines.append(f"New Tshape.my_shape{pv_id}_temperature npts={npts} minterval={minterval} temp=[{temp_str}]")
             
             # Constructing the multi-line OpenDSS command using a single f-string
             # Note: ~ is the OpenDSS line continuation character
@@ -418,9 +437,22 @@ class PVGenerator:
             )
             dss_lines.append(pv_command)
 
-        # 3. Write the file using pathlib
+        # 3. Add base curves and the shapes redirect shared by all PV units (at the beginning)
+        dss_lines.insert(0, f"Redirect {irrad_shape_file_name.name}\n")
+        dss_lines.insert(1, f"Redirect {temp_shape_file_name.name}\n")
+        dss_lines.insert(2, f"{PVGen[0].ptcurve}")
+        dss_lines.insert(3, f"{PVGen[0].effcurve}\n")
+
+        # 4. Write the files using pathlib
+        with open(irrad_shape_file_name, "w") as f:
+            f.write("\n".join(irrad_shape_lines))
+        logger.info(f"Success! '{irrad_shape_file_name.name}' saved to {OUTPUT_DIR}")
+
+        with open(temp_shape_file_name, "w") as f:
+            f.write("\n".join(temp_shape_lines))
+        logger.info(f"Success! '{temp_shape_file_name.name}' saved to {OUTPUT_DIR}")
+
         with open(OUTPUT_DSS_FILE, "w") as f:
-            # Join all lines with a newline separator
             f.write("\n".join(dss_lines))
         logger.info(f"Success! '{OUTPUT_DSS_FILE.name}' saved to {OUTPUT_DIR}")
 
@@ -612,7 +644,7 @@ def PVCreator(QtdPVs,
             # Resample curves to the simulation time step (step)
             new_pv.CurvePCHIPInterpolation(step)
             PVGen.append(new_pv)
-            logger.info(f"   > {new_pv.name} configured at bus {new_pv.bus} ({new_pv.kva/1000} kVA)")
+            logger.info(f"   > {new_pv.name} configured at bus {new_pv.bus} ({new_pv.kva} kVA)")
         print("")
         logger.info("--- STARTING DSS AND CSV FILES CREATION ---")
         print("")

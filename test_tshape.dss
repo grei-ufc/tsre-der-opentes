@@ -1,0 +1,6 @@
+Clear
+New Circuit.test
+New LoadShape.test_load npts=4 minterval=60 mult=[1 2 3 4]
+New Tshape.test_temp npts=4 minterval=60 temp=[25 25 25 25]
+New PVSystem.pv1 phases=3 Bus1=1 kV=1 kVA=1 irrad=1 Pmpp=1 Daily=test_load TDaily=test_temp
+Solve

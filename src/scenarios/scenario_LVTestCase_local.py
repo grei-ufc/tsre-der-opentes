@@ -17,14 +17,8 @@ ARQUIVO_RESULTADOS_CSV_HOST = OUTPUT_DIR_HOST / 'result_run_LVTestCase.csv'
 JSON_SAIDA = str(PROJECT_ROOT.parent / 'output' / 'topologia_LVTestCase.json')
 
 # ==============================================================================
-# 2. CAMINHOS NO CONTAINER (Linux/Docker)
+# 2. VARIÁVEIS DE TEMPO E DURAÇÃO
 # ==============================================================================
-CONTAINER_DATA = "/app/src/data/LVTestCase"
-CIRCUITO_DSS_CONT = f"{CONTAINER_DATA}/run_LVTestCase.dss"
-IRRADIANCE_CONT = f"{CONTAINER_DATA}/LVTestCase_shape_pv_5min.csv"
-TEMPERATURE_CONT = f"{CONTAINER_DATA}/LVTestCase_temperature_5min.csv"
-ARQUIVO_RESULTADOS_CSV_CONT = "/app/output/result_run_LVTestCase.csv"
-
 START_DATE = "2026-01-01 00:00:00"
 STEP_SIZE = 60 * 5
 N_PASSOS = 288
@@ -35,22 +29,22 @@ END_TIME = N_PASSOS * STEP_SIZE
 # ==============================================================================
 SIM_CONFIG = {
     'DSS': {
-        'connect': 'localhost:5671',
+        'python': 'simulators.api_opendss:OpenDSSSimulator',
     },
     'PVSimulator': {
-        'connect': 'localhost:5678'
+        'python': 'simulators.pv_panel_simulator:PVPanelSim',
     },
     'InverterSim': {
-        'connect': 'localhost:5680' # Porta 5680 = inverter-smart
+        'python': 'simulators.smart_inverter_simulator:InverterSim',
     },
     'CSV_Irr': {
-        'connect': 'localhost:5675' # Porta 5675 = csv-data-1
+        'python': 'simulators.csv_sim_pandas:CSV',
     },
     'CSV_Temp': {
-        'connect': 'localhost:5676' # Porta 5676 = csv-data-2
+        'python': 'simulators.csv_sim_pandas:CSV',
     },
     'Collector': {
-        'connect': 'localhost:5673',
+        'python': 'simulators.collector:Collector',
     },
 }
 
@@ -60,12 +54,12 @@ def run_scenario():
         return
 
     with mosaik.World(SIM_CONFIG) as world:
-        print("--- Conectando aos Simuladores no Docker ---")
+        print("--- Iniciando Simuladores Localmente ---")
 
         # 1. Iniciando Simuladores via Rede
         dss_sim = world.start(
             'DSS', 
-            topofile=CIRCUITO_DSS_CONT, 
+            topofile=str(CIRCUITO_DSS_HOST), 
             step_size=STEP_SIZE)
         
         pv_sim = world.start(
@@ -79,16 +73,17 @@ def run_scenario():
         csv_sim_irr = world.start(
             'CSV_Irr',
             sim_start=START_DATE,
-            datafile=IRRADIANCE_CONT)
+            datafile=str(DATA_DIR_HOST / "LVTestCase_shape_pv_5min.csv"))
         
         csv_sim_temp = world.start(
             'CSV_Temp',
             sim_start=START_DATE,
-            datafile=TEMPERATURE_CONT)
+            datafile=str(DATA_DIR_HOST / "LVTestCase_temperature_5min.csv"))
+            
         collector = world.start(
             'Collector',
             start_date=START_DATE,
-            output_file=ARQUIVO_RESULTADOS_CSV_CONT,
+            output_file=str(ARQUIVO_RESULTADOS_CSV_HOST),
             print_results=False
         )
 
