@@ -193,21 +193,78 @@ def read_phases(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[s
 
 def read_bus(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[str, Any]:
     """Lê tensões de barra; módulo e ângulo vêm de leituras em bloco distintas."""
+    attrs = list(attrs)
     cache: dict[str, list[float]] = {}
     result: dict[str, Any] = {}
 
-    for attr in attrs:
-        mapping = spec.attr_map.get(attr)
-        if mapping is None:
-            continue
-        kind, index, factor = mapping
+    def source(kind: str) -> list[float]:
         if kind not in cache:
             cache[kind] = (
                 sim.dss_wrapper.get_bus_vmag_pu(name)
                 if kind == "vmag"
                 else sim.dss_wrapper.get_bus_vang(name)
             )
-        result[attr] = cache[kind][index] * factor
+        return cache[kind]
+
+    for attr in attrs:
+        mapping = spec.attr_map.get(attr)
+        if mapping is None:
+            continue
+        kind, index, factor = mapping
+        result[attr] = source(kind)[index] * factor
+
+    wanted = [attr for attr in attrs if attr in BUS_AGGREGATES]
+    if wanted:
+        result.update(bus_aggregates(source("vmag"), wanted))
+
+    return result
+
+
+BUS_AGGREGATES = ("V_min_pu", "V_max_pu", "V_mean_pu", "V_unb_pct")
+
+
+def bus_aggregates(vmag_pu: Iterable[float], attrs: Iterable[str]) -> dict[str, float]:
+    """Resume as tensões de uma barra num escalar por atributo.
+
+    Só as fases presentes entram na conta. ``get_bus_vmag_pu`` devolve sempre
+    três valores, com ``0.0`` onde a barra não tem fase; incluí-los faria um
+    ramal monofásico parecer estar com 2/3 da tensão colapsada — e é justamente
+    esse número que colore o mapa de calor da visualização.
+
+    A fase presente é distinguida por ser diferente de zero. Uma fase real em
+    exatamente 0.0 pu (curto franco na barra) seria tratada como ausente; na
+    prática o valor nunca é exatamente zero.
+
+    Args:
+        vmag_pu: Tensões por fase em pu, na ordem A, B, C.
+        attrs: Quais agregados calcular, dentre :data:`BUS_AGGREGATES`.
+
+    Returns:
+        Mapa atributo -> valor. Numa barra sem nenhuma fase energizada todos os
+        agregados são ``0.0``.
+    """
+    present = [v for v in vmag_pu if v]
+    result: dict[str, float] = {}
+
+    if not present:
+        return dict.fromkeys(attrs, 0.0)
+
+    mean = sum(present) / len(present)
+
+    for attr in attrs:
+        if attr == "V_min_pu":
+            result[attr] = min(present)
+        elif attr == "V_max_pu":
+            result[attr] = max(present)
+        elif attr == "V_mean_pu":
+            result[attr] = mean
+        elif attr == "V_unb_pct":
+            # Desequilíbrio no sentido NEMA (LVUR): maior desvio em relação à
+            # média, em porcentagem. Com uma fase só não há desequilíbrio a
+            # medir.
+            deviation = max(abs(v - mean) for v in present) if len(present) > 1 else 0.0
+            result[attr] = 100.0 * deviation / mean
+
     return result
 
 
@@ -286,6 +343,7 @@ MODEL_SPECS: dict[str, ModelSpec] = {
             "V2_ang": ("vang", 1, 1.0),
             "V3_ang": ("vang", 2, 1.0),
         },
+        extra_outputs=BUS_AGGREGATES,
     ),
     "Load": ModelSpec(
         dss_class="Load",
@@ -305,6 +363,23 @@ MODEL_SPECS: dict[str, ModelSpec] = {
             q=("Q1_var", "Q2_var", "Q3_var"),
             i_mag=("I1_A", "I2_A", "I3_A"),
             i_ang=("I1_ang", "I2_ang", "I3_ang"),
+        ),
+    ),
+    "Transformer": ModelSpec(
+        dss_class="Transformer",
+        reader=read_phases,
+        # Terminal 1 (enrolamento primário): é o lado por onde a potência entra,
+        # então o sinal segue a mesma convenção das linhas.
+        #
+        # Os nomes trazem a unidade real (kW/kvar, como o OpenDSS reporta), ao
+        # contrário do sufixo `_w` herdado pela Line.
+        attr_map=phase_attr_map(
+            p=("P1_kw", "P2_kw", "P3_kw"),
+            q=("Q1_kvar", "Q2_kvar", "Q3_kvar"),
+            i_mag=("I1_A", "I2_A", "I3_A"),
+            i_ang=("I1_ang", "I2_ang", "I3_ang"),
+            p_total=("P_total_kw",),
+            q_total=("Q_total_kvar",),
         ),
     ),
     "RegControl": ModelSpec(
@@ -362,7 +437,7 @@ def build_meta() -> dict[str, Any]:
     models: dict[str, Any] = {
         "Grid": {
             "public": True,
-            "params": ["topofile", "step_size", "output_graph_path"],
+            "params": ["topofile", "step_size", "output_graph_path", "buscoords"],
             "attrs": [],
         }
     }
@@ -383,5 +458,7 @@ def build_meta() -> dict[str, Any]:
             "get_detected_regulators",
             "get_detected_pvsystems",
             "get_detected_storages",
+            "get_detected_transformers",
+            "get_bus_positions",
         ],
     }

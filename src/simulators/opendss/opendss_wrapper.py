@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import pathlib
 from dataclasses import asdict
 
@@ -51,13 +52,20 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin, LegacyReadsMixin):
 
     It handles circuit compilation, time flow management, data extraction,
     and element control (Loads, PVs, Storage, etc.).
+
+    Um wrapper atende **um** circuito. Todas as instâncias de
+    ``py_dss_interface.DSS()`` compartilham o mesmo motor OpenDSS no processo:
+    compilar um segundo circuito repõe o primeiro em silêncio, e os dois
+    wrappers passam a ler o mesmo estado. Por isso o construtor recebe um único
+    ``topofile`` — arquivos auxiliares do alimentador entram pelos ``Redirect``
+    do próprio master.
     """
 
     name = "DSS"
 
     def __init__(
         self,
-        redirects: str | list[str],
+        topofile: str | os.PathLike,
         time_step: dt.timedelta,
         start_time: dt.datetime,
         fail_on_error: bool = True,
@@ -67,12 +75,27 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin, LegacyReadsMixin):
         Initializes the OpenDSS instance.
 
         Args:
-            redirects (Union[str, List[str]]): Path(s) to the master .dss file(s).
+            topofile (Union[str, os.PathLike]): Path to the master .dss file.
+                Exactly one circuit per wrapper — see the note in the class
+                docstring; extra feeder files belong in the master's own
+                ``Redirect`` lines.
             time_step (dt.timedelta): The simulation time step.
             start_time (dt.datetime): The simulation start time (sets hour and angle).
             fail_on_error (bool, optional): If True, raises an exception on DSS errors. Defaults to True.
             **kwargs: Additional arguments (currently unused).
+
+        Raises:
+            TypeError: If a list/tuple of paths is passed (the pre-refactor
+                signature accepted one) — only a single circuit is supported.
         """
+        if isinstance(topofile, (list, tuple, set)):
+            raise TypeError(
+                "topofile takes a single .dss file, not a collection of paths. "
+                "All DSS() instances share one OpenDSS engine in the process, so "
+                "a second circuit would replace the first instead of running "
+                "alongside it. Put auxiliary files in the master's Redirect lines."
+            )
+
         # Capturado antes de instanciar o motor: o construtor do
         # py_dss_interface muda o diretorio de trabalho do processo.
         base_dir = pathlib.Path.cwd()
@@ -84,9 +107,7 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin, LegacyReadsMixin):
 
         self.print("Compiling...")
         self.warn_if_engine_already_in_use()
-        if not isinstance(redirects, list):
-            redirects = [redirects]
-        self.compile_redirects(redirects, base_dir)
+        self.compile_circuit(topofile, base_dir)
 
         # Checks for the existence of specific elements to optimize data retrieval
         self.includes_elements = {

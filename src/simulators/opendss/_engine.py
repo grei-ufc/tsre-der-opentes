@@ -42,8 +42,8 @@ class EngineMixin:
                 "precisa de sua propria copia da DLL."
             )
 
-    def compile_redirects(self, redirects: list[str], base_dir: pathlib.Path) -> None:
-        """Compila os arquivos ``.dss`` iniciais, falhando alto se algo der errado.
+    def compile_circuit(self, topofile: str | os.PathLike, base_dir: pathlib.Path) -> None:
+        """Compila o arquivo ``.dss`` do circuito, falhando alto se algo der errado.
 
         Instanciar ``py_dss_interface.DSS()`` **muda o diretório de trabalho do
         processo** para o ``DataPath`` que o motor guardou — possivelmente de
@@ -59,33 +59,36 @@ class EngineMixin:
         devolvido ao original no fim.
 
         Args:
-            redirects: Caminhos dos arquivos ``.dss`` a compilar, na ordem.
+            topofile: Caminho do arquivo ``.dss`` master a compilar. É um
+                arquivo só: o motor OpenDSS é único no processo (veja
+                :meth:`warn_if_engine_already_in_use`), então cada wrapper
+                atende a exatamente um circuito. Arquivos auxiliares do
+                alimentador entram pelos ``Redirect`` do próprio master.
             base_dir: Diretório contra o qual resolver caminhos relativos.
 
         Raises:
-            OpenDSSException: Se um arquivo não existe, se o ``Redirect``
+            OpenDSSException: Se o arquivo não existe, se o ``Redirect``
                 reporta erro, ou se ao final o circuito não tem barras.
         """
         try:
-            for redirect in redirects:
-                path = pathlib.Path(redirect).expanduser()
-                if not path.is_absolute():
-                    path = (base_dir / path).resolve()
+            path = pathlib.Path(topofile).expanduser()
+            if not path.is_absolute():
+                path = (base_dir / path).resolve()
 
-                if not path.is_file():
-                    self.fail(f'DSS file not found: "{path}"')
-                    continue
+            if not path.is_file():
+                self.fail(f'DSS file not found: "{path}"')
+                return
 
-                self.dss.text(f"set datapath={path.parent}")
-                status = self.dss.text(f'Redirect "{path}"')
+            self.dss.text(f"set datapath={path.parent}")
+            status = self.dss.text(f'Redirect "{path}"')
 
-                if status and ("not found" in status.lower() or "error" in status.lower()):
-                    self.fail(f'Redirect failed for "{path}": {status}')
+            if status and ("not found" in status.lower() or "error" in status.lower()):
+                self.fail(f'Redirect failed for "{path}": {status}')
 
             if self.dss.circuit.num_buses == 0:
                 self.fail(
-                    f"No circuit was compiled from {redirects}. The circuit has no "
-                    "buses — check the file paths and their contents."
+                    f'No circuit was compiled from "{path}". The circuit has no '
+                    "buses — check the file path and its contents."
                 )
         finally:
             os.chdir(base_dir)

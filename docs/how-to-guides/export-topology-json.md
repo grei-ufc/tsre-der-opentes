@@ -34,7 +34,7 @@ O cenário `opendss_scenario_123bus_pv_export_json.py` demonstra isso.
 from simulators.opendss.opendss_wrapper import OpenDSS
 
 dss = OpenDSS(
-    redirects=["data/123Bus/run_ieee123_cosim_pv_5min.dss"],
+    topofile="data/123Bus/run_ieee123_cosim_pv_5min.dss",
     time_step=300,
     start_time="2026-01-01 00:00:00"
 )

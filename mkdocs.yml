@@ -106,6 +106,7 @@ nav:
       - how-to-guides/add-battery-storage.md
       - how-to-guides/generate-pv-systems.md
       - how-to-guides/export-topology-json.md
+      - how-to-guides/visualize-network-web.md
       - how-to-guides/troubleshoot-common-issues.md
   - Referência:
       - reference/opendss-wrapper.md

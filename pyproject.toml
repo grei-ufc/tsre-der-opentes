@@ -13,6 +13,7 @@ dependencies = [
     "py-dss-interface>=2.0.0",
     "setuptools==69.5.1",
     "simbench>=1.5.3",
+    "websockets>=15.0",
 ]
 
 [project.scripts]
@@ -37,6 +38,11 @@ where = ["src"]
 [tool.setuptools]
 # Mapeia o diretório raiz de pacotes para 'src'.
 package-dir = { "" = "src" }
+
+[tool.setuptools.package-data]
+# Os estáticos da visualização web (HTML/CSS/JS) não são módulos Python; sem
+# isso eles ficariam de fora de um wheel e o servidor subiria sem página.
+"simulators.webvis" = ["server/html/*.html", "server/html/media/*"]
 
 # ============================
 # Ruff (linter + formatter)

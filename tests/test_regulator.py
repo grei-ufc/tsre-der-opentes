@@ -56,9 +56,16 @@ class TestNormalVoltage:
 class TestLDC:
     def test_ldc_compensates(self):
         vr = VR_Model(
-            name="reg1", Ts=5.0, Vref=120, db=2,
-            PT_Ratio=20, CT_Primary=700, LDC_R=2, LDC_X=0,
-            Td_ctrl=0, Td_tap=0,
+            name="reg1",
+            Ts=5.0,
+            Vref=120,
+            db=2,
+            PT_Ratio=20,
+            CT_Primary=700,
+            LDC_R=2,
+            LDC_X=0,
+            Td_ctrl=0,
+            Td_tap=0,
         )
         # With current flowing, LDC should compensate voltage
         vr.run(V_meas=120.0, I_meas=0)

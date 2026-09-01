@@ -1,6 +1,7 @@
 import copy
 import datetime
 import math
+from pathlib import Path
 
 import mosaik_api_v3
 
@@ -115,6 +116,10 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         return self._info_by_type("Storage")
 
     @property
+    def detected_transformers(self):
+        return self._info_by_type("Transformer")
+
+    @property
     def regulator_map(self):
         return self._map_by_type("RegControl")
 
@@ -134,6 +139,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         step_size=900,
         output_graph_path=None,
         bypass_native_pv_curves=True,
+        buscoords=None,
         **sim_params,
     ):
         """Inicializa o simulador e compila o circuito.
@@ -141,7 +147,9 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         Args:
             sid: Identificador do simulador no mosaik.
             time_resolution: Resolução temporal do mosaik.
-            topofile: Arquivo ``.dss`` do circuito.
+            topofile: Arquivo ``.dss`` do circuito. Um simulador atende a um
+                único circuito: o motor OpenDSS é compartilhado por todo o
+                processo, então um segundo circuito substituiria o primeiro.
             step_size: Passo de simulação, em segundos.
             output_graph_path: Se informado, exporta o grafo do circuito.
             bypass_native_pv_curves: Neutraliza as curvas de eficiência e
@@ -149,21 +157,49 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 inversor for modelado por outro simulador — caso contrário a
                 penalidade é aplicada duas vezes. Use ``False`` para deixar o
                 OpenDSS cuidar da conversão DC/AC.
+            buscoords: Arquivo de coordenadas das barras (``Buscoords``) a
+                carregar depois do circuito. Vários alimentadores do IEEE trazem
+                o arquivo mas não o carregam no ``.dss`` principal; sem ele as
+                coordenadas em ``extra_info`` ficam todas em zero.
         """
         self.sid = sid
         self.time_resolution = time_resolution
         self.step_size = step_size
         self.bypass_native_pv_curves = bypass_native_pv_curves
         self.dss_wrapper = OpenDSS(
-            redirects=topofile,
+            topofile=topofile,
             time_step=datetime.timedelta(seconds=self.step_size),
             start_time=datetime.datetime(2025, 1, 1),
         )
+
+        if buscoords is not None:
+            self._load_buscoords(buscoords)
 
         if output_graph_path is not None:
             self.dss_wrapper.grafo_tsdq(output_graph_path)
 
         return self.meta
+
+    def _load_buscoords(self, buscoords):
+        """Carrega um arquivo de coordenadas de barras no circuito compilado.
+
+        O OpenDSS aceita o comando sem reclamar de arquivo inexistente e deixa
+        as coordenadas zeradas, o que só apareceria depois, como um desenho
+        empilhado na origem. Por isso o arquivo é conferido aqui.
+
+        Args:
+            buscoords: Caminho do arquivo de coordenadas.
+        """
+        path = Path(buscoords)
+
+        if not path.exists():
+            print(
+                f"[OpenTES][AVISO] Arquivo de coordenadas '{path}' nao encontrado; "
+                "as barras ficarao sem coordenadas."
+            )
+            return
+
+        self.dss_wrapper.dss.text(f'Buscoords "{path}"')
 
     def create(self, num, model, **model_params):
         if model != "Grid":
@@ -197,6 +233,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self._add_buses()
         self._add_loads()
         self._add_lines()
+        self._add_transformers()
         self._add_regulators()
         self._add_storages()
         self._add_pvsystems()
@@ -284,6 +321,9 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                     "num_nodes": dss.bus.num_nodes,
                     "x": dss.bus.x,
                     "y": dss.bus.y,
+                    # Sem o flag, uma barra sem coordenada é indistinguível de
+                    # uma barra que fica de fato na origem.
+                    "coord_defined": bool(dss.bus.coord_defined),
                 },
             )
 
@@ -350,6 +390,35 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                     "linecode": row.get("linecode", ""),
                 },
             )
+
+    def _add_transformers(self):
+        """Cria uma entidade por transformador, ligada às barras dos enrolamentos.
+
+        Sem elas o grafo de entidades se parte: os bancos de reguladores do
+        IEEE34 (``814``/``814r``, ``852``/``852r``) e as elevadoras de
+        subestação são transformadores, não linhas, e as barras dos dois lados
+        ficariam sem nada as ligando.
+        """
+        for name, info in self.dss_wrapper.get_all_transformers_info().items():
+            eid = f"Transformer-{name}"
+            buses = info.get("buses", [])
+            info["eid_dss"] = eid
+
+            parsed = [_parse_bus(bus) for bus in buses]
+            info["bus_names"] = [bus_name for bus_name, _ in parsed]
+            info["nodes"] = [_resolve_nodes(nodes, info.get("phases")) for _, nodes in parsed]
+
+            if len(buses) > 2:
+                print(
+                    f"[OpenTES][AVISO] Transformer.{name} tem {len(buses)} enrolamentos; "
+                    "apenas os dois primeiros entram na topologia."
+                )
+
+            rel = []
+            for bus in buses[:2]:
+                rel += self._bus_rel(bus, eid)
+
+            self._add_child(eid, "Transformer", name, rel=rel, extra_info=info)
 
     def _add_regulators(self):
         if self.dss_wrapper.dss.regcontrols.count == 0:
@@ -617,3 +686,23 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
 
     def get_detected_storages(self):
         return self.detected_storages
+
+    def get_detected_transformers(self):
+        return self.detected_transformers
+
+    def get_bus_positions(self):
+        """Coordenadas das barras que as têm, indexadas por eid.
+
+        Serve à visualização: com as coordenadas reais o alimentador é desenhado
+        como no diagrama, em vez do arranjo que a simulação de forças inventa.
+        Barras sem coordenada declarada ficam de fora, para que o consumidor
+        possa decidir o que fazer com elas.
+
+        Returns:
+            Mapa ``eid -> (x, y)``.
+        """
+        return {
+            eid: (info["x"], info["y"])
+            for eid, info in self._map_by_type("Bus").items()
+            if info.get("coord_defined")
+        }

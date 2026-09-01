@@ -8,6 +8,7 @@ raising. These tests are the guard for that.
 import pathlib
 import sys
 
+import networkx as nx
 import pytest
 
 sys.path.insert(0, "src")
@@ -73,7 +74,9 @@ class TestRelIsWellFormed:
         offenders = [(c["eid"], r) for c in children for r in c["rel"] if not r.startswith("Bus-")]
         assert offenders == []
 
-    @pytest.mark.parametrize("model_type", ["Load", "Line", "PVSystem", "RegControl"])
+    @pytest.mark.parametrize(
+        "model_type", ["Load", "Line", "PVSystem", "RegControl", "Transformer"]
+    )
     def test_elements_are_connected(self, children, model_type):
         entities = [c for c in children if c["type"] == model_type]
         assert entities, f"no {model_type} entities in the fixture"
@@ -92,6 +95,58 @@ class TestRelIsWellFormed:
             if child["type"] in ("Load", "PVSystem", "Storage"):
                 bus = child["extra_info"]["bus"]
                 assert child["rel"] == [f"Bus-{bus}"]
+
+
+class TestTransformers:
+    """Transformers are what keeps the entity graph in one piece.
+
+    Buses joined only by a transformer — the regulator banks, the substation
+    step-up — have no line between them, so leaving transformers out of the
+    entity list breaks the feeder into islands.
+    """
+
+    def test_transformers_connect_two_buses(self, children):
+        trafos = [c for c in children if c["type"] == "Transformer"]
+        assert trafos, "no Transformer entities in the fixture"
+        assert all(len(c["rel"]) == 2 for c in trafos)
+
+    def test_regulator_transformers_are_flagged(self, children):
+        # O OpenDSS reporta os nomes em minúsculas, e o eid segue o motor.
+        trafos = {c["eid"].lower(): c["extra_info"] for c in children if c["type"] == "Transformer"}
+        # IEEE13: reg1/reg2/reg3 are driven by RegControls, XFM1 is not.
+        assert {name for name, info in trafos.items() if info["is_regulated"]}
+        assert not trafos["transformer-xfm1"]["is_regulated"]
+
+    def test_buses_agree_with_the_engine(self, grid, children):
+        sim, _ = grid
+        dss = sim.dss_wrapper.dss
+
+        for child in children:
+            if child["type"] != "Transformer":
+                continue
+            dss.circuit.set_active_element(f"Transformer.{child['extra_info']['name']}")
+            assert child["extra_info"]["buses"] == list(dss.cktelement.bus_names)
+
+    def test_graph_is_connected(self, children):
+        graph = nx.Graph()
+        for child in children:
+            graph.add_node(child["eid"], type=child["type"])
+            for rel in child["rel"]:
+                graph.add_edge(child["eid"], rel)
+
+        assert nx.number_connected_components(graph) == 1
+
+    def test_graph_falls_apart_without_them(self, children):
+        """Guards the reason the model exists, not just its presence."""
+        graph = nx.Graph()
+        for child in children:
+            if child["type"] == "Transformer":
+                continue
+            graph.add_node(child["eid"], type=child["type"])
+            for rel in child["rel"]:
+                graph.add_edge(child["eid"], rel)
+
+        assert nx.number_connected_components(graph) > 1
 
 
 class TestExtraInfo:

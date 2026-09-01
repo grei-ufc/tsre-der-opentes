@@ -7,15 +7,19 @@
 ### Construtor
 
 ```python
-OpenDSS(redirects, time_step, start_time, fail_on_error=True)
+OpenDSS(topofile, time_step, start_time, fail_on_error=True)
 ```
 
 | Parâmetro | Tipo | Descrição |
 |---|---|---|
-| `redirects` | `list[str]` | Caminhos para arquivos `.dss` master para compilar |
+| `topofile` | `str \| os.PathLike` | Caminho do arquivo `.dss` master a compilar |
 | `time_step` | `int` | Passo de tempo em segundos |
 | `start_time` | `str` | Data/hora de início no formato `"YYYY-MM-DD HH:MM:SS"` |
 | `fail_on_error` | `bool` | Se `True`, erros do DSS lançam exceção (default: `True`) |
+
+Um wrapper atende a **um** circuito: o motor OpenDSS é único no processo, então
+compilar um segundo circuito substituiria o primeiro. Passar uma lista de
+caminhos levanta `TypeError`; arquivos auxiliares vão nos `Redirect` do master.
 
 Detecta automaticamente quais classes de elementos existem no circuito: `Load`, `PVSystem`, `Generator`, `Storage`.
 

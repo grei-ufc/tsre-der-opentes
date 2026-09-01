@@ -9,14 +9,21 @@ O OpenDSS é o motor de fluxo de potência que simula a rede elétrica. Neste pr
 
 ## Compilação do circuito
 
-Quando o adaptador OpenDSS é iniciado, ele compila um ou mais arquivos `.dss` que definem o circuito:
+Quando o adaptador OpenDSS é iniciado, ele compila o arquivo `.dss` master que define o circuito:
 
 ```python
 # Em api_opendss.py → init()
-dss = OpenDSS(redirects=["data/123Bus/run_ieee123_cosim_pv_5min.dss"],
+dss = OpenDSS(topofile="data/123Bus/run_ieee123_cosim_pv_5min.dss",
               time_step=300,
               start_time="2026-01-01 00:00:00")
 ```
+
+!!! warning "Um circuito por processo"
+    O construtor recebe **um** arquivo. Todas as instâncias de
+    `py_dss_interface.DSS()` compartilham o mesmo motor OpenDSS no processo:
+    compilar um segundo circuito repõe o primeiro em silêncio, e os dois
+    wrappers passam a ler o mesmo estado. Arquivos auxiliares do alimentador
+    (cargas, curvas, coordenadas) entram pelos `Redirect` do próprio master.
 
 O wrapper:
 

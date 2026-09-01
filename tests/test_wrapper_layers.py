@@ -27,7 +27,7 @@ def dss():
         pytest.skip(f"IEEE13 PV fixture not found at {MASTER}")
 
     wrapper = OpenDSS(
-        redirects=str(MASTER),
+        topofile=str(MASTER),
         time_step=dt.timedelta(seconds=300),
         start_time=dt.datetime(2025, 1, 1),
     )
@@ -144,7 +144,7 @@ class TestCompileIsRobust:
 
         before = os.getcwd()
         OpenDSS(
-            redirects=str(MASTER),
+            topofile=str(MASTER),
             time_step=dt.timedelta(seconds=300),
             start_time=dt.datetime(2025, 1, 1),
         )
@@ -153,7 +153,7 @@ class TestCompileIsRobust:
     def test_relative_paths_resolve_against_the_callers_directory(self):
         relative = MASTER.relative_to(pathlib.Path.cwd())
         wrapper = OpenDSS(
-            redirects=str(relative),
+            topofile=str(relative),
             time_step=dt.timedelta(seconds=300),
             start_time=dt.datetime(2025, 1, 1),
         )
@@ -162,7 +162,20 @@ class TestCompileIsRobust:
     def test_missing_file_raises_instead_of_compiling_nothing(self):
         with pytest.raises(OpenDSSException, match="not found"):
             OpenDSS(
-                redirects="nao_existe_em_lugar_nenhum.dss",
+                topofile="nao_existe_em_lugar_nenhum.dss",
+                time_step=dt.timedelta(seconds=300),
+                start_time=dt.datetime(2025, 1, 1),
+            )
+
+    def test_a_list_of_paths_is_rejected(self):
+        """A assinatura antiga aceitava lista; um segundo circuito nunca coexistiu.
+
+        Todas as instâncias DSS() compartilham um motor só, entao compilar o
+        segundo repunha o primeiro em silêncio. Melhor recusar do que fingir.
+        """
+        with pytest.raises(TypeError, match="single .dss file"):
+            OpenDSS(
+                topofile=[str(MASTER), str(MASTER)],
                 time_step=dt.timedelta(seconds=300),
                 start_time=dt.datetime(2025, 1, 1),
             )
@@ -170,7 +183,7 @@ class TestCompileIsRobust:
     def test_error_names_the_resolved_path(self):
         with pytest.raises(OpenDSSException) as excinfo:
             OpenDSS(
-                redirects="nao_existe.dss",
+                topofile="nao_existe.dss",
                 time_step=dt.timedelta(seconds=300),
                 start_time=dt.datetime(2025, 1, 1),
             )

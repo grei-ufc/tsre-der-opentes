@@ -44,7 +44,7 @@ def _open(path):
     if not path.exists():
         pytest.skip(f"fixture not found: {path}")
     wrapper = OpenDSS(
-        redirects=str(path),
+        topofile=str(path),
         time_step=dt.timedelta(seconds=300),
         start_time=dt.datetime(2025, 1, 1),
     )

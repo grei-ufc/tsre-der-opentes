@@ -27,7 +27,7 @@ def dss():
     if not IEEE13.exists():
         pytest.skip("IEEE13 fixture not found")
     wrapper = OpenDSS(
-        redirects=str(IEEE13),
+        topofile=str(IEEE13),
         time_step=dt.timedelta(seconds=300),
         start_time=dt.datetime(2025, 1, 1),
     )

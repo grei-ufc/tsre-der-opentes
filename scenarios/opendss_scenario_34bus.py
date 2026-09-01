@@ -165,6 +165,11 @@ def run_scenario():
             world.connect(bus_entities[0], monitor, "V1_pu", "V2_pu", "V3_pu")
             print(f"Monitorando Barra: {target_eid}")
 
+        buses = [e for e in grid.children if e.eid.split("-")[0] == "Bus"]
+        for bus in buses:
+            world.connect(bus, monitor, "V1_pu", "V2_pu", "V3_pu")
+            print(f"Monitorando Barra: {bus.eid}")
+
         # --- Execução ---
         print(f"\nIniciando simulação de {N_PASSOS} passos (Step={STEP_SIZE}s)...")
         world.run(until=END_TIME, print_progress=False)

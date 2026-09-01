@@ -25,7 +25,7 @@ def dss_13bus():
         pytest.skip(f"IEEE13 fixture not found at {MASTER}")
 
     wrapper = OpenDSS(
-        redirects=str(MASTER),
+        topofile=str(MASTER),
         time_step=dt.timedelta(seconds=900),
         start_time=dt.datetime(2025, 1, 1),
     )

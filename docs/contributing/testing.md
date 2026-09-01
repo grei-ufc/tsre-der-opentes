@@ -231,7 +231,7 @@ MASTER = (pathlib.Path(__file__).parent.parent / "data" / "13Bus" / "IEEE13Nodec
 def dss_13bus():
     if not MASTER.exists():
         pytest.skip(f"IEEE13 fixture not found at {MASTER}")
-    wrapper = OpenDSS(redirects=str(MASTER), time_step=dt.timedelta(seconds=300), start_time=dt.datetime(2025, 1, 1))
+    wrapper = OpenDSS(topofile=str(MASTER), time_step=dt.timedelta(seconds=300), start_time=dt.datetime(2025, 1, 1))
     if wrapper.dss.circuit.num_buses == 0:
         pytest.skip("IEEE13 failed to compile (check the OpenDSS DataPath)")
     wrapper.run_dss()

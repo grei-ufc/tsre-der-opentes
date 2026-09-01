@@ -38,7 +38,15 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
         "Bus": {
             "public": False,
             "params": [],
-            "attrs": ["V1_pu", "V1_ang", "V2_pu", "V2_ang", "V3_pu", "V3_ang"],
+            "attrs": ["V1_pu", "V1_ang", "V2_pu", "V2_ang", "V3_pu", "V3_ang",
+                       "V_min_pu", "V_max_pu", "V_mean_pu", "V_unb_pct"],
+        },
+        "Transformer": {
+            "public": False,
+            "params": [],
+            "attrs": ["P1_kw", "P2_kw", "P3_kw", "Q1_kvar", "Q2_kvar", "Q3_kvar",
+                       "I1_A", "I2_A", "I3_A", "I1_ang", "I2_ang", "I3_ang",
+                       "P_total_kw", "Q_total_kvar"],
         },
         "RegControl": {
             "public": False,
@@ -58,26 +66,32 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
                        "P1", "P2", "P3", "Q1", "Q2", "Q3", "I1_A", "I2_A", "I3_A"],
         },
     },
-    "extra_methods": ["get_dss_wrapper", "get_detected_regulators",
-                       "get_detected_pvsystems", "get_detected_storages"],
+    "extra_methods": ["get_dss_wrapper", "get_extra_info", "get_detected_regulators",
+                       "get_detected_pvsystems", "get_detected_storages",
+                       "get_detected_transformers", "get_bus_positions"],
 }
 ```
 
 ### init()
 
 ```python
-def init(self, sid, time_resolution, topofile, step_size=900, output_graph_path=None)
+def init(self, sid, time_resolution, topofile, step_size=900, output_graph_path=None,
+         bypass_native_pv_curves=True, buscoords=None)
 ```
 
 | Parâmetro | Tipo | Default | Descrição |
 |---|---|---|---|
-| `topofile` | `str` | — | Caminho do arquivo `.dss` master |
+| `topofile` | `str` | — | Caminho do arquivo `.dss` master. Um circuito por simulação: o motor OpenDSS é único no processo, então um segundo circuito substituiria o primeiro |
 | `step_size` | `int` | 900 | Passo de tempo em segundos |
 | `output_graph_path` | `str \| None` | `None` | Se fornecido, exporta topologia JSON |
+| `bypass_native_pv_curves` | `bool` | `True` | Neutraliza as curvas de eficiência e derating dos PVSystems, quando o inversor é modelado por outro simulador |
+| `buscoords` | `str \| None` | `None` | Arquivo `Buscoords` a carregar após o circuito. Vários alimentadores do IEEE trazem o arquivo mas não o carregam no `.dss` principal |
 
 ### create()
 
-Apenas o modelo `Grid` pode ser criado. Ao criar o Grid, todas as entidades Load, Line, Bus, RegControl, Storage e PVSystem são criadas automaticamente.
+Apenas o modelo `Grid` pode ser criado. Ao criar o Grid, todas as entidades Load, Line, Bus, Transformer, RegControl, Storage e PVSystem são criadas automaticamente.
+
+O `Transformer` existe por causa da topologia: bancos de reguladores e elevadoras de subestação ligam duas barras sem que haja linha entre elas. Sem essas entidades, o grafo montado a partir de `rel` se parte em ilhas — no IEEE34, cinco delas.
 
 ### Atributos de entrada (step)
 
@@ -99,8 +113,14 @@ Apenas o modelo `Grid` pode ser criado. Ao criar o Grid, todas as entidades Load
 | Line | `I1_A..I3_A` | `float` | Corrente por fase (A) |
 | Line | `P1_w..P3_w` | `float` | Potência ativa por fase (W) |
 | Line | `Q1_var..Q3_var` | `float` | Potência reativa por fase (var) |
-| Bus | `V1_pu..V3_pu` | `float` | Tensão por fase (p.u.) |
+| Bus | `V1_pu..V3_pu` | `float` | Tensão por fase (p.u.); `0.0` na fase que a barra não tem |
 | Bus | `V1_ang..V3_ang` | `float` | Ângulo por fase (graus) |
+| Bus | `V_min_pu`, `V_max_pu`, `V_mean_pu` | `float` | Extremos e média entre as **fases presentes** |
+| Bus | `V_unb_pct` | `float` | Desequilíbrio NEMA: maior desvio em relação à média, em % |
+| Transformer | `P1_kw..P3_kw` | `float` | Potência ativa por fase no enrolamento 1 (kW) |
+| Transformer | `Q1_kvar..Q3_kvar` | `float` | Potência reativa por fase no enrolamento 1 (kvar) |
+| Transformer | `I1_A..I3_A` | `float` | Corrente por fase (A) |
+| Transformer | `P_total_kw`, `Q_total_kvar` | `float` | Soma das fases |
 | RegControl | `v_meas` | `complex` | Tensão medida no alvo |
 | RegControl | `i_meas` | `complex` | Corrente medida no primário |
 | RegControl | `tap` | `int` | Posição atual do tap |

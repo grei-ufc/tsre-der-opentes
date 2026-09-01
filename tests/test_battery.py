@@ -22,15 +22,22 @@ class TestInitDefaults:
 
     def test_efficiencies(self):
         bat = OpenDSSBattery(
-            name="bat1", kw_rated=10.0, kwh_rated=20.0, kwh_stored=10.0,
-            pct_eff_charge=85.0, pct_eff_discharge=95.0,
+            name="bat1",
+            kw_rated=10.0,
+            kwh_rated=20.0,
+            kwh_stored=10.0,
+            pct_eff_charge=85.0,
+            pct_eff_discharge=95.0,
         )
         assert abs(bat.eff_charge - 0.85) < 1e-6
         assert abs(bat.eff_discharge - 0.95) < 1e-6
 
     def test_reserve(self):
         bat = OpenDSSBattery(
-            name="bat1", kw_rated=10.0, kwh_rated=20.0, kwh_stored=10.0,
+            name="bat1",
+            kw_rated=10.0,
+            kwh_rated=20.0,
+            kwh_stored=10.0,
             pct_reserve=25.0,
         )
         assert abs(bat.kwh_reserve - 5.0) < 1e-6
@@ -79,7 +86,10 @@ class TestIdle:
 class TestSoCLimits:
     def test_soc_floor(self):
         bat = OpenDSSBattery(
-            name="bat1", kw_rated=10.0, kwh_rated=20.0, kwh_stored=0.5,
+            name="bat1",
+            kw_rated=10.0,
+            kwh_rated=20.0,
+            kwh_stored=0.5,
             pct_reserve=0.0,
         )
         bat.calculate_step(p_request=10.0, q_request=0.0, dt_seconds=7200)
@@ -87,7 +97,10 @@ class TestSoCLimits:
 
     def test_soc_ceiling(self):
         bat = OpenDSSBattery(
-            name="bat1", kw_rated=10.0, kwh_rated=20.0, kwh_stored=19.5,
+            name="bat1",
+            kw_rated=10.0,
+            kwh_rated=20.0,
+            kwh_stored=19.5,
         )
         bat.calculate_step(p_request=-10.0, q_request=0.0, dt_seconds=7200)
         assert bat.kwh_stored <= bat.kwh_rated
@@ -96,7 +109,10 @@ class TestSoCLimits:
 class TestKVALimit:
     def test_q_clamped(self):
         bat = OpenDSSBattery(
-            name="bat1", kw_rated=10.0, kwh_rated=20.0, kwh_stored=10.0,
+            name="bat1",
+            kw_rated=10.0,
+            kwh_rated=20.0,
+            kwh_stored=10.0,
             kva_rated=10.0,
         )
         result = bat.calculate_step(p_request=8.0, q_request=10.0, dt_seconds=3600)
@@ -107,7 +123,10 @@ class TestKVALimit:
 class TestEfficiencyCurve:
     def test_efficiency_interpolation(self):
         bat = OpenDSSBattery(
-            name="bat1", kw_rated=10.0, kwh_rated=20.0, kwh_stored=10.0,
+            name="bat1",
+            kw_rated=10.0,
+            kwh_rated=20.0,
+            kwh_stored=10.0,
             eff_curve_x=[0.2, 0.5, 1.0],
             eff_curve_y=[0.85, 0.92, 0.97],
         )

@@ -14,8 +14,10 @@ sys.path.insert(0, "src")
 
 from simulators.opendss.api_opendss import OpenDSSSimulator
 from simulators.opendss.element_specs import (
+    BUS_AGGREGATES,
     MODEL_SPECS,
     build_meta,
+    bus_aggregates,
     phase_attr_map,
     single_value,
     sum_values,
@@ -59,6 +61,46 @@ class TestAggregators:
         assert capsys.readouterr().out != ""
 
 
+class TestBusAggregates:
+    """One number per bus, for scenarios and for the heatmap of the web view.
+
+    ``get_bus_vmag_pu`` always returns three values, with 0.0 where the bus has
+    no phase. Counting those zeros would report a single-phase lateral as being
+    at a third of its voltage.
+    """
+
+    def test_absent_phases_do_not_count(self):
+        result = bus_aggregates([0.0, 0.97, 0.0], BUS_AGGREGATES)
+
+        assert result["V_min_pu"] == pytest.approx(0.97)
+        assert result["V_max_pu"] == pytest.approx(0.97)
+        assert result["V_mean_pu"] == pytest.approx(0.97)
+        assert result["V_unb_pct"] == pytest.approx(0.0)
+
+    def test_three_phase_bus(self):
+        result = bus_aggregates([1.00, 0.98, 0.96], BUS_AGGREGATES)
+
+        assert result["V_min_pu"] == pytest.approx(0.96)
+        assert result["V_max_pu"] == pytest.approx(1.00)
+        assert result["V_mean_pu"] == pytest.approx(0.98)
+        # NEMA: maior desvio (0.02) sobre a média (0.98).
+        assert result["V_unb_pct"] == pytest.approx(100 * 0.02 / 0.98)
+
+    def test_dead_bus_is_zero_not_an_error(self):
+        assert bus_aggregates([0.0, 0.0, 0.0], BUS_AGGREGATES) == dict.fromkeys(BUS_AGGREGATES, 0.0)
+
+    def test_only_requested_attributes_are_computed(self):
+        assert set(bus_aggregates([1.0, 1.0, 1.0], ["V_min_pu"])) == {"V_min_pu"}
+
+    def test_reader_serves_them_from_the_circuit(self, sim):
+        eid = next(e for e in sim._eids_by_type["Bus"])
+        data = sim.get_data({eid: [*BUS_AGGREGATES, "V1_pu", "V2_pu", "V3_pu"]})[eid]
+
+        phases = [data["V1_pu"], data["V2_pu"], data["V3_pu"]]
+        assert data["V_min_pu"] == pytest.approx(min(v for v in phases if v))
+        assert data["V_max_pu"] == pytest.approx(max(phases))
+
+
 class TestPhaseAttrMap:
     def test_sign_applies_to_power_not_current(self):
         mapping = phase_attr_map(p=("P1",), i_mag=("I1_A",), p_total=("P_meas",), sign=-1)
@@ -100,7 +142,9 @@ class TestGeneratedMeta:
 class TestMetaMatchesImplementation:
     """Every declared output must actually come back from get_data."""
 
-    @pytest.mark.parametrize("model", ["Bus", "Load", "Line", "PVSystem", "RegControl"])
+    @pytest.mark.parametrize(
+        "model", ["Bus", "Load", "Line", "PVSystem", "RegControl", "Transformer"]
+    )
     def test_all_declared_outputs_are_produced(self, sim, model):
         spec = MODEL_SPECS[model]
         eids = sim._eids_by_type.get(model, [])

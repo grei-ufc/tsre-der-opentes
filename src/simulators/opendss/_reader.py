@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import py_dss_interface
 
-from . import opendss_pv, opendss_regulator, opendss_storage
+from . import opendss_pv, opendss_regulator, opendss_storage, opendss_transformer
 from ._types import ElementSnapshot, OpenDSSException
 from ._utils import map_to_phases
 
@@ -464,6 +464,10 @@ class ReaderMixin:
     def get_regulator_measurements(self, reg_info):
         """Le tensao, corrente e tap de um regulador."""
         return opendss_regulator.get_regulator_measurements(self.dss, reg_info)
+
+    def get_all_transformers_info(self):
+        """Retorna dados estaticos de todos os transformadores habilitados."""
+        return opendss_transformer.get_all_transformers_info(self.dss)
 
     def get_pvsystem_power(self, name: str):
         """Le P e Q medidos nos terminais de um PVSystem."""
