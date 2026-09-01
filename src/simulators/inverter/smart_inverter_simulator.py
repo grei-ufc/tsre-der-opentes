@@ -244,8 +244,7 @@ class SmartInverterSim(mosaik_api_v3.Simulator):
 
         entities = []
         for _ in range(num):
-            eid = f"{model}_{len(self.entities)}"
-            inverter = SmartInverterModel(
+            bus_name = model_params.get("bus_name", "")
                 units=units,
                 ctrl=ctrl,
                 eff_curve_x=model_params.get("eff_curve_x"),
