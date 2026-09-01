@@ -13,7 +13,6 @@ a taxa de quadros do navegador não fique atrelada ao passo da simulação.
 import asyncio
 import json
 import logging
-import mimetypes
 import ssl
 from http import HTTPStatus
 from pathlib import Path
@@ -25,6 +24,18 @@ from websockets.http11 import Request, Response
 logger = logging.getLogger(__name__)
 
 UPDATE_INTERVAL = 0.25
+
+# [OpenTES] Tabela propria em vez de `mimetypes.guess_type`. No Windows aquele
+# modulo consulta o registro do sistema, que sobrepoe a tabela interna do
+# Python: a mesma resposta saia como `text/javascript` numa maquina e
+# `application/javascript` noutra, e nesta ultima o `charset` era descartado.
+# Servimos tres extensoes; declara-las aqui torna o cabecalho identico em
+# qualquer maquina, que e o que o MIME checking estrito do navegador exige.
+CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+}
 
 
 class Server:
@@ -138,10 +149,8 @@ class Server:
 
             content = file_path.read_text(encoding="utf-8")
             response = connection.respond(HTTPStatus.OK, content)
-            content_type = mimetypes.guess_type(uri)[0]
+            content_type = CONTENT_TYPES.get(file_path.suffix.lower())
             if content_type:
-                if content_type.startswith("text/"):
-                    content_type = f"{content_type}; charset=utf-8"
                 # [OpenTES] `Headers` do websockets é um multidict: atribuir
                 # acrescenta em vez de substituir. Sem apagar antes, a resposta
                 # saía com dois `Content-Type` — o `text/plain` que `respond()`
