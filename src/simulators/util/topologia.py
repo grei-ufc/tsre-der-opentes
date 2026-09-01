@@ -3,7 +3,7 @@ from dataclasses import asdict
 
 import py_dss_interface
 
-from .opendss.topology_builder import build_graph
+from ..opendss.topology_builder import build_graph
 
 
 def exportar_topologia(dss_path, caminho_json_saida):

@@ -1548,11 +1548,13 @@ wheels = [
 
 [[package]]
 name = "py-dss-interface"
-version = "2.2.1"
+version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/1f/b1/d4d4176f97b9f188bdb4580d3339db3156d790639583907e2286af225d39/py_dss_interface-2.2.1.tar.gz", hash = "sha256:34a320bf46d8618d052659480adb32ee36b46c9d32c94e07cb7677dbc6765be4", size = 29051278, upload-time = "2025-09-09T18:16:39.91Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/50/1f/de3c80bfffa004049f7c9b97576b920b950d2c2916ef42098ac6bb0b87a2/py_dss_interface-2.2.1-py3-none-any.whl", hash = "sha256:98bd779bc2430d64dd77dc6689b456f5579e067483dc9bbf32c2f93b7ef773d6", size = 14993044, upload-time = "2025-09-09T18:16:36.705Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/3b/ca5328203876aa067a62ca2e11dd7398a3090db65820807716c6c07f05d7/py_dss_interface-2.3.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:8de8f9ce8fece7c26a96d74bc1dbfc72e53867e9af0c5e20ab0cd3b4dbc7722b", size = 9065515, upload-time = "2026-02-16T15:20:40.165Z" },
+    { url = "https://files.pythonhosted.org/packages/73/e6/60d186be0eedbe3951041894004787803662d825ef93afc010644708c261/py_dss_interface-2.3.0-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:288485e91ad4c1c7f83887da0f25d567594f5cf9f4c8242e8a6a90f2c2ab190c", size = 9207056, upload-time = "2026-02-16T15:20:43.486Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/c2/ad1de36489a3d50b84e0ad2500180ce1cc5fcc02a2c5171a38c575532b84/py_dss_interface-2.3.0-py3-none-win32.whl", hash = "sha256:ae19e594f8bac9ab685acdbacad597ff65d10a22c03c44c3be7d80f71c53078b", size = 9038888, upload-time = "2026-02-16T15:20:45.424Z" },
+    { url = "https://files.pythonhosted.org/packages/73/57/c7c29bc844dac9a71a3170473ae44f32ae515df479dfa4221a6816b76201/py_dss_interface-2.3.0-py3-none-win_amd64.whl", hash = "sha256:f6cbbf08209e516f56f4ed06fb460e3646bc47901af2f2830a6d049878928b26", size = 9038885, upload-time = "2026-02-16T15:20:47.701Z" },
 ]
 
 [[package]]
@@ -1970,7 +1972,7 @@ requires-dist = [
     { name = "mosaik-pandapower", specifier = "==0.2.2" },
     { name = "opender", specifier = "==2.1.6" },
     { name = "pandas", specifier = ">=2.3.2" },
-    { name = "py-dss-interface", specifier = ">=2.0.0" },
+    { name = "py-dss-interface", specifier = ">=2.3.0" },
     { name = "setuptools", specifier = "==69.5.1" },
     { name = "simbench", specifier = ">=1.5.3" },
     { name = "websockets", specifier = ">=15.0" },

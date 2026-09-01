@@ -5,7 +5,7 @@ Generates interpolated irradiance/temperature profiles from weather station data
 and produces a corresponding OpenDSS script file for time-series power flow.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 # ==============================================================================
 # USER ADAPTATION GUIDE
 # ==============================================================================
@@ -81,6 +81,9 @@ from typing import ClassVar
 import pandas as pd  # Data manipulation and CSV file handling
 import py_dss_interface  # Python interface for OpenDSS (EPRI)
 
+from ..opendss import topology_builder as tb  # Topology building and bus classification
+from . import pv_validator as val  # Centralised validation and error-checking routines
+
 # --- Logging Configuration ---
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s", datefmt="%H:%M:%S"
@@ -105,62 +108,10 @@ OUTPUT_TEMP_CSV = OUTPUT_DIR / "ieee13_temperature_5min.csv"
 OUTPUT_DSS_FILE = OUTPUT_DIR / "ieee13_pv.dss"
 
 # --- Paths And Files Validation ---
-print("")
-logger.info("--- STARTING PATHS AND FILES VALIDATION ---")
-print("")
-logger.info("Validating project structure and workspace paths...")
-
-# Validate Critical Input Files
-if not INFO_PV_FILE.is_file():
-    raise FileNotFoundError(
-        f"Critical input file missing: '{INFO_PV_FILE}'\nCheck the database or metadata path."
-    )
-if not SCRIPT_DSS.is_file():
-    raise FileNotFoundError(
-        f"Circuit baseline script missing: '{SCRIPT_DSS}'\n"
-        f"OpenDSS simulation cannot compile without this file."
-    )
-# Validate Input Directory
-if not SOLAR_STATION_FILES.is_dir():
-    raise FileNotFoundError(
-        f"Solar curves directory missing: '{SOLAR_STATION_FILES}'\n"
-        f"Verify if the weather station database was correctly placed."
-    )
-# Validate Output Directory Existence
-if not OUTPUT_DIR.exists():
-    raise FileNotFoundError(
-        f"Required output directory does not exist: '{OUTPUT_DIR}'\n"
-        f"Indicate the correct directory before running."
-    )
-
-logger.info("Success! All critical files and directories validated.")
+val.validate_paths(INFO_PV_FILE, SCRIPT_DSS, SOLAR_STATION_FILES, OUTPUT_DIR)
 
 # --- Global Data Loading And Validation ---
-logger.info("Loading and verifying metadata database...")
-
-try:
-    # Try to read the CSV file
-    PV_LIST_METADATA = pd.read_csv(INFO_PV_FILE)
-
-    # Check if the file is structurally empty (e.g., only headers or completely blank)
-    if PV_LIST_METADATA.empty:
-        raise ValueError(
-            f"The metadata file '{INFO_PV_FILE.name}' is empty or contains no data rows."
-        )
-except FileNotFoundError as err:
-    raise FileNotFoundError(f"Critical Error: The file '{INFO_PV_FILE}' was not found.\n") from err
-except pd.errors.EmptyDataError as err:
-    raise EOFError(
-        f"Critical Error: The file '{INFO_PV_FILE}' is completely empty (0 bytes) or has no valid headers."
-    ) from err
-except pd.errors.ParserError as err:
-    raise TypeError(
-        f"Critical Error: The file '{INFO_PV_FILE}' is corrupted or poorly formatted.\n"
-    ) from err
-except Exception as val_err:
-    raise RuntimeError(f"Unexpected error while loading metadata: {val_err}") from val_err
-
-logger.info("Success! Metadata loaded successfully.")
+PV_LIST_METADATA = val.load_and_validate_metadata(INFO_PV_FILE)
 
 
 # ==============================================================================
@@ -206,15 +157,8 @@ class PVGenerator:
         """
 
         # --- CURVE ID CONFIGURATION & VALIDATION ---
-        # Set curve_id using PV_id as fallback if curve_id is NaN
-        self.curve_id = PV_id if pd.isna(PV_curve_id) else PV_curve_id
-
-        # Ensure curve_id remains within the valid dataset range (1 to 51)
-        if self.curve_id > 51:
-            self.curve_id = int((float(self.curve_id - 1) % 51) + 1)
-        elif self.curve_id <= 0:
-            logger.warning(f"Input PV id was {PV_curve_id}. Must be >= 1. Defaulting to 1.")
-            self.curve_id = 1
+        # Resolve and normalise the curve ID (falls back to PV_id, wraps [1,51])
+        self.curve_id = val.validate_curve_id(PV_id, PV_curve_id)
 
         # --- SOLAR CURVE FILE LOADING ---
         # Locate and load the CSV file corresponding to the defined curve_id
@@ -241,18 +185,57 @@ class PVGenerator:
         self.bus = PV_bus
         self.kv = PV_kv
 
-        # KVA Setup: Use metadata if PV_kva is NaN. Scale by 3 for 3-phase systems.
-        # If PV_kva is not provided, fetch from metadata (and convert to VA)
-        if pd.isna(PV_kva):
-            base_kva = int(PV_list.iloc[self.curve_id - 1]["nominal_power_mw"]) * 1000
-            # Scale by 3 for three-phase systems when using baseline metadata
-            self.kva = base_kva * 3 if PV_phases == 3 else base_kva
-        else:
-            # Use the manually defined capacity directly
-            self.kva = int(PV_kva)
+        # KVA Setup: snap the capacity to the nearest commercially available
+        # inverter rating, chosen by phase count and voltage level (BT/MT).
+        inversores_1f_BT = pd.Series([1, 1.5, 2, 2.5, 3, 3.6, 4, 5, 6, 7, 7.5, 8, 9, 10])
+        inversores_3f_BT = pd.Series(
+            [4, 5, 6, 8, 10, 12, 15, 17, 20, 25, 27, 30, 33, 36, 40, 45, 50, 60, 75]
+        )
+        inversores_3f_MT = pd.Series(
+            [12, 15, 17, 20, 25, 27, 30, 33, 36, 40, 50, 75, 100, 110, 125, 150, 220, 250, 330, 350]
+        )
 
-        # --- ELECTRICAL & THERMAL PANEL PARAMETERS ---
-        # Base irradiance, max power (Pmpp), reference temperature, and power factor
+        if pd.isna(PV_kva):
+            match self.phases:
+                case 1 if self.kv <= 1.0:
+                    self.kva = choice(inversores_1f_BT.tolist())
+                case 1 if self.kv > 1.0:
+                    self.kva = choice(inversores_1f_BT.tolist())
+                case 3 if self.kv <= 1.0:
+                    self.kva = choice(inversores_3f_BT.tolist())
+                case 3 if self.kv > 1.0:
+                    self.kva = choice(inversores_3f_MT.tolist())
+                case _:
+                    raise ValueError(
+                        f"Número de fases inválido ({self.phases}) para o PV {self.name}. Deve ser 1 ou 3."
+                    )
+        else:
+            match self.phases:
+                case 1 if self.kv <= 1.0:
+                    valor_comercial = inversores_1f_BT.iloc[
+                        (inversores_1f_BT - PV_kva).abs().idxmin()
+                    ]
+                    self.kva = valor_comercial
+                case 1 if self.kv > 1.0:
+                    valor_comercial = inversores_1f_BT.iloc[
+                        (inversores_1f_BT - PV_kva).abs().idxmin()
+                    ]
+                    self.kva = valor_comercial
+                case 3 if self.kv <= 1.0:
+                    valor_comercial = inversores_3f_BT.iloc[
+                        (inversores_3f_BT - PV_kva).abs().idxmin()
+                    ]
+                    self.kva = valor_comercial
+                case 3 if self.kv > 1.0:
+                    valor_comercial = inversores_3f_MT.iloc[
+                        (inversores_3f_MT - PV_kva).abs().idxmin()
+                    ]
+                    self.kva = valor_comercial
+                case _:
+                    raise ValueError(
+                        f"Número de fases inválido ({self.phases}) para o PV {self.name}. Deve ser 1 ou 3."
+                    )
+
         self.irrad = 0.8 * 1000
         self.pmpp = self.kva
         self.temperature = 25
@@ -352,26 +335,9 @@ class PVGenerator:
         # ==============================================================================
         # INTERPOLATED DATA INTEGRITY CHECK
         # ==============================================================================
-        # Validate expected array sizing
-        if (
-            len(self.irrad_curve) != expected_points
-            or len(self.temperature_curve) != expected_points
-        ):
-            raise ValueError(
-                f"Data corruption detected in {self.name}: Interpolated array size mismatch.\n"
-                f"Expected: {expected_points} points. Got: {len(self.irrad_curve)} (irrad) "
-                f"and {len(self.temperature_curve)} (temp)."
-            )
-
-        # Validate for unexpected remaining NaN values (e.g., if the original data had trailing NaNs)
-        if (
-            self.irrad_curve.iloc[:, 1].isna().any()
-            or self.temperature_curve.iloc[:, 1].isna().any()
-        ):
-            raise ValueError(
-                f"Data corruption detected in {self.name}: Unresolved NaN values found post-interpolation.\n"
-                f"Verify the source database file '{self.FILE_CSV}' for unfillable data blocks."
-            )
+        val.validate_interpolated_curves(
+            self.name, self.irrad_curve, self.temperature_curve, expected_points, self.FILE_CSV
+        )
 
     @staticmethod
     def GenerateCSV(PVGen, OUTPUT_DIR=OUTPUT_DIR):
@@ -388,8 +354,7 @@ class PVGenerator:
         # Combine the first generator (serving as a time-base 'locomotive' with datetime)
         # with only the data columns (iloc[:, 1]) from all remaining generators.
         # This list-based approach is memory-efficient for large-scale grid simulations.
-        if not PVGen:
-            raise ValueError("At least one PVGenerator is required to generate outputs.")
+        val.validate_pvgen_list(PVGen)
         irrad_list = [PVGen[0].irrad_curve] + [pv.irrad_curve.iloc[:, 1] for pv in PVGen[1:]]
 
         # 2. Consolidate Temperature Curves
@@ -415,8 +380,7 @@ class PVGenerator:
         logger.info("Generating OpenDSS script...")
 
         # Validate that there is at least one PVGenerator instance to process before attempting to build the DSS file
-        if not PVGen:
-            raise ValueError("At least one PVGenerator is required to generate outputs.")
+        val.validate_pvgen_list(PVGen)
 
         # We use a list to collect lines for better performance (string building)
         dss_lines = []
@@ -529,11 +493,20 @@ def PVCreator(
         PV_buses_phases = []
         allbuses_mapping = []
 
+        logger.info("Classifying buses using topology builder...")
+        attachments = tb.collect_attachments(dss)
+
+        # We exclude reference and regulator buses from being selected for PV installation.
+        excluded_node_types = {"refbus", "regulator_bus"}
+
         # Iterate through circuit buses to identify eligible connection points
         logger.info("Mapping available buses...")
         for i in dss.circuit.buses_names:
             dss.circuit.set_active_bus(i)
-            if dss.bus.name.isdigit():
+
+            node_type = tb.get_node_type(dss.bus.name.lower(), attachments)
+
+            if node_type not in excluded_node_types:
                 # Define connection and phase count based on bus topology (nodes)
                 allbuses_mapping.append(f"{dss.bus.name}." + ".".join(map(str, dss.bus.nodes)))
                 if len(dss.bus.nodes) == 1:
@@ -554,111 +527,10 @@ def PVCreator(
         # Create a separate DataFrame for the full bus mapping to validate manual PV configurations against circuit reality
         allbuses_mapping = pd.DataFrame({"bus": allbuses_mapping})
 
-        # Extract base bus names for existence check
-        buses_index = allbuses_mapping["bus"].str.split(".").str[0]
-
         # ==============================================================================
         # PV DICTIONARY VALIDATION
         # ==============================================================================
-        # Validate each PV dictionary entry against circuit reality
-        for val_idx, val_dict in enumerate(PV_Dictionaries):
-            # Verify that each provided dictionary contains the minimum required keys and that PV_phases matches the number of nodes in PV_bus
-            try:
-                # Structural Check: Ensure minimum keys exist and match types
-                val_pv_phases = int(val_dict["PV_phases"])
-                val_pv_bus = str(val_dict["PV_bus"])
-
-                # --- Random phase selection for manually defined 2-phase buses ---
-                if val_pv_phases == 2:
-                    # Extract nodes from bus string
-                    val_bus_parts = val_pv_bus.split(".")
-                    if len(val_bus_parts) - 1 != 2:  # base + exactly 2 nodes?
-                        raise ValueError(
-                            f"PV_bus '{val_pv_bus}' at index {val_idx} has {len(val_bus_parts) - 1} nodes "
-                            f"but PV_phases=2. A 2-phase bus must have exactly two nodes."
-                        )
-                    val_chosen_node = choice(val_bus_parts[1:])
-
-                    # Original values for logging
-                    val_original_bus = val_pv_bus
-                    val_original_kv = val_dict.get("PV_kv", None)
-
-                    # Update the dictionary to reflect single-phase connection
-                    val_new_bus = val_bus_parts[0] + "." + val_chosen_node
-                    val_dict["PV_bus"] = val_new_bus
-                    val_dict["PV_phases"] = 1
-
-                    # Recalculate PV_kv: line-to-neutral voltage from the circuit
-                    dss.circuit.set_active_bus(val_bus_parts[0])
-                    ln_kv = round(dss.bus.kv_base, 2)
-                    val_dict["PV_kv"] = ln_kv
-
-                    # Log the conversion
-                    logger.warning(
-                        "Manually defined 2-phase bus '%s' (index %d) converted to 1-phase: "
-                        "randomly selected node '%s'. Provided PV_kv%s ignored; using L-N voltage %.2f kV.",
-                        val_original_bus,
-                        val_idx,
-                        val_chosen_node,
-                        f" ({val_original_kv} kV)" if val_original_kv is not None else "",
-                        ln_kv,
-                    )
-
-                # Extract nodes from dictionary
-                val_bus_nodes = val_pv_bus.split(".")[1:] if "." in val_pv_bus else ["1", "2", "3"]
-
-                if len(val_bus_nodes) != val_pv_phases:
-                    raise ValueError(
-                        f"PV_phases ({val_pv_phases}) does not match the number of nodes in PV_bus ({val_pv_bus})."
-                    )
-                if len(set(val_bus_nodes)) != len(val_bus_nodes):
-                    raise ValueError(
-                        f"Duplicate nodes detected in PV_bus '{val_pv_bus}'. Each phase node must be unique."
-                    )
-            except KeyError as e:
-                raise KeyError(
-                    f"Missing key {e} in PV_Dictionaries at index {val_idx}. "
-                    f"Each dictionary must contain at least 'PV_phases' and 'PV_bus'."
-                ) from e
-            except ValueError as e:
-                raise ValueError(
-                    f"Validation failed in PV_Dictionaries at index {val_idx}: {e}"
-                    f" Ensure 'PV_phases' matches the number of nodes in 'PV_bus'."
-                ) from e
-            val_pv_kv = val_dict.get("PV_kv", None)
-            if val_pv_kv is None:
-                logger.warning(
-                    f"Warning: 'PV_kv' not provided for PV at index {val_idx}. It will be calculated based on the bus voltage during PVGenerator instantiation."
-                )
-
-            val_pv_kva = val_dict.get("PV_kva", None)
-            if val_pv_kva is None:
-                logger.warning(
-                    f"Warning: 'PV_kva' not provided for PV at index {val_idx}. It will be set to a default value during PVGenerator instantiation."
-                )
-
-            val_pv_bus = str(val_dict["PV_bus"])
-            val_base_bus = val_pv_bus.split(".")[0]
-
-            # Structural Check: Does the base bus exist in the circuit?
-            if val_base_bus not in buses_index.values:
-                raise ValueError(
-                    f"Manually defined PV_bus '{val_pv_bus}' at index {val_idx} "
-                    f"does not match any existent bus in the circuit."
-                )
-
-            # Extract actual circuit bus string and its real nodes from DataFrame
-            val_ckt_bus = allbuses_mapping.loc[buses_index == val_base_bus, "bus"].values[0]
-            val_ckt_nodes = val_ckt_bus.split(".")[1:] if "." in val_ckt_bus else ["1", "2", "3"]
-
-            # Circuit Reality Check: Do these nodes exist in the OpenDSS bus?
-            for val_single_node in val_bus_nodes:
-                if val_single_node not in val_ckt_nodes:
-                    raise ValueError(
-                        f"Node '{val_single_node}' defined in PV_bus '{val_pv_bus}' "
-                        f"at index {val_idx} does not exist in the actual "
-                        f"circuit bus '{val_ckt_bus}'."
-                    )
+        PV_Dictionaries = val.validate_pv_dictionaries(PV_Dictionaries, allbuses_mapping, dss)
 
         if ignore_buses is not None:
             # If the user passed a single string (e.g., ignore_buses='150'), convert it to a list
@@ -680,10 +552,7 @@ def PVCreator(
         )
         available_buses = available_buses.reset_index(drop=True)
 
-        if len(available_buses) < QtdPVs:
-            raise ValueError(
-                f"Error: Not enough available buses to allocate {QtdPVs} PV systems. Only {len(available_buses)} buses are available."
-            )
+        val.validate_bus_availability(available_buses, QtdPVs)
 
         PVbuses = available_buses.sample(n=QtdPVs, random_state=my_seed)
 
@@ -741,7 +610,9 @@ def PVCreator(
             # Resample curves to the simulation time step (step)
             new_pv.CurveLinearInterpolation(step)
             PVGen.append(new_pv)
-            logger.info(f"   > {new_pv.name} configured at bus {new_pv.bus} ({new_pv.kva} kVA)")
+            logger.info(
+                f"   > {new_pv.name} configured at bus {new_pv.bus} ({new_pv.kva} kVA)"
+            )
         print("")
         logger.info("--- STARTING DSS AND CSV FILES CREATION ---")
         print("")
@@ -774,7 +645,7 @@ if __name__ == "__main__":
 
     # Define Explicit Input Conditions
     PV_Dictionaries = [
-        {"PV_phases": 2, "PV_bus": "646.2.3", "PV_kv": 4.16, "PV_kva": 5000, "PV_curve_id": None}
+        {"PV_phases": 2, "PV_bus": "646.2.3", "PV_kv": 4.16, "PV_kva": 5, "PV_curve_id": None}
     ]
 
     # Run the Allocation Engine
