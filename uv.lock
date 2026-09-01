@@ -1952,6 +1952,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "mkdocs" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -1977,6 +1978,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "mkdocs", specifier = ">=1.6.1" },
     { name = "pytest", specifier = ">=8.4.2" },
     { name = "ruff", specifier = ">=0.16.3" },
 ]

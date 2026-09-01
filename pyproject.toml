@@ -83,6 +83,7 @@ docstring-code-format = true
 
 [dependency-groups]
 dev = [
+    "mkdocs>=1.6.1",
     "pytest>=8.4.2",
     "ruff>=0.16.3",
 ]
