@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check src/simulators/ scenarios/ tests/
+
+  test:
+    # OpenDSS (via py-dss-interface) is native to Windows. Running the suite
+    # here keeps the OpenDSS-integration tests (tests/test_opendss_*.py,
+    # test_wrapper_layers.py, test_element_specs.py, test_error_handling.py,
+    # test_topology_builder.py — see docs/contributing/testing.md) actually
+    # exercising a real compiled engine instead of skipping for lack of one.
+    # See README.md "Configuração Específica para Linux (WSL/Ubuntu)" for
+    # what a Linux runner would additionally need.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run --no-sync python -m pytest tests/ -v
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # git-revision-date-localized reads full file history
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+      - run: uv sync --locked --group docs
+      - run: uv run --group docs mkdocs build --strict
+
+  deploy:
+    # Publica em GitHub Pages (branch gh-pages) — só a partir de main, nunca
+    # a partir de um pull request. Depende do job "docs" para não publicar um
+    # build que nem passou no --strict.
+    needs: docs
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # git-revision-date-localized reads full file history
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+      - run: uv sync --locked --group docs
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - run: uv run --group docs mkdocs gh-deploy --force

@@ -4,12 +4,12 @@ import mosaik_api
 from opender import DER, DER_PV
 
 META = {
-    'type': 'event-based',
-    'models': {
-        'Ctrl': {
-            'public': True,
-            'params': [],
-            'attrs': ['val_in', 'p_dc', 'mod','pot'],
+    "type": "event-based",
+    "models": {
+        "Ctrl": {
+            "public": True,
+            "params": [],
+            "attrs": ["val_in", "p_dc", "mod", "pot"],
         },
     },
 }
@@ -30,9 +30,9 @@ class Controller(mosaik_api.Simulator):
         n_agents = len(self.agents)
         entities = []
         for i in range(n_agents, n_agents + num):
-            eid = 'Agent_%d' % i
+            eid = "Agent_%d" % i
             self.agents.append(eid)
-            entities.append({'eid': eid, 'type': model})
+            entities.append({"eid": eid, "type": model})
 
         return entities
 
@@ -41,8 +41,8 @@ class Controller(mosaik_api.Simulator):
         cache = self.cache = {}
 
         for agent_eid, attrs in inputs.items():
-            val_in = list(attrs.get('val_in', {}).values())[0]
-            p_dc = list(attrs.get('p_dc', {}).values())[0]
+            val_in = list(attrs.get("val_in", {}).values())[0]
+            p_dc = list(attrs.get("p_dc", {}).values())[0]
             p_dc = p_dc * 1000000  # Converte MW para W
 
             alpha = 1  # Sem suavização (valor 1 aplica totalmente o novo valor sem memória)
@@ -74,12 +74,11 @@ class Controller(mosaik_api.Simulator):
 
                 # Armazena os valores no cache para uso posterior
                 cache[agent_eid] = {
-                    'mod': Q_suave,
-                    'pot': P_novo,
+                    "mod": Q_suave,
+                    "pot": P_novo,
                 }
 
         return None
-
 
     def get_data(self, outputs):
         data = {}
@@ -89,7 +88,7 @@ class Controller(mosaik_api.Simulator):
 
             data[eid] = {}
             for attr in attrs:
-                if attr not in ('mod', 'pot'):
+                if attr not in ("mod", "pot"):
                     raise ValueError(...)
                 if eid in self.cache and attr in self.cache[eid]:
                     data[eid][attr] = self.cache[eid][attr]
@@ -97,9 +96,9 @@ class Controller(mosaik_api.Simulator):
                     data[eid][attr] = None
 
         if data and self.output_delay:
-            data['time'] = self.time + self.output_delay
+            data["time"] = self.time + self.output_delay
 
-        #print(f'SAÍDA: {data}')
+        # print(f'SAÍDA: {data}')
 
         return data
 
@@ -108,5 +107,5 @@ def main():
     return mosaik_api.start_simulation(Controller())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

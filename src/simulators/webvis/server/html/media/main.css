@@ -1,0 +1,129 @@
+text {
+    font-size: 16px;
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 300;
+}
+
+#progress {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 3px;
+    background-color: hsl(197, 90%, 50%);
+    z-index: 100;
+}
+
+#canvas {
+    position: absolute;
+    margin: auto;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+
+/* [OpenTES] Seletor de fase/agregação */
+#controls {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    z-index: 50;
+    display: flex;
+    gap: 4px;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 13px;
+}
+#controls .series {
+    padding: 4px 10px;
+    border: 1px solid #bbb;
+    border-radius: 3px;
+    background: #fff;
+    color: #333;
+    cursor: pointer;
+}
+#controls .series:hover {
+    border-color: #777;
+}
+#controls .series.active {
+    background: #2A718C;
+    border-color: #2A718C;
+    color: #fff;
+}
+
+/* Topology items */
+.node {
+    stroke: #777;
+    /* [OpenTES] Era 6px: com o alimentador desenhado nas coordenadas reais, o
+       anel de cada nó cobria a linha até a barra vizinha. */
+    stroke-width: 3px;
+    fill: #ddd;
+}
+/* [OpenTES] O nó é um grupo: o disco (uma leitura) e os setores (uma fase cada)
+   herdam dele traço e preenchimento. A separação entre as fatias vem do próprio
+   traço, mais fino que o contorno do nó. */
+.node .sector {
+    stroke-width: 1px;
+}
+/* Fase que a barra não tem: cinza, e não a cor de tensão colapsada. */
+.absent {
+    fill: #ddd;
+}
+.pqbus {
+}
+.refbus {
+    stroke: #333;
+}
+.load {
+    stroke: hsl(197, 50%, 36%);
+    stroke: #2A718C;
+}
+.gen {
+    stroke: hsl(84, 50%, 35%);
+}
+.storage {
+    stroke: hsl(288, 50%, 48%);
+}
+.special {
+    stroke: hsl(32, 50%, 36%);
+}
+.highlight {
+    stroke: hsl(0, 50%, 50%);
+}
+
+.link {
+    /* [OpenTES] Mais escuro que o anel dos nós, para a ligação se distinguir
+       das barras que ela une. */
+    stroke: #555;
+    stroke-width: 2px;
+}
+
+/* Timeline items */
+.axis path, .axis line {
+    fill: none;
+    stroke: #333;
+    shape-rendering: crispEdges;
+}
+
+.line {
+    fill: none;
+    stroke: #333;
+    stroke-width: 2px;
+}
+/* [OpenTES] Uma cor por fase na timeline, repetida na legenda. */
+.line.s0, .legend-item.s0 { stroke: hsl(197, 60%, 40%); }
+.line.s1, .legend-item.s1 { stroke: hsl(84, 55%, 33%); }
+.line.s2, .legend-item.s2 { stroke: hsl(28, 75%, 45%); }
+.line.s3, .legend-item.s3 { stroke: hsl(288, 45%, 45%); }
+
+.series-legend text {
+    font-size: 13px;
+    fill: #333;
+}
+.legend-item {
+    stroke-width: 3px;
+}
+
+.label {
+    font-weight: 400;
+}

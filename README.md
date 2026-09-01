@@ -62,7 +62,7 @@ docker compose up -d
 3. Em outro terminal (no host), rode o cenário Docker:
 
 ```bash
-uv run --no-sync python src/scenarios/cenariodocker.py
+uv run --no-sync python scenarios/cenariodocker.py
 ```
 
 Observações importantes:
@@ -77,7 +77,7 @@ Se preferir deixar os containers rodando em background e iniciar o cenário imed
 
 ```bash
 docker compose up -d
-uv run --no-sync python src/scenarios/cenariodocker.py
+uv run --no-sync python scenarios/cenariodocker.py
 ```
 
 **Execução sem Docker (opcional / legado)**
@@ -145,7 +145,7 @@ uv pip install ../py_dss_interface
 Após configurar o ambiente, utilize o comando abaixo para rodar o cenário específico do OpenDSS. Usamos o `uv run` para garantir o carregamento correto das variáveis de ambiente:
 
 ```Bash
-uv run --no-sync python src/scenarios/opendss_scenario.py
+uv run --no-sync python scenarios/opendss_scenario.py
 ```
 
-Os resultados específicos desta simulação serão gerados na pasta `src/output`.
+Os resultados específicos desta simulação serão gerados na pasta `output/`.

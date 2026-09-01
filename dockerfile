@@ -15,8 +15,12 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Passo 5: Copiar os códigos e dados
+# Passo 5: Copiar código-fonte, cenários e dados
 COPY src/ ./src/
+COPY scenarios/ ./scenarios/
+COPY data/ ./data/
+COPY output/ ./output/
+COPY main.py ./main.py
 
 # Passo 6: Configurar o PYTHONPATH para os módulos se encontrarem
 ENV PYTHONPATH=/app/src
