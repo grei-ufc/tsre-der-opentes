@@ -173,7 +173,7 @@ class TestCompileIsRobust:
         Todas as instâncias DSS() compartilham um motor só, entao compilar o
         segundo repunha o primeiro em silêncio. Melhor recusar do que fingir.
         """
-        with pytest.raises(TypeError, match="single .dss file"):
+        with pytest.raises(TypeError, match=r"single \.dss file"):
             OpenDSS(
                 topofile=[str(MASTER), str(MASTER)],
                 time_step=dt.timedelta(seconds=300),
