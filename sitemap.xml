@@ -2,170 +2,170 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/changelog/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/citation/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/license/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/contributing/code-conventions/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/contributing/development-setup/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/contributing/testing/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/explanation/architecture/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/explanation/co-simulation-concepts/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/explanation/design-decisions/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/explanation/opendss-integration/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/explanation/sign-convention/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/getting-started/first-simulation/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/getting-started/installation/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/how-to-guides/add-battery-storage/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/how-to-guides/configure-regulator/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/how-to-guides/configure-smart-inverter/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/how-to-guides/deploy-with-docker/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/how-to-guides/export-topology-json/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/how-to-guides/generate-pv-systems/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/how-to-guides/run-scenario-locally/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/how-to-guides/troubleshoot-common-issues/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/how-to-guides/visualize-network-web/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/battery-model/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/cli/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/data-files/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/docker-services/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/inverter-model/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/mosaik-adapters/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/opendss-wrapper/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/pv-panel-model/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/regulator-model/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/scenarios/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/api/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/api/battery/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/api/inverter/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/api/opendss/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/api/pv/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/reference/api/regulator/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/tutorials/docker-co-simulation/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/tutorials/pv-pipeline-local/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://grei-ufc.github.io/tsre-der-opentes/tutorials/smart-inverter-scenario/</loc>
-         <lastmod>2026-09-01</lastmod>
+         <lastmod>2026-09-03</lastmod>
     </url>
 </urlset>
