@@ -132,6 +132,7 @@ MODEL_PARAMS = (
     "node",
     # Compatibilidade: os cenários anteriores passavam a prioridade solta.
     "priority",
+    "bus_name",
 )
 
 #: Prioridade herdada dos cenários antigos -> ``ControlConfig.priority``.
@@ -245,6 +246,9 @@ class SmartInverterSim(mosaik_api_v3.Simulator):
         entities = []
         for _ in range(num):
             bus_name = model_params.get("bus_name", "")
+            bus_suffix = f"_bus{bus_name}" if bus_name else ""
+            eid = f"Inverter_{len(self.entities)}{bus_suffix}"
+            inverter = SmartInverterModel(
                 units=units,
                 ctrl=ctrl,
                 eff_curve_x=model_params.get("eff_curve_x"),

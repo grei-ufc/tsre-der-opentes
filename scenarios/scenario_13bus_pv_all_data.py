@@ -4,7 +4,7 @@ import pprint
 import pandas as pd
 from pathlib import Path
 from mosaik.util import connect_many_to_one
-from simulators.topologia import exportar_topologia
+from simulators.util.topologia import exportar_topologia
 
 # ==============================================================================
 # 1. CAMINHOS NO HOST (Windows)
@@ -16,12 +16,12 @@ CIRCUITO_DSS_HOST = DATA_DIR_HOST / "run_ieee13_cosim_pv_5min.dss"
 OUTPUT_DIR_HOST = PROJECT_ROOT / "output"
 OUTPUT_DIR_HOST.mkdir(parents=True, exist_ok=True)
 ARQUIVO_RESULTADOS_CSV_HOST = OUTPUT_DIR_HOST / 'result_run_ieee13_cosim_pv_5min.csv'
-JSON_SAIDA = str(PROJECT_ROOT.parent / 'output' / 'topologia_ieee13.json')
+JSON_SAIDA = str(OUTPUT_DIR_HOST / 'topologia_ieee13.json')
 
 # ==============================================================================
 # 2. CAMINHOS NO CONTAINER (Linux/Docker)
 # ==============================================================================
-CONTAINER_DATA = "/app/src/data/13Bus"
+CONTAINER_DATA = "/app/data/13Bus"
 CIRCUITO_DSS_CONT = f"{CONTAINER_DATA}/run_ieee13_cosim_pv_5min.dss"
 IRRADIANCE_CONT = f"{CONTAINER_DATA}/ieee13_shape_pv_5min.csv"
 TEMPERATURE_CONT = f"{CONTAINER_DATA}/ieee13_temperature_5min.csv"
@@ -37,22 +37,22 @@ END_TIME = N_PASSOS * STEP_SIZE
 # ==============================================================================
 SIM_CONFIG = {
     'DSS': {
-        'connect': 'localhost:5671',
+        'connect': 'localhost:5771',
     },
     'PVSimulator': {
-        'connect': 'localhost:5678'
+        'connect': 'localhost:5778'
     },
     'InverterSim': {
-        'connect': 'localhost:5680' # Porta 5680 = inverter-smart
+        'connect': 'localhost:5780' # Porta 5780 = inverter-smart
     },
     'CSV_Irr': {
-        'connect': 'localhost:5675' # Porta 5675 = csv-data-1
+        'connect': 'localhost:5775' # Porta 5775 = csv-data-1
     },
     'CSV_Temp': {
-        'connect': 'localhost:5676' # Porta 5676 = csv-data-2
+        'connect': 'localhost:5776' # Porta 5776 = csv-data-2
     },
     'Collector': {
-        'connect': 'localhost:5673',
+        'connect': 'localhost:5773',
     },
 }
 
@@ -139,29 +139,32 @@ def run_scenario():
                 inv_obj = inv_sim.Inverter.create(
                     1,
                     kVA=info['kva'],
-                    phase_mode='AVG', # Define o modo de fase compatível com inversores individuais
                     eff_curve_x=info['eff_curve_x'],
                     eff_curve_y=info['eff_curve_y'],
-                    ctrl_config={'Volt_Var': False, 'Const_PF': False}, # Configuração de controle exigida pelo novo simulador
+                    ctrl_config={}, # Defaults para o novo simulador (sem volt-var)
                     bus_name=bus_base
                 )[0]
 
                 # 3. Conexões Climáticas e Lado DC
 
-                # Lê os cabeçalhos removendo a coluna de tempo (antiga ou nova)
-                cols_irr = [c for c in pd.read_csv(DATA_DIR_HOST / "ieee13_shape_pv_5min.csv", nrows=0).columns if c.lower() != 'time']
-                cols_tmp = [c for c in pd.read_csv(DATA_DIR_HOST / "ieee13_temperature_5min.csv", nrows=0).columns if c.lower() != 'time']
+                # Lê os cabeçalhos removendo as colunas de tempo (Time ou Date)
+                cols_irr = [c for c in pd.read_csv(DATA_DIR_HOST / "ieee13_shape_pv_5min.csv", nrows=0).columns if c.lower() not in ['time', 'date']]
+                cols_tmp = [c for c in pd.read_csv(DATA_DIR_HOST / "ieee13_temperature_5min.csv", nrows=0).columns if c.lower() not in ['time', 'date']]
                 
                 is_dynamic = len(cols_irr) > 1
 
                 if is_dynamic:
-                    # Se pv_name for "PV1", extraímos o número "1" para mapear a coluna certa do CSV
-                    pv_number = ''.join(filter(str.isdigit, pv_name))
-                    # Monta o nome exato das colunas geradas no arquivo CSV consolidado
-                    col_irrad = f"my_shape{pv_number}_irrad"
+                    # Tenta extrair o número do PV (ex: PV-2 vira '2', PV vira '1')
+                    pv_number = ''.join(filter(str.isdigit, pv_name)) or '1'
+                    
+                    col_irrad = f"my_shape{pv_number}_pv"
+                    if col_irrad not in cols_irr:
+                        col_irrad = cols_irr[0]
+                        
                     col_temp = f"my_shape{pv_number}_temperature"
+                    if col_temp not in cols_tmp:
+                        col_temp = cols_tmp[0]
                 else:
-                    # Se não é dinâmico, só existe uma coluna de dados disponível em cada arquivo
                     col_irrad = cols_irr[0]
                     col_temp = cols_tmp[0]
 
@@ -222,7 +225,7 @@ def run_scenario():
 # GERA ARQUIVO JSON DA REDE
 # ==============================================================================
 
-print("Gerando topologia do cenário LV Test Case...")
+print("Gerando topologia do cenário IEEE 13 Bus...")
 exportar_topologia(CIRCUITO_DSS_HOST, JSON_SAIDA)
 
 if __name__ == '__main__':

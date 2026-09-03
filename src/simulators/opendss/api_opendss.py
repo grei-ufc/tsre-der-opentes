@@ -476,6 +476,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
 
         for name, info in pv_infos.items():
             bus_name, nodes = _parse_bus(info.get("bus", ""))
+            phases = info.get("phases", 3)
             eid = f"PVSystem-{name}_bus{bus_name}"
             info["eid_dss"] = eid
             info["name"] = name
@@ -705,3 +706,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             for eid, info in self._map_by_type("Bus").items()
             if info.get("coord_defined")
         }
+
+if __name__ == '__main__':
+    import mosaik_api_v3
+    mosaik_api_v3.start_simulation(OpenDSSSimulator())

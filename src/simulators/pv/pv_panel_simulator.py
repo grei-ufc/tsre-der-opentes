@@ -110,6 +110,8 @@ class PVPanelSim(mosaik_api_v3.Simulator):
         for i in range(num):
             bus_name = model_params.get("bus_name", "")
             bus_suffix = f"_bus{bus_name}" if bus_name else ""
+            eid = f"PVPanel_{len(self.entities)}{bus_suffix}"
+            panel_model = PVPanelModel(
                 p_mpp=model_params.get("P_mpp", 1000.0),
                 irradiance_base=model_params.get("irradiance_base", 1.0),
                 pt_curve_x=model_params.get("pt_curve_x", [0, 25, 75, 100]),
