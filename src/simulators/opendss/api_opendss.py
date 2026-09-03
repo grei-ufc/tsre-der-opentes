@@ -476,7 +476,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
 
         for name, info in pv_infos.items():
             bus_name, nodes = _parse_bus(info.get("bus", ""))
-            phases = info.get("phases", 3)
+            phases = info.get("num_phases") or len(nodes) or 3
             eid = f"PVSystem-{name}_bus{bus_name}"
             info["eid_dss"] = eid
             info["name"] = name

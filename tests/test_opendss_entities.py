@@ -166,7 +166,7 @@ class TestExtraInfo:
         assert by_eid["PVSystem-pv-4_bus646"]["nodes"] == [2]
         assert by_eid["PVSystem-pv-5_bus611"]["nodes"] == [3]
         assert by_eid["PVSystem-pv-6_bus652"]["nodes"] == [1]
-        
+
         # Testar fases de todos (mapeados por tuple)
         pvs = [("PVSystem-pv-4_bus646", 1), ("PVSystem-pv-5_bus611", 1), ("PVSystem-pv-6_bus652", 1)]
         assert all(by_eid[n]["phases"] == phases for n, phases in pvs)
