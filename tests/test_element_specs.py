@@ -173,7 +173,7 @@ class TestMetaMatchesImplementation:
 class TestInputRouting:
     # Single-phase PV on 611.3 — exercises setpoint routing and phase placement
     # in one go.
-    PV = "PVSystem-pv-5"
+    PV = "PVSystem-pv-5_bus611"
 
     def test_every_pv_tracks_its_setpoint(self, sim):
         """Guards the fixture: a wrong kV makes a PV ignore its setpoint.

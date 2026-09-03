@@ -107,7 +107,7 @@ class PVPanelSim(mosaik_api_v3.Simulator):
 
     def create(self, num, model, **model_params):
         entities = []
-        for i in range(num):
+        for _i in range(num):
             bus_name = model_params.get("bus_name", "")
             bus_suffix = f"_bus{bus_name}" if bus_name else ""
             eid = f"PVPanel_{len(self.entities)}{bus_suffix}"

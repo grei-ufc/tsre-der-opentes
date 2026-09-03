@@ -1,9 +1,9 @@
-import mosaik
-import sys
-import pprint
-import pandas as pd
 from pathlib import Path
+
+import mosaik
+import pandas as pd
 from mosaik.util import connect_many_to_one
+
 from simulators.util.topologia import exportar_topologia
 
 # ==============================================================================
@@ -66,23 +66,23 @@ def run_scenario():
 
         # 1. Iniciando Simuladores via Rede
         dss_sim = world.start(
-            'DSS', 
-            topofile=CIRCUITO_DSS_CONT, 
+            'DSS',
+            topofile=CIRCUITO_DSS_CONT,
             step_size=STEP_SIZE)
-        
+
         pv_sim = world.start(
             'PVSimulator',
             step_size=STEP_SIZE)
-        
+
         inv_sim = world.start(
             'InverterSim',
             step_size=STEP_SIZE)
-        
+
         csv_sim_irr = world.start(
             'CSV_Irr',
             sim_start=START_DATE,
             datafile=IRRADIANCE_CONT)
-        
+
         csv_sim_temp = world.start(
             'CSV_Temp',
             sim_start=START_DATE,
@@ -119,7 +119,7 @@ def run_scenario():
             if eid_dss in pvs_dss_map:
                 pv_dss_obj = pvs_dss_map[eid_dss]
                 bus_eid = f"Bus-{bus_base}"
-                
+
                 if bus_eid not in buses_map:
                     print(f"[AVISO] Barramento {bus_eid} não encontrado para realimentação de tensão!")
                     continue
@@ -150,17 +150,17 @@ def run_scenario():
                 # Lê os cabeçalhos removendo as colunas de tempo (Time ou Date)
                 cols_irr = [c for c in pd.read_csv(DATA_DIR_HOST / "ieee13_shape_pv_5min.csv", nrows=0).columns if c.lower() not in ['time', 'date']]
                 cols_tmp = [c for c in pd.read_csv(DATA_DIR_HOST / "ieee13_temperature_5min.csv", nrows=0).columns if c.lower() not in ['time', 'date']]
-                
+
                 is_dynamic = len(cols_irr) > 1
 
                 if is_dynamic:
                     # Tenta extrair o número do PV (ex: PV-2 vira '2', PV vira '1')
                     pv_number = ''.join(filter(str.isdigit, pv_name)) or '1'
-                    
+
                     col_irrad = f"my_shape{pv_number}_pv"
                     if col_irrad not in cols_irr:
                         col_irrad = cols_irr[0]
-                        
+
                     col_temp = f"my_shape{pv_number}_temperature"
                     if col_temp not in cols_tmp:
                         col_temp = cols_tmp[0]
@@ -203,11 +203,11 @@ def run_scenario():
         # ====================================================================
         print("Conectando todas as linhas ao monitor...")
         todas_as_linhas = [e for e in grid.children if e.type == 'Line']
-        
+
         connect_many_to_one(
-            world, 
-            todas_as_linhas, 
-            monitor, 
+            world,
+            todas_as_linhas,
+            monitor,
             'I1_A', 'I1_ang', 'I2_A', 'I2_ang', 'I3_A', 'I3_ang',
             'P1_w', 'Q1_var', 'P2_w', 'Q2_var', 'P3_w', 'Q3_var'
         )
