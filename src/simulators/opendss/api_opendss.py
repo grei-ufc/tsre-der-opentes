@@ -8,41 +8,10 @@ import mosaik_api_v3
 from .element_specs import MODEL_SPECS, build_meta
 from .opendss_wrapper import OpenDSS, OpenDSSException
 
-
-def _parse_bus(bus_string):
-    """Separa a referência de barra do OpenDSS em nome e nós.
-
-    Args:
-        bus_string: Barra como o OpenDSS reporta, com ou sem nós
-            (``'671.1.2.3'``, ``'646.2'``, ``'634'``).
-
-    Returns:
-        Tupla ``(nome, nós)``. A lista de nós fica vazia quando a barra não
-        traz sufixo, caso em que o OpenDSS assume todas as fases do elemento.
-    """
-    name, _, nodes = str(bus_string or "").partition(".")
-    if not nodes:
-        return name, []
-    return name, [int(n) for n in nodes.split(".") if n.isdigit()]
-
-
-def _resolve_nodes(nodes, phases):
-    """Completa os nós implícitos de uma barra sem sufixo.
-
-    ``Bus1=634`` num elemento trifásico significa ``634.1.2.3``; o OpenDSS
-    simplesmente omite o sufixo. Sem essa resolução o cenário receberia uma
-    lista vazia e teria de tratar o caso à parte.
-
-    Args:
-        nodes: Nós explícitos vindos de :func:`_parse_bus`.
-        phases: Número de fases do elemento.
-
-    Returns:
-        Lista de nós; os ``phases`` primeiros quando não havia sufixo.
-    """
-    if nodes:
-        return nodes
-    return list(range(1, max(int(phases or 0), 0) + 1))
+# O grafo da topologia faz a mesma leitura de barras que o adaptador; as duas
+# resoluções vivem no builder para não divergirem.
+from .topology_builder import parse_bus as _parse_bus
+from .topology_builder import resolve_nodes as _resolve_nodes
 
 
 def _as_float(value, default=0.0):

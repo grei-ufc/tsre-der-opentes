@@ -37,6 +37,7 @@ class Circuit:
         self.source_bus = get_source_bus(dss)
         self.n_lines = dss.lines.count
         self.n_transformers = dss.transformers.count
+        self.n_pvsystems = dss.pvsystems.count
         self.buses = {b.split(".")[0].lower() for b in dss.circuit.buses_names}
 
 
@@ -148,6 +149,116 @@ class TestNodeMetadata:
     def test_edges_carry_phase_count(self, ieee13):
         for edge in ieee13.graph.edges.values():
             assert edge.metadata["phases"] >= 1
+
+
+class TestElements:
+    """Cada PV/Storage vira um elemento próprio, com a fase em que está.
+
+    O ``node_type`` da barra só diz que existe geração fotovoltaica ali: três
+    PVs monofásicos numa barra trifásica ficavam indistinguíveis de um único
+    PV trifásico.
+    """
+
+    def test_every_pvsystem_becomes_an_element(self, ieee13_pv):
+        pvs = [e for e in ieee13_pv.graph.elements.values() if e.element_type == "pv"]
+
+        assert len(pvs) == ieee13_pv.n_pvsystems
+
+    def test_element_bus_joins_with_a_node(self, ieee13_pv):
+        """``element.bus`` usa a normalização de ``node.id``; o join é direto."""
+        for element in ieee13_pv.graph.elements.values():
+            assert element.bus in ieee13_pv.graph.nodes
+
+    def test_single_phase_pv_keeps_its_own_phase(self, ieee13_pv):
+        """pv-4 está em 646.2, não na barra inteira."""
+        pv = ieee13_pv.graph.elements["pv_pv-4"]
+
+        assert pv.bus == "646"
+        assert pv.phases == 1
+        assert pv.nodes == [2]
+
+    def test_bus_indexes_the_elements_attached_to_it(self, ieee13_pv):
+        attached = ieee13_pv.graph.nodes["646"].metadata["attached"]
+
+        assert attached["pv"] == ["pv_pv-4"]
+        assert attached["storage"] == []
+
+    def test_every_bus_carries_the_index(self, ieee13_pv):
+        """Vazia ou não, a chave existe: o consumidor itera sem checar."""
+        for node in ieee13_pv.graph.nodes.values():
+            assert set(node.metadata["attached"]) == {"pv", "storage"}
+
+    def test_buses_do_not_share_one_index_instance(self, ieee13_pv):
+        """Um dict compartilhado faria um PV aparecer em todas as barras."""
+        vazias = [
+            n.metadata["attached"]
+            for n in ieee13_pv.graph.nodes.values()
+            if not n.metadata["attached"]["pv"]
+        ]
+
+        assert len({id(a) for a in vazias}) == len(vazias)
+
+    def test_circuit_without_der_has_no_elements(self, ieee13):
+        assert ieee13.graph.elements == {}
+        assert all(
+            n.metadata["attached"] == {"pv": [], "storage": []} for n in ieee13.graph.nodes.values()
+        )
+
+
+STORAGE_CIRCUIT = """\
+Redirect "{master}"
+New Storage.bat1 bus1=675.1 phases=1 kV=2.4 kWrated=50 kWhrated=200
+New Storage.bat_desligada bus1=680 phases=3 kV=4.16 kWrated=10 kWhrated=40 enabled=no
+"""
+
+
+@pytest.fixture(scope="module")
+def circuito_com_storage(tmp_path_factory):
+    """Nenhum circuito de data/ tem bateria; o caminho de Storage exige um."""
+    if not IEEE13.exists():
+        pytest.skip("IEEE13 fixture not found")
+
+    path = tmp_path_factory.mktemp("topo") / "storage.dss"
+    path.write_text(STORAGE_CIRCUIT.format(master=IEEE13.as_posix()))
+    return _open(path)
+
+
+class TestStorage:
+    def test_storage_becomes_an_element(self, circuito_com_storage):
+        bat = circuito_com_storage.graph.elements["storage_bat1"]
+
+        assert bat.element_type == "storage"
+        assert bat.bus == "675"
+        assert bat.phases == 1
+        assert bat.nodes == [1]
+
+    def test_storage_bus_is_classified(self, circuito_com_storage):
+        assert circuito_com_storage.graph.nodes["675"].node_type == "storage"
+
+    def test_storage_bus_indexes_the_battery(self, circuito_com_storage):
+        attached = circuito_com_storage.graph.nodes["675"].metadata["attached"]
+
+        assert attached["storage"] == ["storage_bat1"]
+
+    def test_disabled_storage_is_not_an_element(self, circuito_com_storage):
+        assert "storage_bat_desligada" not in circuito_com_storage.graph.elements
+
+    def test_disabled_storage_does_not_classify_its_bus(self, circuito_com_storage):
+        assert circuito_com_storage.graph.nodes["680"].node_type != "storage"
+
+    def test_storage_scan_does_not_break_the_other_classes(self, circuito_com_storage):
+        """Enumerar baterias troca a classe ativa do OpenDSS.
+
+        Cargas e transformadores são varridos logo depois, pelas interfaces
+        tipadas; se a troca de classe as atrapalhasse, o circuito inteiro sairia
+        classificado como ``bus``.
+        """
+        tipos = {n.node_type for n in circuito_com_storage.graph.nodes.values()}
+
+        assert {"load", "refbus", "transformer_bus"} <= tipos
+        assert len(circuito_com_storage.graph.edges) == (
+            circuito_com_storage.n_lines + circuito_com_storage.n_transformers
+        )
 
 
 DISABLED_CIRCUIT = """\

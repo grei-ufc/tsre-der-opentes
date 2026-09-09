@@ -1,8 +1,8 @@
 import json
-from dataclasses import asdict
 
 import py_dss_interface
 
+from ..opendss.graph_model import serialize_graph
 from ..opendss.topology_builder import build_graph
 
 
@@ -16,15 +16,13 @@ def exportar_topologia(dss_path, caminho_json_saida):
     print("2. Construindo o grafo e classificando os barramentos...")
     grafo = build_graph(dss)
 
-    print(f"3. Grafo gerado: {grafo.total_nodes} nós e {grafo.total_edges} arestas.")
+    print(
+        f"3. Grafo gerado: {grafo.total_nodes} nós, {grafo.total_edges} arestas "
+        f"e {grafo.total_elements} elementos."
+    )
 
     # 4. Convertendo o NetworkGraph para um dicionário serializável em JSON
-    # Como as chaves de graph.nodes e graph.edges são strings e os valores são dataclasses,
-    # usamos uma list comprehension junto com asdict() para extrair os dados puros.
-    grafo_dict = {
-        "nodes": [asdict(node) for node in grafo.nodes.values()],
-        "edges": [asdict(edge) for edge in grafo.edges.values()],
-    }
+    grafo_dict = serialize_graph(grafo)
 
     print(f"4. Salvando dados no arquivo: {caminho_json_saida}")
     with open(caminho_json_saida, "w", encoding="utf-8") as f:

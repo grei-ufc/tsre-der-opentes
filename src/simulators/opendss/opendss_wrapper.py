@@ -21,7 +21,6 @@ import datetime as dt
 import json
 import os
 import pathlib
-from dataclasses import asdict
 
 import py_dss_interface
 
@@ -35,6 +34,7 @@ from ._types import (
     SolutionSnapshot,
 )
 from ._writer import WriterMixin
+from .graph_model import serialize_graph
 from .topology_builder import build_graph
 
 __all__ = [
@@ -141,7 +141,11 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin, LegacyReadsMixin):
 
     def grafo_tsdq(self, output_path):
         """
-        Exporta o grafo do circuito em formato JSON, incluindo nós e arestas.
+        Exporta o grafo do circuito em formato JSON.
+
+        São três vetores: ``nodes`` (barras), ``edges`` (linhas e
+        transformadores) e ``elements`` (PVSystems e Storages, com a barra e as
+        fases em que estão).
 
         Padrão utilizado na plataforma `tsdq-dataview-opentes`
 
@@ -149,10 +153,7 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin, LegacyReadsMixin):
 
         grafo = build_graph(self.dss)
 
-        grafo_dict = {
-            "nodes": [asdict(node) for node in grafo.nodes.values()],
-            "edges": [asdict(edge) for edge in grafo.edges.values()],
-        }
+        grafo_dict = serialize_graph(grafo)
 
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(grafo_dict, f, indent=4, ensure_ascii=False)
