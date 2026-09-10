@@ -1187,6 +1187,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#elementos-conectados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Elementos conectados
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#modulos-envolvidos" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2429,6 +2440,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#elementos-conectados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Elementos conectados
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#modulos-envolvidos" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2509,7 +2531,7 @@
 
 <h1 id="exportar-topologia-para-json">Exportar Topologia para JSON<a class="headerlink" href="#exportar-topologia-para-json" title="Permanent link">&para;</a></h1>
 <h2 id="visao-geral">Visão geral<a class="headerlink" href="#visao-geral" title="Permanent link">&para;</a></h2>
-<p>O projeto pode exportar a topologia do circuito OpenDSS como um grafo JSON com nós (barras) e arestas (linhas/transformadores).</p>
+<p>O projeto pode exportar a topologia do circuito OpenDSS como um grafo JSON com nós (barras), arestas (linhas/transformadores) e elementos (PVSystems/Storages conectados às barras).</p>
 <h2 id="quando-usar">Quando usar<a class="headerlink" href="#quando-usar" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Para visualizar a estrutura da rede</li>
@@ -2540,30 +2562,54 @@
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">dss</span><span class="o">.</span><span class="n">grafo_tsdq</span><span class="p">(</span><span class="s2">&quot;output/topologia.json&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="estrutura-do-json">Estrutura do JSON<a class="headerlink" href="#estrutura-do-json" title="Permanent link">&para;</a></h2>
+<p>Três vetores no topo. As chaves são descartadas na serialização — a plataforma
+indexa pelo campo <code>id</code> de cada item.</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;nodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">&quot;Bus.1.2.3&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bus.1.2.3&quot;</span><span class="p">,</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">&quot;label&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bus.1.2.3&quot;</span><span class="p">,</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">&quot;node_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;load&quot;</span><span class="p">,</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="p">},</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="err">...</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span><span class="p">},</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="nt">&quot;edges&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="nt">&quot;Line.L1&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Line.L1&quot;</span><span class="p">,</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">      </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bus.1.2.3&quot;</span><span class="p">,</span>
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">      </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bus.4.5.6&quot;</span><span class="p">,</span>
-</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">      </span><span class="nt">&quot;edge_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;line&quot;</span><span class="p">,</span>
-</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">      </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
-</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">    </span><span class="p">},</span>
-</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">    </span><span class="err">...</span>
-</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">  </span><span class="p">}</span>
-</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="p">}</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;nodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;646&quot;</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">&quot;label&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;646.2.3&quot;</span><span class="p">,</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">&quot;node_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pv&quot;</span><span class="p">,</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">&quot;voltage_pu&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">        </span><span class="nt">&quot;kv_base&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.4017771198288433</span><span class="p">,</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">        </span><span class="nt">&quot;num_nodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">        </span><span class="nt">&quot;nodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">],</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">        </span><span class="nt">&quot;x&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">400.0</span><span class="p">,</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">        </span><span class="nt">&quot;y&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">250.0</span><span class="p">,</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">        </span><span class="nt">&quot;coord_defined&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">        </span><span class="nt">&quot;attached&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;pv&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;pv_pv-4&quot;</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;storage&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">      </span><span class="p">}</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span><span class="p">],</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">  </span><span class="nt">&quot;edges&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">      </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;line_650632&quot;</span><span class="p">,</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">      </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rg60&quot;</span><span class="p">,</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">      </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;632&quot;</span><span class="p">,</span>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">      </span><span class="nt">&quot;edge_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;line&quot;</span><span class="p">,</span>
+</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="w">      </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;650632&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;phases&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;open&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="w">  </span><span class="p">],</span>
+</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="w">  </span><span class="nt">&quot;elements&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="w">      </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pv_pv-4&quot;</span><span class="p">,</span>
+</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pv-4&quot;</span><span class="p">,</span>
+</span><span id="__span-2-32"><a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="w">      </span><span class="nt">&quot;element_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pv&quot;</span><span class="p">,</span>
+</span><span id="__span-2-33"><a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="w">      </span><span class="nt">&quot;bus&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;646&quot;</span><span class="p">,</span>
+</span><span id="__span-2-34"><a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a><span class="w">      </span><span class="nt">&quot;nodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+</span><span id="__span-2-35"><a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a><span class="w">      </span><span class="nt">&quot;phases&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-2-36"><a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a><span class="w">      </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
+</span><span id="__span-2-37"><a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-2-38"><a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a><span class="w">  </span><span class="p">]</span>
+</span><span id="__span-2-39"><a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a><span class="p">}</span>
 </span></code></pre></div>
+<p><code>voltage_pu</code> sai sempre <code>null</code>: o grafo é estático e nada escreve tensão nele.</p>
 <h2 id="classificacao-de-nos">Classificação de nós<a class="headerlink" href="#classificacao-de-nos" title="Permanent link">&para;</a></h2>
-<p>O <code>topology_builder.py</code> classifica cada barra:</p>
+<p>O <code>topology_builder.py</code> classifica cada barra pelo que está de fato ligado a
+ela, lendo o modelo compilado — não o nome da barra. Uma barra pode satisfazer
+mais de um critério, e vence o primeiro da tabela (uma barra com carga e PV é
+classificada como <code>pv</code>).</p>
 <table>
 <thead>
 <tr>
@@ -2574,19 +2620,19 @@
 <tbody>
 <tr>
 <td><code>refbus</code></td>
-<td>Barra de referência (sourcebus)</td>
-</tr>
-<tr>
-<td><code>virtual_bus</code></td>
-<td>Barra intermediária (nome contém "mid")</td>
+<td>Barra alimentadora, lida do <code>Vsource</code></td>
 </tr>
 <tr>
 <td><code>regulator_bus</code></td>
-<td>Barra de regulador (nome termina em "r")</td>
+<td>Barra regulada, derivada dos <code>RegControl</code> e seus transformadores</td>
 </tr>
 <tr>
 <td><code>pv</code></td>
 <td>Barra com PVSystem conectado</td>
+</tr>
+<tr>
+<td><code>storage</code></td>
+<td>Barra com Storage conectado</td>
 </tr>
 <tr>
 <td><code>load</code></td>
@@ -2594,7 +2640,7 @@
 </tr>
 <tr>
 <td><code>transformer_bus</code></td>
-<td>Barra conectada a transformador</td>
+<td>Barra que é terminal de algum transformador</td>
 </tr>
 <tr>
 <td><code>bus</code></td>
@@ -2603,6 +2649,9 @@
 </tbody>
 </table>
 <h2 id="tipos-de-aresta">Tipos de aresta<a class="headerlink" href="#tipos-de-aresta" title="Permanent link">&para;</a></h2>
+<p>Só elementos habilitados viram aresta, e o identificador vem do <strong>nome do
+elemento</strong>, não do par de barras: os três reguladores de fase do IEEE 13 ligam
+<code>650</code> a <code>rg60</code> e colapsariam numa aresta só.</p>
 <table>
 <thead>
 <tr>
@@ -2621,6 +2670,41 @@
 </tr>
 </tbody>
 </table>
+<p>Uma chave aberta continua no grafo, com <code>metadata.open = true</code> — ela existe
+fisicamente ainda que não conduza, e o consumidor pode desenhá-la tracejada em
+vez de fazê-la sumir.</p>
+<h2 id="elementos-conectados">Elementos conectados<a class="headerlink" href="#elementos-conectados" title="Permanent link">&para;</a></h2>
+<p>Enquanto a aresta liga duas barras, o elemento pendura-se numa só. O
+<code>node_type</code> diz apenas que existe geração fotovoltaica na barra; é o vetor
+<code>elements</code> que diz quantos inversores são, como se chamam e em que fases estão
+— três PVs monofásicos numa barra trifásica são indistinguíveis de um único PV
+trifásico olhando só o tipo da barra.</p>
+<table>
+<thead>
+<tr>
+<th>Tipo</th>
+<th>Descrição</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pv</code></td>
+<td>PVSystem</td>
+</tr>
+<tr>
+<td><code>storage</code></td>
+<td>Storage</td>
+</tr>
+</tbody>
+</table>
+<p>O campo <code>bus</code> usa a mesma normalização de <code>node.id</code> (minúsculas, sem sufixo de
+nós), então o join elemento → barra é direto. Para o caminho inverso, cada
+barra traz <code>metadata.attached</code> com os identificadores agrupados por tipo; a
+chave existe em <strong>todas</strong> as barras, com listas vazias quando não há nada, para
+que o consumidor itere sem antes checar.</p>
+<p>Elementos desabilitados (<code>enabled=no</code>) ficam de fora, e <code>metadata</code> está
+reservado para os parâmetros nominais (<code>pmpp</code>, <code>kva</code>, <code>kwh_rated</code>), que hoje
+trafegam pelo <code>extra_info</code> das entidades mosaik e não por este grafo.</p>
 <h2 id="modulos-envolvidos">Módulos envolvidos<a class="headerlink" href="#modulos-envolvidos" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2636,7 +2720,7 @@
 </tr>
 <tr>
 <td><code>opendss/graph_model.py</code></td>
-<td>Dataclasses <code>NetworkNode</code>, <code>NetworkEdge</code>, <code>NetworkGraph</code></td>
+<td>Dataclasses <code>NetworkNode</code>, <code>NetworkEdge</code>, <code>NetworkElement</code>, <code>NetworkGraph</code> e <code>serialize_graph</code></td>
 </tr>
 <tr>
 <td><code>util/topologia.py</code></td>
@@ -2664,7 +2748,7 @@
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="1 de setembro de 2026 10:37:12 UTC">1 de setembro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="9 de setembro de 2026 23:38:04 UTC">9 de setembro de 2026</span>
   </span>
 
     
