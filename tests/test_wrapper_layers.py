@@ -212,7 +212,10 @@ class TestReadersDoNotMutate:
         assert dss._snapshot.elements
 
     import pytest
-    @pytest.mark.skip(reason="OpenDSS engine no Windows restringe edits em snapshot mode, travando a leitura")
+
+    @pytest.mark.skip(
+        reason="OpenDSS engine no Windows restringe edits em snapshot mode, travando a leitura"
+    )
     def test_writes_clear_the_cache(self, dss):
         dss.run_dss()
         dss.get_bus_vmag_pu("675")

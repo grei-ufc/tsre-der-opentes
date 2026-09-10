@@ -168,7 +168,11 @@ class TestExtraInfo:
         assert by_eid["PVSystem-pv-6_bus652"]["nodes"] == [1]
 
         # Testar fases de todos (mapeados por tuple)
-        pvs = [("PVSystem-pv-4_bus646", 1), ("PVSystem-pv-5_bus611", 1), ("PVSystem-pv-6_bus652", 1)]
+        pvs = [
+            ("PVSystem-pv-4_bus646", 1),
+            ("PVSystem-pv-5_bus611", 1),
+            ("PVSystem-pv-6_bus652", 1),
+        ]
         assert all(by_eid[n]["phases"] == phases for n, phases in pvs)
 
     def test_three_phase_pv_reports_all_nodes(self, children):
@@ -260,8 +264,12 @@ class TestBackwardCompatibility:
     def test_maps_are_keyed_by_eid(self, grid):
         sim, _ = grid
         assert set(sim.pvsystem_map) == {
-            "PVSystem-pv_bus634", "PVSystem-pv-2_bus692", "PVSystem-pv-3_bus680",
-            "PVSystem-pv-4_bus646", "PVSystem-pv-5_bus611", "PVSystem-pv-6_bus652"
+            "PVSystem-pv_bus634",
+            "PVSystem-pv-2_bus692",
+            "PVSystem-pv-3_bus680",
+            "PVSystem-pv-4_bus646",
+            "PVSystem-pv-5_bus611",
+            "PVSystem-pv-6_bus652",
         }
 
     def test_legacy_keys_are_preserved(self, grid):
