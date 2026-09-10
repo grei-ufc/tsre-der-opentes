@@ -24,12 +24,14 @@ python scenarios/opendss_scenario_34bus_web.py
 Abra `http://127.0.0.1:8000/` no navegador. O endereço também é impresso no
 início da simulação. O desenho aparece no primeiro passo.
 
-Há dois cenários prontos:
+Há quatro cenários prontos:
 
 | Cenário | O que mostra |
 |---|---|
-| `opendss_scenario_13bus_web.py` | IEEE13, o caminho mínimo (um atributo por nó) |
+| `opendss_scenario_13bus_web.py` | IEEE13, o caminho mínimo: só as barras, para verificar que a visualização sobe |
 | `opendss_scenario_34bus_web.py` | IEEE34 completo: três fases, coordenadas reais e reguladores em malha fechada |
+| `opendss_scenario_123bus_web.py` | IEEE123: 132 barras, 91 cargas e 7 reguladores |
+| `opendss_scenario_123bus_pv_web.py` | IEEE123 com geração fotovoltaica em malha fechada (painel + inversor) |
 
 ## Usar a interface
 
@@ -110,13 +112,26 @@ webvis.set_etypes({
 | `unit` | Rótulo do eixo Y da linha do tempo |
 | `default` | Valor exibido enquanto o nó não recebe dado |
 | `cls` | Classe CSS do nó (`pqbus`, `refbus`, `load`, `gen`, `storage`, `special`) |
-| `ignore_zero` | Trata `0.0` como "sem leitura". Ligado por padrão quando há mais de um atributo |
+| `radius` | Raio do nó em pixels; por padrão 9. É como as cargas ficam menores que as barras |
 
-!!! tip "Por que `ignore_zero`"
-    O OpenDSS reporta `0.0` nas fases que a barra não tem. Sem essa regra, todo
-    ramal monofásico apareceria como tensão colapsada — vermelho — justamente a
-    cor reservada aos nós em problema. Num atributo único (uma potência, um tap)
-    o zero é um valor legítimo, e por isso a regra não se aplica.
+!!! info "Fase ausente e zero medido são coisas diferentes"
+    A fase que o elemento não tem chega como `NaN` e é pintada de cinza. O zero
+    medido chega como `0.0` e é tratado como qualquer outro valor: um inversor
+    ao amanhecer aparece no gráfico desde o primeiro passo, no fundo da escala,
+    e não só quando a geração começa a subir.
+
+    Não há nada a configurar. A distinção vem do adaptador.
+
+!!! warning "A escala é do tipo, não da entidade"
+    `min`/`max` valem para **todos** os elementos daquele tipo. Num alimentador
+    com inversores de tamanhos diferentes, uma escala em kW deixa o pequeno
+    sempre verde e satura o grande.
+
+    Por isso o `PVSystem` deve ser desenhado com `P1_pu`/`P2_pu`/`P3_pu`, a
+    geração em pu da placa do próprio inversor, com `min: 0` e `max: 1` fixos em
+    qualquer circuito. Nem é preciso variar a potência para o problema aparecer:
+    os seis PVs do IEEE13 têm a mesma placa de 1000 kW, mas os trifásicos
+    entregam cerca de 333 kW por fase e os monofásicos 1000 kW.
 
 Conecte as entidades à topologia como a qualquer outro simulador:
 
@@ -150,6 +165,38 @@ O parâmetro `buscoords` existe porque vários alimentadores do IEEE trazem o
 arquivo de coordenadas mas não o carregam no `.dss` principal — é o caso do
 `ieee34Mod1_w_loadcurve.dss`. Barras sem coordenada continuam posicionadas pelo
 layout de forças.
+
+### Alimentadores grandes ficam apertados
+
+O desenho é ajustado **uma vez** ao tamanho da janela, e não há zoom nem
+deslocamento. Quanto mais barras, menos espaço para cada uma:
+
+| | IEEE13 | IEEE123 |
+|---|---|---|
+| Barras desenhadas | 16 | 130 |
+| Vão mediano entre barras vizinhas | 166 px | 48 px |
+| Diâmetro do nó | 21 px | 21 px |
+| Pares de barras que se sobrepõem | 0 | 8 |
+
+Em ordem de efeito:
+
+- **Esconder as cargas**: `ignore_types=[..., "Load"]`. No IEEE123 são 91 dos
+  231 nós. Elas pesam mais do que o número sugere: como não têm coordenada,
+  cada uma é semeada num anel de 34 a 50 px em volta da sua barra. Esse anel é
+  maior que o vão mediano entre barras, então cada carga cai dentro do
+  território da barra vizinha.
+- **Reduzir o `radius`** dos tipos no `set_etypes`. Tem um limite: com nó
+  pequeno demais os três setores de fase deixam de ser distinguíveis, que é o
+  motivo de o padrão ser 9 e não menos.
+- **Maximizar a janela** antes de a simulação começar; o ajuste é feito no
+  primeiro passo.
+
+!!! note "Escalar as coordenadas do circuito não adianta"
+    Multiplicar todas as coordenadas por uma constante não muda nada. O caminho
+    normaliza pela extensão duas vezes, em `normalize_positions` (Python) e ao
+    encaixar no canvas (JavaScript), então qualquer fator é exatamente
+    cancelado. O que limita é o número de pixels da janela, não a unidade do
+    `BusCoords`.
 
 ## Dentro do Docker
 

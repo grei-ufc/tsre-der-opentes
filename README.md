@@ -2,6 +2,8 @@
 
 Repositório de código para armazenar as soluções desenvolvidas de simulação de recursos energéticos distribuídos.
 
+**[Documentação do projeto](https://grei-ufc.github.io/tsre-der-opentes/)**: tutoriais, guias práticos, referência dos adaptadores mosaik e as decisões por trás da integração com o OpenDSS.
+
 ## Como executar o projeto?
 
 **Execução recomendada (via Docker)**

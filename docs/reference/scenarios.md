@@ -18,6 +18,8 @@ Todos os cenários estão em `scenarios/`. Cada um é um script standalone.
 | `base_scenario.py` | LV-rural (pandapower) | Local | PV (legado) | Controller VV/VW | 60s | `output/base_scenario.csv` |
 | `opendss_scenario_13bus_web.py` | IEEE 13-bus | Local | Nenhum | — | 600s | visualização em `http://127.0.0.1:8000/` |
 | `opendss_scenario_34bus_web.py` | IEEE 34-bus | Local | Regulador | — | 300s | visualização em `http://127.0.0.1:8000/` |
+| `opendss_scenario_123bus_web.py` | IEEE 123-bus | Local | Regulador | — | 300s | visualização em `http://127.0.0.1:8000/` |
+| `opendss_scenario_123bus_pv_web.py` | IEEE 123-bus | Local | PV + Regulador | Padrão | 300s | visualização em `http://127.0.0.1:8000/` |
 
 ## Simuladores utilizados por cenário
 
@@ -52,8 +54,10 @@ Simuladores: `DSS` + `RegControl` + `Collector`
 ### Cenários com visualização web
 
 ```
-opendss_scenario_13bus_web.py    (DSS + WebVis)
-opendss_scenario_34bus_web.py    (DSS + RegControl + WebVis)
+opendss_scenario_13bus_web.py      (DSS + WebVis)
+opendss_scenario_34bus_web.py      (DSS + RegControl + WebVis)
+opendss_scenario_123bus_web.py     (DSS + RegControl + WebVis)
+opendss_scenario_123bus_pv_web.py  (DSS + PVSimulator + InverterSim + CSV + RegControl + WebVis)
 ```
 
 Desenham a rede no navegador durante a simulação, em vez de gravar CSV. Veja

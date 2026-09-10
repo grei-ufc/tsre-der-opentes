@@ -127,9 +127,9 @@ vez de fazê-la sumir.
 
 Enquanto a aresta liga duas barras, o elemento pendura-se numa só. O
 `node_type` diz apenas que existe geração fotovoltaica na barra; é o vetor
-`elements` que diz quantos inversores são, como se chamam e em que fases estão
-— três PVs monofásicos numa barra trifásica são indistinguíveis de um único PV
-trifásico olhando só o tipo da barra.
+`elements` que diz quantos inversores são, como se chamam e em que fases estão.
+Olhando só o tipo da barra, três PVs monofásicos são indistinguíveis de um
+único PV trifásico.
 
 | Tipo | Descrição |
 |---|---|

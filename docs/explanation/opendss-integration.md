@@ -68,26 +68,67 @@ SolveNoControl  # Se há Storage (para controle manual)
 
 ## Extração de dados trifásicos
 
-A função `extract_3phase_pq()` normaliza os dados trifásicos do OpenDSS para o formato do mosaik:
+O OpenDSS devolve as grandezas de um elemento ordenadas **por condutor**, não
+por fase. Um elemento monofásico ligado em `bus.3` reporta um único valor, e
+empacotá-lo à esquerda o transformaria na fase 1.
+
+`map_to_phases()`, em `_utils.py`, usa os números de nó do elemento
+(`cktelement.node_order`) para pôr cada valor na posição real:
 
 ```python
-# Em _utils.py
-extract_3phase_pq(dss_wrapper, name="PVSystem.97",
-                  element="PVSystem",
-                  attrs=["P_meas", "Q_meas"],
-                  sign=-1,  # inverte sinal de geração
-                  line_bus=1)
+map_to_phases([3, 0], [163.5, 0.0])   # -> [nan, nan, 163.5]
 ```
 
-Mapeamento de atributos:
+O nó `0` é o neutro e é descartado, assim como nós acima de 3.
 
-| Suffix | Tipo | Descrição |
-|---|---|---|
-| `_1`, `_2`, `_3` | float | Valores por fase (1, 2, 3) |
-| `_A` | float | Magnitude da corrente |
-| `_ang` | float | Ângulo da corrente |
+### Fase ausente é `NaN`, não zero
 
-Para PVSystem e Storage, o adaptador usa `sign=-1` para inverter o sinal de geração.
+A fase que o elemento não tem vale `NaN`. A distinção existe porque `0.0` é uma
+medição legítima: um inversor ao amanhecer gera zero, e uma barra em curto
+franco está mesmo em 0.0 pu. Se os dois casos dividissem o mesmo número, quem
+consome os dados teria de escolher entre esconder os dois, perdendo a medição,
+ou mostrar os dois, e aí a fase inexistente pareceria uma tensão colapsada.
+
+Duas consequências práticas:
+
+- **Somas usam `sum_phases()`, nunca o `sum` embutido.** Um único `NaN`
+  contaminaria o total, e `P_meas` deixaria de existir em todo elemento não
+  trifásico.
+- **No CSV, a fase ausente é uma célula vazia**, que as ferramentas de análise
+  já ignoram ao calcular médias.
+
+### Do condutor ao atributo mosaik
+
+O `attr_map` de cada `ModelSpec` liga o nome do atributo à fonte, ao índice da
+fase e a um fator:
+
+```python
+attr_map=phase_attr_map(
+    p=("P1", "P2", "P3"),
+    q=("Q1", "Q2", "Q3"),
+    i_mag=("I1_A", "I2_A", "I3_A"),
+    p_total=("P_meas",),
+    q_total=("Q_meas",),
+    sign=-1,     # injeção positiva
+)
+```
+
+| Nome | Descrição |
+|---|---|
+| `P1`, `P2`, `P3` | Potência ativa por fase |
+| `Q1`, `Q2`, `Q3` | Potência reativa por fase |
+| `I1_A`..`I3_A` | Magnitude da corrente por fase |
+| `I1_ang`..`I3_ang` | Ângulo da corrente por fase |
+| `P_meas`, `Q_meas` | Total somado nas fases presentes |
+
+O `sign=-1` de PVSystem e Storage inverte a convenção do OpenDSS, em que gerar
+é potência negativa. O `scale` é aplicado só aos totais: é assim que `P_out_mw`
+da carga sai em MW a partir dos kW do motor.
+
+Um modelo que precise de algo fora desse mapa declara um *reader* próprio e o
+anuncia em `extra_outputs`. É o caso do `SoC` do `Storage` e da geração em pu da
+placa do `PVSystem` (`P_pu`, `P1_pu`..`P3_pu`), que divide pela capacidade de
+cada inversor e não por um fator constante.
 
 ## Controle de PVSystem
 

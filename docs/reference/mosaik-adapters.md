@@ -63,7 +63,8 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
             "public": True,
             "params": [],
             "attrs": ["P_des", "Q_des", "P_meas", "Q_meas",
-                       "P1", "P2", "P3", "Q1", "Q2", "Q3", "I1_A", "I2_A", "I3_A"],
+                       "P1", "P2", "P3", "Q1", "Q2", "Q3", "I1_A", "I2_A", "I3_A",
+                       "P_pu", "P1_pu", "P2_pu", "P3_pu"],
         },
     },
     "extra_methods": ["get_dss_wrapper", "get_extra_info", "get_detected_regulators",
@@ -126,6 +127,8 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | RegControl | `tap` | `int` | Posição atual do tap |
 | PVSystem | `P_meas` | `float` | Potência ativa medida (kW) |
 | PVSystem | `Q_meas` | `float` | Potência reativa medida (kvar) |
+| PVSystem | `P_pu` | `float` | Geração em pu da placa do inversor (`P_meas / Pmpp`) |
+| PVSystem | `P1_pu..P3_pu` | `float` | Geração por fase em pu da parcela da fase (`Pmpp / fases`) |
 | Storage | `P_act` | `float` | Potência ativa atual (kW) |
 | Storage | `Q_act` | `float` | Potência reativa atual (kvar) |
 | Storage | `SoC` | `float` | Estado de carga (%) |

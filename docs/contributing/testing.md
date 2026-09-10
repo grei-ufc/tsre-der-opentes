@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O projeto usa **pytest**, com 12 arquivos e 326 casos de teste (com parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 326 passed, 0 failed, 0 skipped).
+O projeto usa **pytest**, com 15 arquivos e 426 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 425 passed, 1 skipped).
 
 Duas categorias, misturadas entre os arquivos:
 
@@ -34,18 +34,22 @@ uv run --no-sync python -m pytest tests/ -v --tb=long
 | `test_battery.py` | 14 | Não | `battery.battery_model.OpenDSSBattery` |
 | `test_inverter.py` | 13 | Não | `inverter.inverter.InverterModel` (legado) |
 | `test_regulator.py` | 10 | Não | `controller.regulator_control.VR_Model` |
-| `test_phase_mapping.py` | 13 | Não | `opendss._utils.map_to_phases` |
+| `test_phase_mapping.py` | 21 | Não | `opendss._utils`: posição por fase, ausência como `NaN` e totais |
 | `test_smart_inverter.py` | 81 | Não² | `inverter.config`, `inverter.opender_factory`, `inverter.smart_inverter.SmartInverterModel`, `inverter.smart_inverter_simulator.SmartInverterSim` |
-| `test_element_specs.py` | 27 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
+| `test_webvis_topology.py` | 35 | Não | Limpeza do grafo de entidades e dados enviados ao navegador (`webvis.webvis_sim`) |
+| `test_webvis_server.py` | 12 | Não³ | Arquivos estáticos e ciclo de vida do servidor da visualização |
+| `test_element_specs.py` | 42 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
 | `test_error_handling.py` | 18 | Sim | Propagação de erro no wrapper e no adaptador OpenDSS |
-| `test_opendss_entities.py` | 23 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
+| `test_opendss_entities.py` | 28 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
 | `test_opendss_phase_reads.py` | 9 | Sim | Leitura por fase do wrapper (`opendss_wrapper.py`) |
 | `test_opendss_snapshot.py` | 18 | Sim | Cache de leituras do wrapper |
-| `test_topology_builder.py` | 18 | Sim | `opendss.topology_builder.build_graph` |
-| `test_wrapper_layers.py` | 16 | Sim | Composição em mixins do wrapper (`_engine`/`_reader`/`_writer`/`_legacy`) |
+| `test_topology_builder.py` | 31 | Sim | `opendss.topology_builder.build_graph` |
+| `test_wrapper_layers.py` | 17 | Sim | Composição em mixins do wrapper (`_engine`/`_reader`/`_writer`/`_legacy`) |
+| `test_scenario_smoke.py` | 3 | Sim | Um cenário de ponta a ponta, com CSV de saída |
 
 ¹ Métodos de teste (não casos parametrizados — vários métodos rodam mais de um caso via `@pytest.mark.parametrize`).
 ² `TestAdapter`, dentro deste arquivo, testa o adaptador mosaik `SmartInverterSim` e a integração com o `opender.DER` real — não usa OpenDSS, mas não é um teste de domínio puro.
+³ Sobe um servidor de verdade numa porta livre e faz requisições contra ele; não usa OpenDSS.
 
 ### Testes de domínio
 
@@ -89,6 +93,8 @@ uv run --no-sync python -m pytest tests/ -v --tb=long
 |---|---|---|
 | `TestThreePhase` | 2 | Mapeamento trifásico; condutor neutro é ignorado |
 | `TestSinglePhase` | 4 | Fase 2/3 não vaza para a posição 1 — a regressão que motivou o módulo |
+| `TestAbsenceIsNotZero` | 4 | Fase ausente é `NaN`; o zero medido sobrevive e não é filtrado como ausência |
+| `TestSumPhases` | 4 | O total soma só as fases presentes; com o `sum` embutido, um `NaN` apagaria `P_meas` em todo elemento não trifásico |
 | `TestDelta` | 3 | Carga delta (2 condutores) preenche as duas fases certas, sem truncar o total |
 | `TestEdgeCases` | 4 | Terminal todo aterrado, nós acima de 3, listas vazias/desalinhadas |
 
@@ -165,12 +171,20 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | Classe | Testes | O que valida |
 |---|---|---|
 | `TestAggregators` | 4 | `sum_values` soma; `single_value` avisa e não descarta silenciosamente um valor concorrente |
+| `TestBusAggregates` | 7 | Fase ausente sai da conta; a barra em curto (0.0 pu) entra nela, porque zero é uma medição e não uma ausência |
 | `TestPhaseAttrMap` | 2 | Sinal se aplica à potência, não à corrente; escala se aplica aos totais |
 | `TestGeneratedMeta` | 5 | `META` gerada tem todo modelo, sem atributo duplicado; todo modelo com input declara um writer |
 | `TestMetaMatchesImplementation` | 4 | Toda saída declarada é de fato produzida por `get_data`; atributo desconhecido é ignorado, não quebra |
 | `TestInputRouting` | 6 | Setpoint de PV chega ao circuito; múltiplos controladores no mesmo elemento são somados; PV monofásico cai na fase certa |
+| `TestGenerationInPerUnit` | 8 | Geração em pu da placa: um PV trifásico e um monofásico a 10% marcam o mesmo, a partir de kW 3× diferentes. A placa vem da criação das entidades, e não do motor, porque o writer sobrescreve o `pmpp` a cada passo |
 | `TestStorage` | 5 | SoC lido e aplicado corretamente, com clamp em `[0, 1]`; Storage monofásico reporta na própria fase |
 | `TestExtraInfoIsolation` | 1 | `extra_info` de um filho é uma cópia, não uma referência viva ao estado do simulador |
+
+!!! warning "Ordem importa neste arquivo"
+    `TestGenerationInPerUnit` vem **antes** de `TestStorage`: a fixture das
+    baterias compila outro circuito, e todas as instâncias do `py_dss_interface`
+    dividem um único motor. Depois dela, `PVSystem.pv` não existe mais no
+    circuito ativo.
 
 #### `test_error_handling.py`
 
@@ -191,7 +205,30 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | `TestParallelElements` | 4 | Elementos paralelos na mesma dupla de barras (ex.: `reg1`/`reg2`/`reg3`) não se sobrescrevem |
 | `TestNodeClassification` | 5 | Classificação de barra por papel real no circuito (regulador, PV, carga), não por convenção de nome |
 | `TestNodeMetadata` | 2 | Barras carregam coordenadas e tensão base; arestas carregam contagem de fases |
+| `TestElements` | 7 | Cada PV/Storage vira um elemento próprio, com barra e fases; a barra indexa o que está ligado nela |
+| `TestStorage` | 6 | Enumeração de baterias e classificação da barra, num circuito sintético, já que nenhum alimentador de `data/` tem Storage |
 | `TestDisabledElements` | 3 | Linha desabilitada não vira aresta; chave aberta permanece, mas marcada |
+
+#### `test_webvis_topology.py`
+
+| Classe | Testes | O que valida |
+|---|---|---|
+| `TestStartDate` | 2 | Data inicial em ISO com fuso; sem ele o navegador leria como UTC e a linha do tempo sairia deslocada |
+| `TestConfigIsolation` | 2 | A configuração de um cenário não vaza para o próximo simulador do mesmo processo |
+| `TestCleanGraph` | 6 | `ignore_types` remove nós; `merge_types` os troca por arestas; nó com vizinhança errada é mantido em vez de derrubar a simulação |
+| `TestEtypeAttrs` | 4 | `attrs` (uma entrada por fase) e o `attr` do mosaik-web original |
+| `TestAggregateValues` | 6 | Fase ausente sai da agregação; o zero medido fica, para a geração aparecer desde o início do dia |
+| `TestNodeData` | 6 | Cada fase segue junto do agregado; a ausência vira `null`, porque `NaN` não é JSON válido e o navegador rejeitaria a mensagem inteira |
+| `TestNormalizePositions` | 5 | Coordenadas no quadrado unitário, sem distorcer a forma do alimentador; Y invertido para a tela |
+| `TestD3Topology` | 4 | Formato consumido pelo D3: arestas por índice de nó, coordenadas só nas barras que as têm |
+
+#### `test_webvis_server.py`
+
+| Classe | Testes | O que valida |
+|---|---|---|
+| `TestContentType` | 2 | Um único `Content-Type` por resposta, com o tipo certo; dois cabeçalhos fazem o navegador recusar o CSS, e o desenho perde os estilos sem nenhum erro |
+| `TestStaticFiles` | 4 | Index e mídia servidos; 404 para arquivo ausente; `..` não escapa do diretório |
+| `TestShutdown` | 6 | O encerramento termina de verdade, inclusive com navegador conectado: thread morta e nenhuma tarefa pendente |
 
 ## Escrever novos testes
 
