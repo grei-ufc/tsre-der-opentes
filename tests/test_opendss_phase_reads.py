@@ -6,6 +6,7 @@ IEEE13 is a good fixture because it has single-phase loads on every phase
 """
 
 import datetime as dt
+import math
 import pathlib
 import sys
 
@@ -13,6 +14,7 @@ import pytest
 
 sys.path.insert(0, "src")
 
+from simulators.opendss._utils import sum_phases
 from simulators.opendss.opendss_wrapper import OpenDSS
 
 DATA_DIR = (pathlib.Path(__file__).parent.parent / "data" / "13Bus").resolve()
@@ -48,7 +50,7 @@ class TestSinglePhaseLoads:
 
         assert p[phase_idx] > 0, f"Load.{load} reported nothing on phase {phase_idx + 1}"
         others = [v for i, v in enumerate(p) if i != phase_idx]
-        assert all(v == 0.0 for v in others), f"Load.{load} leaked onto other phases: {p}"
+        assert all(math.isnan(v) for v in others), f"Load.{load} leaked onto other phases: {p}"
 
     @pytest.mark.parametrize(
         ("load", "phase_idx"),
@@ -59,7 +61,7 @@ class TestSinglePhaseLoads:
 
         assert i_mag[phase_idx] > 0
         others = [v for i, v in enumerate(i_mag) if i != phase_idx]
-        assert all(v == 0.0 for v in others)
+        assert all(math.isnan(v) for v in others)
 
 
 class TestDeltaLoads:
@@ -67,7 +69,7 @@ class TestDeltaLoads:
         # Load.646 @ 646.2.3
         p, _ = dss_13bus.get_phase_powers("646", element="Load")
 
-        assert p[0] == 0.0
+        assert math.isnan(p[0])
         assert p[1] > 0
         assert p[2] > 0
 
@@ -77,7 +79,7 @@ class TestDeltaLoads:
 
         # Load.646 is a 230 kW nominal delta load; truncating to one conductor
         # would report roughly two thirds of it.
-        assert sum(p) > 200
+        assert sum_phases(p) > 200
 
 
 class TestThreePhaseLoads:
@@ -95,8 +97,8 @@ class TestLineTerminals:
         p2, _ = dss_13bus.get_phase_powers("650632", element="Line", terminal=2)
 
         # Power flows in at terminal 1 and out at terminal 2, so signs oppose.
-        assert sum(p1) > 0
-        assert sum(p2) < 0
+        assert sum_phases(p1) > 0
+        assert sum_phases(p2) < 0
 
     def test_out_of_range_terminal_raises(self, dss_13bus):
         from simulators.opendss.opendss_wrapper import OpenDSSException
@@ -110,8 +112,8 @@ class TestTransformerWindings:
         # Transformer.reg3 @ 650.3 / rg60.3 — 1-phase on phase 3
         p, _ = dss_13bus.get_phase_powers("reg3", element="Transformer", terminal=1)
 
-        assert p[0] == 0.0
-        assert p[1] == 0.0
+        assert math.isnan(p[0])
+        assert math.isnan(p[1])
         assert p[2] != 0.0
 
 
@@ -131,7 +133,9 @@ class TestMosaikAttributeExtraction:
 
         data = read_phases(FakeSim(), "611", ["P1", "P2", "P3", "P_meas"], spec)
 
-        assert data["P1"] == 0.0
-        assert data["P2"] == 0.0
+        assert math.isnan(data["P1"])
+        assert math.isnan(data["P2"])
         assert data["P3"] > 0
+        # O total soma só as fases presentes: com o `sum` embutido, uma única
+        # fase ausente tornaria P_meas NaN em todo elemento não trifásico.
         assert data["P_meas"] == pytest.approx(data["P3"])

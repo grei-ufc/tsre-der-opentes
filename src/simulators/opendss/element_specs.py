@@ -15,6 +15,8 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
+from ._utils import ABSENT, normalize_zero, present_phases, sum_phases
+
 # Fontes de leitura de um elemento, resolvidas sob demanda por `read_phases`.
 SOURCE_P = "p"
 SOURCE_Q = "q"
@@ -171,8 +173,10 @@ def read_phases(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[s
                 )
                 cache[SOURCE_P] = values_p
                 cache[SOURCE_Q] = values_q
-                cache[SOURCE_P_SUM] = [sum(values_p)]
-                cache[SOURCE_Q_SUM] = [sum(values_q)]
+                # sum_phases, e não sum: uma fase ausente é NaN, e o embutido
+                # contaminaria o total de todo elemento que não é trifásico.
+                cache[SOURCE_P_SUM] = [sum_phases(values_p)]
+                cache[SOURCE_Q_SUM] = [sum_phases(values_q)]
             else:
                 mags, angs = sim.dss_wrapper.get_phase_currents(
                     name, element=spec.dss_class, terminal=spec.terminal
@@ -187,7 +191,7 @@ def read_phases(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[s
         if mapping is None:
             continue
         kind, index, factor = mapping
-        result[attr] = source(kind)[index] * factor
+        result[attr] = normalize_zero(source(kind)[index] * factor)
     return result
 
 
@@ -227,27 +231,27 @@ def bus_aggregates(vmag_pu: Iterable[float], attrs: Iterable[str]) -> dict[str, 
     """Resume as tensões de uma barra num escalar por atributo.
 
     Só as fases presentes entram na conta. ``get_bus_vmag_pu`` devolve sempre
-    três valores, com ``0.0`` onde a barra não tem fase; incluí-los faria um
-    ramal monofásico parecer estar com 2/3 da tensão colapsada — e é justamente
-    esse número que colore o mapa de calor da visualização.
+    três valores, com :data:`~._utils.ABSENT` onde a barra não tem fase;
+    incluí-las faria um ramal monofásico parecer estar com 2/3 da tensão
+    colapsada — e é justamente esse número que colore o mapa de calor.
 
-    A fase presente é distinguida por ser diferente de zero. Uma fase real em
-    exatamente 0.0 pu (curto franco na barra) seria tratada como ausente; na
-    prática o valor nunca é exatamente zero.
+    A presença é decidida por ``isnan``, e não por o valor ser diferente de
+    zero: uma barra em curto franco marca 0.0 pu de verdade, e esse zero tem de
+    entrar no mínimo em vez de sumir da conta.
 
     Args:
         vmag_pu: Tensões por fase em pu, na ordem A, B, C.
         attrs: Quais agregados calcular, dentre :data:`BUS_AGGREGATES`.
 
     Returns:
-        Mapa atributo -> valor. Numa barra sem nenhuma fase energizada todos os
-        agregados são ``0.0``.
+        Mapa atributo -> valor. Numa barra sem nenhuma fase todos os agregados
+        são :data:`~._utils.ABSENT`.
     """
-    present = [v for v in vmag_pu if v]
+    present = present_phases(vmag_pu)
     result: dict[str, float] = {}
 
     if not present:
-        return dict.fromkeys(attrs, 0.0)
+        return dict.fromkeys(attrs, ABSENT)
 
     mean = sum(present) / len(present)
 
@@ -261,9 +265,11 @@ def bus_aggregates(vmag_pu: Iterable[float], attrs: Iterable[str]) -> dict[str, 
         elif attr == "V_unb_pct":
             # Desequilíbrio no sentido NEMA (LVUR): maior desvio em relação à
             # média, em porcentagem. Com uma fase só não há desequilíbrio a
-            # medir.
+            # medir, e numa barra inteira em 0.0 pu — curto franco — não há
+            # média por que dividir: o desequilíbrio é indefinido, e 0.0 diz
+            # isso sem interromper a leitura das outras barras.
             deviation = max(abs(v - mean) for v in present) if len(present) > 1 else 0.0
-            result[attr] = 100.0 * deviation / mean
+            result[attr] = 100.0 * deviation / mean if mean else 0.0
 
     return result
 
@@ -288,6 +294,62 @@ def read_storage(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[
     result = read_phases(sim, name, attrs, spec)
     if "SoC" in attrs:
         result["SoC"] = sim.dss_wrapper.get_storage_soc(name)
+    return result
+
+
+# Injeção positiva: inverte a convenção do OpenDSS, em que gerar é potência
+# negativa. Vale para o attr_map do PVSystem e para as leituras em pu.
+PV_SIGN = -1
+
+PV_PU_OUTPUTS = ("P1_pu", "P2_pu", "P3_pu", "P_pu")
+
+
+def read_pvsystem(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[str, Any]:
+    """Lê grandezas por fase mais a geração normalizada pela placa do inversor.
+
+    Em kW absolutos não existe escala de cor que sirva a um alimentador com
+    inversores de tamanhos diferentes — e nem sequer é preciso variar a placa
+    para o problema aparecer. No IEEE13 os seis PVs têm os mesmos 1000 kW de
+    Pmpp, mas os trifásicos entregam ~333 kW por fase e os monofásicos 1000 kW:
+    uma escala calibrada para uns satura nos outros.
+
+    Em pu da própria placa os dois leem ``1.0`` a plena geração, e a faixa passa
+    a ser ``0..1`` em qualquer circuito.
+
+    Cada fase é normalizada pela parcela que lhe cabe (``Pmpp / fases``), de
+    modo que um PV monofásico a plena geração também marca ``1.0``. As fases que
+    o inversor não tem continuam em ``0.0``, como no restante do adaptador.
+    """
+    attrs = list(attrs)
+    result = read_phases(sim, name, attrs, spec)
+
+    wanted = [attr for attr in attrs if attr in PV_PU_OUTPUTS]
+    if not wanted:
+        return result
+
+    rated, phases = sim.pv_nameplate(name)
+
+    # Um inversor sem placa conhecida não tem em relação a que ser normalizado;
+    # devolver 0.0 mantém o atributo presente, sem inventar uma referência.
+    if not rated or not phases:
+        result.update(dict.fromkeys(wanted, 0.0))
+        return result
+
+    # Releitura barata: o snapshot do elemento já está em cache desde a chamada
+    # de read_phases, e só é invalidado por uma escrita.
+    powers, _ = sim.dss_wrapper.get_phase_powers(
+        name, element=spec.dss_class, terminal=spec.terminal
+    )
+    per_phase = rated / phases
+
+    for attr in wanted:
+        if attr == "P_pu":
+            result[attr] = normalize_zero(PV_SIGN * sum_phases(powers) / rated)
+        else:
+            # NaN se propaga sozinho: a fase que o inversor não tem continua
+            # ausente em pu, e não vira um zero que pareceria geração nula.
+            result[attr] = normalize_zero(PV_SIGN * powers[int(attr[1]) - 1] / per_phase)
+
     return result
 
 
@@ -412,7 +474,7 @@ MODEL_SPECS: dict[str, ModelSpec] = {
     ),
     "PVSystem": ModelSpec(
         dss_class="PVSystem",
-        reader=read_phases,
+        reader=read_pvsystem,
         writer=write_pvsystem,
         public=True,
         inputs={"P_des": InputSpec(), "Q_des": InputSpec()},
@@ -422,8 +484,11 @@ MODEL_SPECS: dict[str, ModelSpec] = {
             i_mag=("I1_A", "I2_A", "I3_A"),
             p_total=("P_meas",),
             q_total=("Q_meas",),
-            sign=-1,
+            sign=PV_SIGN,
         ),
+        # Geração em pu da placa: comparável entre inversores de tamanhos e
+        # números de fase diferentes. Ver read_pvsystem.
+        extra_outputs=PV_PU_OUTPUTS,
     ),
 }
 

@@ -52,6 +52,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self._eids_by_type = {}
         self._type_by_eid = {}
         self._bus_eids = {}
+        self._pv_nameplate = {}
 
     # ------------------------------------------------------------------
     # Metadados das entidades
@@ -95,6 +96,23 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
     @property
     def pvsystem_map(self):
         return self._map_by_type("PVSystem")
+
+    def pv_nameplate(self, name):
+        """Placa de um PVSystem: ``(Pmpp em kW, número de fases)``.
+
+        Guardada na criação das entidades porque não dá para relê-la do motor
+        depois: :func:`~.element_specs.write_pvsystem` reescreve o ``pmpp`` do
+        elemento a cada passo com o setpoint recebido, então o valor corrente é
+        a geração comandada, e não a capacidade do inversor.
+
+        Args:
+            name: Nome do PVSystem no OpenDSS.
+
+        Returns:
+            Tupla ``(pmpp, fases)``, ou ``(0.0, 0)`` se o nome não for de um
+            PVSystem conhecido.
+        """
+        return self._pv_nameplate.get(name, (0.0, 0))
 
     @property
     def storage_map(self):
@@ -453,6 +471,10 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             info["nodes"] = _resolve_nodes(nodes, phases)
             info["phases"] = phases
 
+            # Antes que a co-simulação comece a reescrever o pmpp do elemento;
+            # ver pv_nameplate().
+            self._pv_nameplate[name] = (_as_float(info.get("pmpp")), phases)
+
             self._add_child(
                 eid,
                 "PVSystem",
@@ -676,6 +698,8 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             if info.get("coord_defined")
         }
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import mosaik_api_v3
+
     mosaik_api_v3.start_simulation(OpenDSSSimulator())

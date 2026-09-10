@@ -275,23 +275,16 @@ function make_series_selector(etypes) {
 }
 
 /**
- * [OpenTES] Valor de um nó na série selecionada.
+ * [OpenTES] Se a posição não tem leitura.
  *
- * Devolve ``null`` quando não há leitura — inclusive quando a fase escolhida
- * não existe naquela barra, caso em que o OpenDSS reporta 0.0. Pintar esse zero
- * como tensão seria destacar como crítico justamente o nó que não tem a fase.
+ * A fase que o elemento não tem chega como ``null`` — o adaptador a reporta
+ * como ``NaN`` e o backend a converte na fronteira JSON. Zero **não** é
+ * ausência: um inversor ao amanhecer gera 0 kW, e esse zero é uma medição que
+ * precisa ser desenhada. Enquanto a ausência também era zero, os dois casos
+ * eram indistinguíveis e a geração no início do dia sumia do gráfico.
  */
-/**
- * [OpenTES] Se o zero deve ser lido como "fase ausente" e não como um valor.
- *
- * Vale para grandezas por fase; num atributo único — uma potência, um tap —
- * zero é um valor legítimo.
- */
-function ignores_zero(etype) {
-    if (etype && etype.ignore_zero !== undefined) {
-        return etype.ignore_zero;
-    }
-    return etype_attrs(etype).length > 1;
+function is_absent(value) {
+    return value === null || value === undefined;
 }
 
 /**
@@ -400,20 +393,14 @@ function seed_free_nodes(nodes, links) {
 }
 
 function node_value(node) {
-    var etype = etypes[node.type];
-    var ignore_zero = ignores_zero(etype);
     var values = node.values || [];
-
-    function usable(v) {
-        return v !== null && v !== undefined && (!ignore_zero || v !== 0);
-    }
 
     if (typeof series.mode === 'number') {
         var value = values[series.mode];
-        return usable(value) ? value : null;
+        return is_absent(value) ? null : value;
     }
 
-    var present = values.filter(usable);
+    var present = values.filter(function(v) { return !is_absent(v); });
     if (!present.length) {
         return null;
     }
@@ -436,13 +423,8 @@ function node_value(node) {
  * [OpenTES] Valor de uma fase do nó, ou ``null`` se ela não existe na barra.
  */
 function phase_value(node, index) {
-    var etype = etypes[node.type];
     var value = (node.values || [])[index];
-
-    if (value === null || value === undefined) {
-        return null;
-    }
-    return (ignores_zero(etype) && value === 0) ? null : value;
+    return is_absent(value) ? null : value;
 }
 
 /**
@@ -895,7 +877,6 @@ function Timeline() {
     self.timeline_circle = null; // Highlighted circle element of the topo.
     self.backlog_data = {};
     self.timeline_buf = [];  // Buffer for the currently active timeline
-    self.ignore_zero = false;  // [OpenTES] Regra de zero do nó aberto
 
     // Margin and size of the actual drawing area
     self.m = {top: 20, right: 20, bottom: 30, left: 110};
@@ -961,10 +942,10 @@ function Timeline() {
             self.backlog_data[node.name] = new RingBuffer(self.timeline_backlog + 1, null);
         });
         self.make_line = d3.line()
-            // [OpenTES] A fase que a barra não tem chega como 0.0 (ou nula):
-            // interromper a linha é o que impede uma fase inexistente de virar
-            // uma curva rente ao eixo. `self.ignore_zero` acompanha o nó aberto,
-            // porque num atributo único o zero é um valor de verdade.
+            // [OpenTES] A fase que o elemento não tem chega nula: interromper a
+            // linha é o que impede uma fase inexistente de virar uma curva
+            // rente ao eixo. O zero medido, esse, é plotado — é o que faz a
+            // geração aparecer desde o início do dia, e não só quando sobe.
             .defined(function(d) { return is_plottable(d); })
             .x(function(d, i) {
                 return self.x(self.time - ((self.timeline_backlog - i) * self.update_interval));
@@ -978,10 +959,7 @@ function Timeline() {
      * [OpenTES] Um ponto entra na curva e no domínio do eixo Y?
      */
     function is_plottable(d) {
-        if (d === null || d === undefined) {
-            return false;
-        }
-        return !self.ignore_zero || d !== 0;
+        return !is_absent(d);
     }
 
     /**
@@ -1028,8 +1006,6 @@ function Timeline() {
 
         var etype_conf = (node.type in etypes) ? etypes[node.type] :
                                                  default_etype;
-        // [OpenTES] Regra de zero do nó aberto, usada ao desenhar as curvas.
-        self.ignore_zero = ignores_zero(etypes[node.type]);
 
         var min = etype_conf.min;
         var max = etype_conf.max;

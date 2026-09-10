@@ -5,6 +5,7 @@ These tests hold that line: every declared attribute must actually be produced
 (outputs) or accepted (inputs) by the simulator.
 """
 
+import math
 import pathlib
 import sys
 
@@ -12,6 +13,7 @@ import pytest
 
 sys.path.insert(0, "src")
 
+from simulators.opendss._utils import ABSENT
 from simulators.opendss.api_opendss import OpenDSSSimulator
 from simulators.opendss.element_specs import (
     BUS_AGGREGATES,
@@ -64,18 +66,29 @@ class TestAggregators:
 class TestBusAggregates:
     """One number per bus, for scenarios and for the heatmap of the web view.
 
-    ``get_bus_vmag_pu`` always returns three values, with 0.0 where the bus has
-    no phase. Counting those zeros would report a single-phase lateral as being
-    at a third of its voltage.
+    ``get_bus_vmag_pu`` always returns three values, with ``NaN`` where the bus
+    has no phase. Counting those would report a single-phase lateral as being at
+    a third of its voltage; contá-las como zero, que era a convenção anterior,
+    confundia a fase ausente com a barra em curto.
     """
 
     def test_absent_phases_do_not_count(self):
-        result = bus_aggregates([0.0, 0.97, 0.0], BUS_AGGREGATES)
+        result = bus_aggregates([ABSENT, 0.97, ABSENT], BUS_AGGREGATES)
 
         assert result["V_min_pu"] == pytest.approx(0.97)
         assert result["V_max_pu"] == pytest.approx(0.97)
         assert result["V_mean_pu"] == pytest.approx(0.97)
         assert result["V_unb_pct"] == pytest.approx(0.0)
+
+    def test_a_collapsed_phase_counts(self):
+        """0.0 pu é um curto franco, não uma fase ausente.
+
+        Enquanto a ausência era 0.0 as duas eram indistinguíveis, e a barra em
+        curto — justamente a que o mapa de calor deve destacar — saía da conta.
+        """
+        result = bus_aggregates([0.0, 0.97, 0.98], BUS_AGGREGATES)
+
+        assert result["V_min_pu"] == 0.0
 
     def test_three_phase_bus(self):
         result = bus_aggregates([1.00, 0.98, 0.96], BUS_AGGREGATES)
@@ -86,8 +99,18 @@ class TestBusAggregates:
         # NEMA: maior desvio (0.02) sobre a média (0.98).
         assert result["V_unb_pct"] == pytest.approx(100 * 0.02 / 0.98)
 
-    def test_dead_bus_is_zero_not_an_error(self):
-        assert bus_aggregates([0.0, 0.0, 0.0], BUS_AGGREGATES) == dict.fromkeys(BUS_AGGREGATES, 0.0)
+    def test_bus_without_any_phase_is_absent_not_an_error(self):
+        result = bus_aggregates([ABSENT, ABSENT, ABSENT], BUS_AGGREGATES)
+
+        assert set(result) == set(BUS_AGGREGATES)
+        assert all(math.isnan(v) for v in result.values())
+
+    def test_a_fully_collapsed_bus_reads_zero(self):
+        """Três fases em 0.0 pu existem e valem zero — não são ausência."""
+        result = bus_aggregates([0.0, 0.0, 0.0], BUS_AGGREGATES)
+
+        assert result["V_min_pu"] == 0.0
+        assert result["V_max_pu"] == 0.0
 
     def test_only_requested_attributes_are_computed(self):
         assert set(bus_aggregates([1.0, 1.0, 1.0], ["V_min_pu"])) == {"V_min_pu"}
@@ -96,8 +119,8 @@ class TestBusAggregates:
         eid = next(e for e in sim._eids_by_type["Bus"])
         data = sim.get_data({eid: [*BUS_AGGREGATES, "V1_pu", "V2_pu", "V3_pu"]})[eid]
 
-        phases = [data["V1_pu"], data["V2_pu"], data["V3_pu"]]
-        assert data["V_min_pu"] == pytest.approx(min(v for v in phases if v))
+        phases = [v for v in (data["V1_pu"], data["V2_pu"], data["V3_pu"]) if not math.isnan(v)]
+        assert data["V_min_pu"] == pytest.approx(min(phases))
         assert data["V_max_pu"] == pytest.approx(max(phases))
 
 
@@ -208,8 +231,8 @@ class TestInputRouting:
         sim.step(0, {self.PV: {"P_des": {"ctrl": 30.0}, "Q_des": {"ctrl": 0.0}}}, 300)
 
         data = sim.get_data({self.PV: ["P1", "P2", "P3"]})[self.PV]
-        assert data["P1"] == 0.0
-        assert data["P2"] == 0.0
+        assert math.isnan(data["P1"])
+        assert math.isnan(data["P2"])
         assert data["P3"] == pytest.approx(30.0, rel=1e-3)
 
     def test_inputs_for_read_only_models_are_ignored(self, sim):
@@ -221,6 +244,92 @@ class TestInputRouting:
         sim.step(0, {eid: {"tap": {"ctrl": 4}}}, 300)
 
         assert sim.get_data({eid: ["tap"]})[eid]["tap"] == 4
+
+
+class TestGenerationInPerUnit:
+    """Geração normalizada pela placa, que torna PVs diferentes comparáveis.
+
+    Uma escala de cor da visualização é compartilhada por todos os PVs do
+    alimentador. Em kW isso não fecha: os seis PVs do IEEE13 têm a mesma placa
+    de 1000 kW, mas os trifásicos entregam ~333 kW por fase e os monofásicos
+    1000 kW. Em pu da própria placa os dois marcam o mesmo.
+
+    Fica antes das baterias de propósito: a fixture ``storage_sim`` compila
+    outro circuito, e todas as instâncias do ``py_dss_interface`` dividem um
+    único motor — depois dela, ``PVSystem.pv`` não existe mais no circuito ativo.
+    """
+
+    TRIFASICO = "PVSystem-pv_bus634"
+    MONOFASICO = "PVSystem-pv-5_bus611"
+    DESPACHO = 100.0  # 10% da placa de 1000 kW dos dois
+
+    @pytest.fixture
+    def despachados(self, sim):
+        sim.step(
+            0,
+            {
+                eid: {"P_des": {"c": self.DESPACHO}, "Q_des": {"c": 0.0}}
+                for eid in (self.TRIFASICO, self.MONOFASICO)
+            },
+            300,
+        )
+        pedidos = ["P_pu", "P1_pu", "P2_pu", "P3_pu", "P1", "P2", "P3"]
+        return (
+            sim.get_data({self.TRIFASICO: pedidos})[self.TRIFASICO],
+            sim.get_data({self.MONOFASICO: pedidos})[self.MONOFASICO],
+        )
+
+    def test_pu_outputs_are_declared(self):
+        attrs = set(build_meta()["models"]["PVSystem"]["attrs"])
+
+        assert {"P_pu", "P1_pu", "P2_pu", "P3_pu"} <= attrs
+
+    def test_nameplate_is_the_rating_and_not_the_setpoint(self, sim):
+        """``write_pvsystem`` reescreve o ``pmpp`` do elemento a cada passo.
+
+        Se a normalização relesse o ``pmpp`` do motor, ela dividiria a geração
+        por ela mesma e todo inversor marcaria 1.0 o tempo todo.
+        """
+        sim.step(0, {self.TRIFASICO: {"P_des": {"c": 42.0}, "Q_des": {"c": 0.0}}}, 300)
+
+        assert sim.pv_nameplate("pv") == (1000.0, 3)
+
+    def test_the_same_fraction_reads_the_same_pu(self, despachados):
+        tri, mono = despachados
+
+        assert tri["P_pu"] == pytest.approx(0.1, rel=1e-2)
+        assert mono["P_pu"] == pytest.approx(0.1, rel=1e-2)
+
+    def test_each_phase_is_normalized_by_its_own_share(self, despachados):
+        """A parcela é ``Pmpp / fases``, então plena geração é 1.0 nos dois."""
+        tri, mono = despachados
+
+        assert tri["P1_pu"] == pytest.approx(0.1, rel=1e-2)
+        assert mono["P3_pu"] == pytest.approx(0.1, rel=1e-2)
+
+    def test_the_same_pu_comes_from_very_different_kw(self, despachados):
+        """O motivo de existir o pu: em kW estes dois não cabem numa escala."""
+        tri, mono = despachados
+
+        assert tri["P1"] == pytest.approx(self.DESPACHO / 3, rel=1e-2)
+        assert mono["P3"] == pytest.approx(self.DESPACHO, rel=1e-2)
+
+    def test_absent_phases_are_absent_not_zero(self, despachados):
+        """Zero seria lido como "nao esta gerando"; a fase nem existe."""
+        _, mono = despachados
+
+        assert math.isnan(mono["P1_pu"])
+        assert math.isnan(mono["P2_pu"])
+
+    def test_generation_is_positive(self, despachados):
+        """Injetar é positivo, como no resto do adaptador (PV_SIGN)."""
+        tri, mono = despachados
+
+        assert tri["P_pu"] > 0
+        assert mono["P_pu"] > 0
+
+    def test_unknown_pv_has_no_nameplate(self, sim):
+        assert sim.pv_nameplate("nao-existe") == (0.0, 0)
 
 
 STORAGE_CIRCUIT = """\
@@ -277,8 +386,8 @@ class TestStorage:
         data = storage_sim.get_data({"Storage-bat2": ["P1", "P2", "P3", "P_act"]})
 
         # bat2 sits on 611.3
-        assert data["Storage-bat2"]["P1"] == 0.0
-        assert data["Storage-bat2"]["P2"] == 0.0
+        assert math.isnan(data["Storage-bat2"]["P1"])
+        assert math.isnan(data["Storage-bat2"]["P2"])
         assert data["Storage-bat2"]["P3"] == pytest.approx(-40.0, rel=1e-2)
 
     def test_all_declared_storage_outputs_are_produced(self, storage_sim):

@@ -12,6 +12,7 @@ valor por nó. Quem decide o que é esse valor é o cenário, por meio de
 
 import copy
 import logging
+import math
 from datetime import datetime
 
 import mosaik_api_v3
@@ -109,24 +110,29 @@ def etype_attrs(etype_conf):
     return [attr] if attr else []
 
 
-def aggregate_values(values, how="first", ignore_zero=True):
+def is_absent(value):
+    """Se o valor não existe: sem dado do simulador, ou fase que não existe.
+
+    [OpenTES] O adaptador reporta ``NaN`` na fase que o elemento não tem. Zero
+    não entra aqui: um inversor ao amanhecer gera ``0.0`` kW, e essa é uma
+    medição legítima que precisa aparecer no gráfico.
+    """
+    return value is None or (isinstance(value, float) and math.isnan(value))
+
+
+def aggregate_values(values, how="first"):
     """Reduz os valores de um nó ao escalar que colore o mapa de calor.
 
     Args:
         values: Valores dos atributos do nó, na ordem de :func:`etype_attrs`;
-            ``None`` onde o simulador não mandou dado.
+            ``None`` onde o simulador não mandou dado e ``NaN`` na fase que o
+            elemento não tem.
         how: Nome de um agregador de :data:`AGGREGATORS`.
-        ignore_zero: Descarta os zeros antes de agregar. É o padrão porque, numa
-            rede trifásica, a fase que a barra não tem é reportada como ``0.0``:
-            incluí-la faria um ramal monofásico parecer estar com a tensão
-            colapsada — exatamente o nó que o mapa de calor deve destacar.
 
     Returns:
         O valor agregado, ou ``None`` se não houver nenhum valor utilizável.
     """
-    usable = [v for v in values if v is not None]
-    if ignore_zero:
-        usable = [v for v in usable if v]
+    usable = [v for v in values if not is_absent(v)]
 
     if not usable:
         return None
@@ -261,7 +267,9 @@ class Simulator(mosaik_api_v3.Simulator):
             self.server_addr = (host, int(port))
 
         self.server = Server(self.server_addr, ssl_filepaths)
-        yield self.server.start()
+        # [OpenTES] Síncrono: o servidor vive num laço próprio, numa thread de
+        # fundo. Ver Server.start().
+        self.server.start()
 
         scheme = "https" if self.activate_ssl else "http"
         shown_host = "127.0.0.1" if self.server_addr[0] in ("0.0.0.0", "") else self.server_addr[0]
@@ -320,25 +328,25 @@ class Simulator(mosaik_api_v3.Simulator):
 
             attrs = etype_attrs(conf)
             values = [inputs.get(attr, {}).get(node_id) for attr in attrs]
-            value = aggregate_values(
-                values,
-                how=conf.get("aggregate", "first"),
-                # Descartar zeros só faz sentido para grandezas por fase, onde o
-                # zero é a fase que a barra não tem. Num atributo único — uma
-                # potência, uma posição de tap — zero é um valor legítimo.
-                ignore_zero=conf.get("ignore_zero", len(attrs) > 1),
-            )
+            value = aggregate_values(values, how=conf.get("aggregate", "first"))
 
             if value is None:
                 value = conf.get("default", 0)
 
-            node_data[node_id] = {"value": value, "values": values}
+            # `NaN` não é JSON válido: o `JSON.parse` do navegador rejeita a
+            # mensagem inteira, e a visualização pararia de atualizar sem erro
+            # visível. `null` diz a mesma coisa e atravessa.
+            node_data[node_id] = {
+                "value": value,
+                "values": [None if is_absent(v) else v for v in values],
+            }
 
         return node_data
 
     def finalize(self):
-        # [OpenTES] In-process o servidor divide o laço de eventos com o mosaik,
-        # então precisa ser fechado junto com a simulação.
+        # [OpenTES] O mosaik chama isto de forma síncrona e fecha o próprio laço
+        # logo em seguida, sem dar mais nenhuma volta nele. Por isso o servidor
+        # tem laço próprio e este close() bloqueia até ele terminar de verdade.
         if self.server is not None:
             self.server.close()
 
@@ -382,7 +390,7 @@ class Simulator(mosaik_api_v3.Simulator):
 
         self._clean_nx_graph(nxg)
         self.server.topology = self._make_d3js_topology(nxg)
-        self.server.topology_ready.set()
+        self.server.mark_topology_ready()
 
         logger.info("Topology created")
 

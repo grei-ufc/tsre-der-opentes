@@ -6,6 +6,8 @@ cleaning rules (ignore/merge) that turn that graph into a drawable feeder, plus
 the fork's divergences from upstream mosaik-web.
 """
 
+import json
+import math
 import sys
 from types import SimpleNamespace
 
@@ -22,6 +24,8 @@ from simulators.webvis.webvis_sim import (
     normalize_positions,
     to_iso_local,
 )
+
+NAN = math.nan
 
 
 def make_graph(nodes, edges):
@@ -162,11 +166,20 @@ class TestAggregateValues:
     """The heatmap needs one number per node; a three-phase bus has three."""
 
     def test_absent_phase_is_not_a_collapsed_voltage(self):
-        # Ramal monofásico: o OpenDSS reporta 0.0 nas fases que a barra não tem.
-        assert aggregate_values([0.0, 0.97, 0.0], how="min") == pytest.approx(0.97)
+        # Ramal monofásico: o adaptador reporta NaN nas fases que a barra não tem.
+        assert aggregate_values([NAN, 0.97, NAN], how="min") == pytest.approx(0.97)
 
-    def test_zeros_count_when_asked_to(self):
-        assert aggregate_values([0.0, 0.97, 0.0], how="min", ignore_zero=False) == 0.0
+    def test_a_measured_zero_is_kept(self):
+        """O caso que a convenção anterior escondia.
+
+        Um inversor ao amanhecer entrega 0 kW nas três fases; enquanto o zero
+        significava ausência, o nó ficava sem leitura e a curva só começava
+        quando a geração subia.
+        """
+        assert aggregate_values([0.0, 0.0, 0.0], how="min") == 0.0
+
+    def test_a_collapsed_phase_is_kept(self):
+        assert aggregate_values([0.0, 0.97, NAN], how="min") == 0.0
 
     @pytest.mark.parametrize(
         ("how", "expected"),
@@ -217,16 +230,16 @@ class TestNodeData:
 
     def test_each_phase_is_sent_along_with_the_aggregate(self, sim):
         inputs = {
-            "V1_pu": {"DSS-0.Bus-800": 1.01, "DSS-0.Bus-822": 0.0},
+            "V1_pu": {"DSS-0.Bus-800": 1.01, "DSS-0.Bus-822": NAN},
             "V2_pu": {"DSS-0.Bus-800": 0.99, "DSS-0.Bus-822": 0.93},
-            "V3_pu": {"DSS-0.Bus-800": 1.00, "DSS-0.Bus-822": 0.0},
+            "V3_pu": {"DSS-0.Bus-800": 1.00, "DSS-0.Bus-822": NAN},
         }
 
         data = sim._node_data(inputs)
 
         assert data["DSS-0.Bus-800"]["values"] == [1.01, 0.99, 1.00]
         assert data["DSS-0.Bus-800"]["value"] == pytest.approx(0.99)
-        # A barra monofásica é colorida pela fase que ela tem, não por zero.
+        # A barra monofásica é colorida pela fase que ela tem.
         assert data["DSS-0.Bus-822"]["value"] == pytest.approx(0.93)
 
     def test_node_without_data_falls_back_to_the_default(self, sim):
@@ -245,16 +258,33 @@ class TestNodeData:
 
         assert data["DSS-0.Load-s1"]["value"] == 0.0
 
-    def test_zero_is_an_absent_phase_for_per_phase_types(self, sim):
+    def test_absent_phases_are_sent_as_null(self, sim):
+        """NaN não é JSON válido: o JSON.parse do navegador rejeitaria a
+        mensagem inteira, e a visualização pararia de atualizar sem erro."""
         data = sim._node_data(
             {
                 "V1_pu": {"DSS-0.Bus-822": 0.93},
-                "V2_pu": {"DSS-0.Bus-822": 0.0},
-                "V3_pu": {"DSS-0.Bus-822": 0.0},
+                "V2_pu": {"DSS-0.Bus-822": NAN},
+                "V3_pu": {"DSS-0.Bus-822": NAN},
             }
         )
 
+        assert data["DSS-0.Bus-822"]["values"] == [0.93, None, None]
         assert data["DSS-0.Bus-822"]["value"] == pytest.approx(0.93)
+        json.dumps(data, allow_nan=False)  # levanta se algum NaN escapou
+
+    def test_a_measured_zero_reaches_the_browser(self, sim):
+        """O bug relatado: a geração no início do dia não aparecia."""
+        data = sim._node_data(
+            {
+                "V1_pu": {"DSS-0.Bus-800": 0.0},
+                "V2_pu": {"DSS-0.Bus-800": 0.0},
+                "V3_pu": {"DSS-0.Bus-800": 0.0},
+            }
+        )
+
+        assert data["DSS-0.Bus-800"]["values"] == [0.0, 0.0, 0.0]
+        assert data["DSS-0.Bus-800"]["value"] == 0.0
 
 
 class TestNormalizePositions:

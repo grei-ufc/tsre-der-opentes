@@ -15,7 +15,7 @@ import py_dss_interface
 
 from . import opendss_pv, opendss_regulator, opendss_storage, opendss_transformer
 from ._types import ElementSnapshot, OpenDSSException
-from ._utils import map_to_phases
+from ._utils import ABSENT, map_to_phases, sum_phases
 
 
 class ReaderMixin:
@@ -154,7 +154,8 @@ class ReaderMixin:
             bus: Bus name, with or without a node suffix (``'675'`` or ``'675.1'``).
 
         Returns:
-            ``[|V1|, |V2|, |V3|]`` in per unit; phases the bus lacks stay ``0.0``.
+            ``[|V1|, |V2|, |V3|]`` in per unit; phases the bus lacks are
+            :data:`~._utils.ABSENT` (``NaN``).
 
         Raises:
             OpenDSSException: If the bus is not in the circuit and
@@ -164,7 +165,7 @@ class ReaderMixin:
             self._snapshot.bus_vmag_pu = self.dss.circuit.buses_vmag_pu
         mags = self._snapshot.bus_vmag_pu
 
-        phases = [0.0, 0.0, 0.0]
+        phases = [ABSENT, ABSENT, ABSENT]
         for phase_idx, position in self._bus_positions(bus):
             phases[phase_idx] = mags[position]
         return phases
@@ -180,7 +181,8 @@ class ReaderMixin:
             bus: Bus name, with or without a node suffix.
 
         Returns:
-            ``[ang1, ang2, ang3]`` in degrees; phases the bus lacks stay ``0.0``.
+            ``[ang1, ang2, ang3]`` in degrees; phases the bus lacks are
+            :data:`~._utils.ABSENT` (``NaN``).
 
         Raises:
             OpenDSSException: If the bus is not in the circuit and
@@ -190,7 +192,7 @@ class ReaderMixin:
             self._snapshot.bus_volts = self.dss.circuit.buses_volts
         volts = self._snapshot.bus_volts
 
-        phases = [0.0, 0.0, 0.0]
+        phases = [ABSENT, ABSENT, ABSENT]
         for phase_idx, position in self._bus_positions(bus):
             phases[phase_idx] = math.degrees(
                 math.atan2(volts[2 * position + 1], volts[2 * position])
@@ -253,8 +255,8 @@ class ReaderMixin:
         """Active and reactive power per phase, positioned by the element's nodes.
 
         Unlike :meth:`get_power`, the return shape does not depend on the number
-        of phases: it is always three values indexed by phase, with ``0.0`` where
-        the element has no conductor.
+        of phases: it is always three values indexed by phase, with
+        :data:`~._utils.ABSENT` (``NaN``) where the element has no conductor.
 
         Args:
             name: Element name.
@@ -307,9 +309,12 @@ class ReaderMixin:
 
         Returns:
             Tuple ``(P, Q)`` in kW and kvar, native OpenDSS sign convention.
+            Both are :data:`~._utils.ABSENT` if the element has no phase.
         """
         active, reactive = self.get_phase_powers(name, element=element, terminal=terminal)
-        return sum(active), sum(reactive)
+        # sum_phases, e não sum: as fases ausentes são NaN, e o embutido faria
+        # o total de todo elemento não trifásico virar NaN.
+        return sum_phases(active), sum_phases(reactive)
 
     def get_all_complex(self, name: str, element: str = "Load") -> dict[str, tuple]:
         """Returns a dictionary with all complex quantities (V, I, S) for the element."""
