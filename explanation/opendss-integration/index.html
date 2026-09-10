@@ -1950,6 +1950,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Extração de dados trifásicos">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fase-ausente-e-nan-nao-zero" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fase ausente é NaN, não zero
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#do-condutor-ao-atributo-mosaik" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Do condutor ao atributo mosaik
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2381,6 +2409,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Extração de dados trifásicos">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fase-ausente-e-nan-nao-zero" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fase ausente é NaN, não zero
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#do-condutor-ao-atributo-mosaik" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Do condutor ao atributo mosaik
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2550,46 +2606,81 @@ wrappers passam a ler o mesmo estado. Arquivos auxiliares do alimentador
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>SolveNoControl  # Se há Storage (para controle manual)
 </span></code></pre></div>
 <h2 id="extracao-de-dados-trifasicos">Extração de dados trifásicos<a class="headerlink" href="#extracao-de-dados-trifasicos" title="Permanent link">&para;</a></h2>
-<p>A função <code>extract_3phase_pq()</code> normaliza os dados trifásicos do OpenDSS para o formato do mosaik:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Em _utils.py</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">extract_3phase_pq</span><span class="p">(</span><span class="n">dss_wrapper</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;PVSystem.97&quot;</span><span class="p">,</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>                  <span class="n">element</span><span class="o">=</span><span class="s2">&quot;PVSystem&quot;</span><span class="p">,</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>                  <span class="n">attrs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;P_meas&quot;</span><span class="p">,</span> <span class="s2">&quot;Q_meas&quot;</span><span class="p">],</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>                  <span class="n">sign</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>  <span class="c1"># inverte sinal de geração</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>                  <span class="n">line_bus</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<p>O OpenDSS devolve as grandezas de um elemento ordenadas <strong>por condutor</strong>, não
+por fase. Um elemento monofásico ligado em <code>bus.3</code> reporta um único valor, e
+empacotá-lo à esquerda o transformaria na fase 1.</p>
+<p><code>map_to_phases()</code>, em <code>_utils.py</code>, usa os números de nó do elemento
+(<code>cktelement.node_order</code>) para pôr cada valor na posição real:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">map_to_phases</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mf">163.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>   <span class="c1"># -&gt; [nan, nan, 163.5]</span>
 </span></code></pre></div>
-<p>Mapeamento de atributos:</p>
+<p>O nó <code>0</code> é o neutro e é descartado, assim como nós acima de 3.</p>
+<h3 id="fase-ausente-e-nan-nao-zero">Fase ausente é <code>NaN</code>, não zero<a class="headerlink" href="#fase-ausente-e-nan-nao-zero" title="Permanent link">&para;</a></h3>
+<p>A fase que o elemento não tem vale <code>NaN</code>. A distinção existe porque <code>0.0</code> é uma
+medição legítima: um inversor ao amanhecer gera zero, e uma barra em curto
+franco está mesmo em 0.0 pu. Se os dois casos dividissem o mesmo número, quem
+consome os dados teria de escolher entre esconder os dois, perdendo a medição,
+ou mostrar os dois, e aí a fase inexistente pareceria uma tensão colapsada.</p>
+<p>Duas consequências práticas:</p>
+<ul>
+<li><strong>Somas usam <code>sum_phases()</code>, nunca o <code>sum</code> embutido.</strong> Um único <code>NaN</code>
+  contaminaria o total, e <code>P_meas</code> deixaria de existir em todo elemento não
+  trifásico.</li>
+<li><strong>No CSV, a fase ausente é uma célula vazia</strong>, que as ferramentas de análise
+  já ignoram ao calcular médias.</li>
+</ul>
+<h3 id="do-condutor-ao-atributo-mosaik">Do condutor ao atributo mosaik<a class="headerlink" href="#do-condutor-ao-atributo-mosaik" title="Permanent link">&para;</a></h3>
+<p>O <code>attr_map</code> de cada <code>ModelSpec</code> liga o nome do atributo à fonte, ao índice da
+fase e a um fator:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">attr_map</span><span class="o">=</span><span class="n">phase_attr_map</span><span class="p">(</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">p</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;P1&quot;</span><span class="p">,</span> <span class="s2">&quot;P2&quot;</span><span class="p">,</span> <span class="s2">&quot;P3&quot;</span><span class="p">),</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">q</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Q1&quot;</span><span class="p">,</span> <span class="s2">&quot;Q2&quot;</span><span class="p">,</span> <span class="s2">&quot;Q3&quot;</span><span class="p">),</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">i_mag</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;I1_A&quot;</span><span class="p">,</span> <span class="s2">&quot;I2_A&quot;</span><span class="p">,</span> <span class="s2">&quot;I3_A&quot;</span><span class="p">),</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">p_total</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;P_meas&quot;</span><span class="p">,),</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">q_total</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Q_meas&quot;</span><span class="p">,),</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">sign</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>     <span class="c1"># injeção positiva</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">)</span>
+</span></code></pre></div>
 <table>
 <thead>
 <tr>
-<th>Suffix</th>
-<th>Tipo</th>
+<th>Nome</th>
 <th>Descrição</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>_1</code>, <code>_2</code>, <code>_3</code></td>
-<td>float</td>
-<td>Valores por fase (1, 2, 3)</td>
+<td><code>P1</code>, <code>P2</code>, <code>P3</code></td>
+<td>Potência ativa por fase</td>
 </tr>
 <tr>
-<td><code>_A</code></td>
-<td>float</td>
-<td>Magnitude da corrente</td>
+<td><code>Q1</code>, <code>Q2</code>, <code>Q3</code></td>
+<td>Potência reativa por fase</td>
 </tr>
 <tr>
-<td><code>_ang</code></td>
-<td>float</td>
-<td>Ângulo da corrente</td>
+<td><code>I1_A</code>..<code>I3_A</code></td>
+<td>Magnitude da corrente por fase</td>
+</tr>
+<tr>
+<td><code>I1_ang</code>..<code>I3_ang</code></td>
+<td>Ângulo da corrente por fase</td>
+</tr>
+<tr>
+<td><code>P_meas</code>, <code>Q_meas</code></td>
+<td>Total somado nas fases presentes</td>
 </tr>
 </tbody>
 </table>
-<p>Para PVSystem e Storage, o adaptador usa <code>sign=-1</code> para inverter o sinal de geração.</p>
+<p>O <code>sign=-1</code> de PVSystem e Storage inverte a convenção do OpenDSS, em que gerar
+é potência negativa. O <code>scale</code> é aplicado só aos totais: é assim que <code>P_out_mw</code>
+da carga sai em MW a partir dos kW do motor.</p>
+<p>Um modelo que precise de algo fora desse mapa declara um <em>reader</em> próprio e o
+anuncia em <code>extra_outputs</code>. É o caso do <code>SoC</code> do <code>Storage</code> e da geração em pu da
+placa do <code>PVSystem</code> (<code>P_pu</code>, <code>P1_pu</code>..<code>P3_pu</code>), que divide pela capacidade de
+cada inversor e não por um fator constante.</p>
 <h2 id="controle-de-pvsystem">Controle de PVSystem<a class="headerlink" href="#controle-de-pvsystem" title="Permanent link">&para;</a></h2>
 <p>O adaptador aceita <code>P_des</code> e <code>Q_des</code> de entidades externas (inversores) e aplica ao OpenDSS:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Em opendss_pv.py</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">set_pvsystem_pq</span><span class="p">(</span><span class="n">dss</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">p_des</span><span class="p">,</span> <span class="n">q_des</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Em opendss_pv.py</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">set_pvsystem_pq</span><span class="p">(</span><span class="n">dss</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">p_des</span><span class="p">,</span> <span class="n">q_des</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Internamente:</p>
 <ul>
@@ -2606,15 +2697,15 @@ wrappers passam a ler o mesmo estado. Arquivos auxiliares do alimentador
 </ul>
 <h2 id="controle-de-regulador">Controle de Regulador<a class="headerlink" href="#controle-de-regulador" title="Permanent link">&para;</a></h2>
 <p>O adaptador aceita <code>tap</code> (posição inteira de -16 a +16) e o aplica ao RegControl do OpenDSS:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">dss_wrapper</span><span class="o">.</span><span class="n">set_tap</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">tap</span><span class="p">,</span> <span class="n">max_tap</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">dss_wrapper</span><span class="o">.</span><span class="n">set_tap</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">tap</span><span class="p">,</span> <span class="n">max_tap</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="topologia-do-circuito">Topologia do circuito<a class="headerlink" href="#topologia-do-circuito" title="Permanent link">&para;</a></h2>
 <p>O módulo <code>topology_builder.py</code> constrói um grafo topológico a partir do circuito compilado:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">simulators.opendss.topology_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_graph</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">build_graph</span><span class="p">(</span><span class="n">dss_wrapper</span><span class="p">)</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># graph.nodes: dict[str, NetworkNode]</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># graph.edges: dict[str, NetworkEdge]</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">simulators.opendss.topology_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_graph</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">build_graph</span><span class="p">(</span><span class="n">dss_wrapper</span><span class="p">)</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># graph.nodes: dict[str, NetworkNode]</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># graph.edges: dict[str, NetworkEdge]</span>
 </span></code></pre></div>
 <p>Cada nó é classificado como: <code>refbus</code>, <code>virtual_bus</code>, <code>regulator_bus</code>, <code>pv</code>, <code>load</code>, <code>transformer_bus</code> ou <code>bus</code>.</p>
 <p>A exportação para JSON pode ser ativada passando <code>output_graph_path</code> ao iniciar o adaptador.</p>
@@ -2638,7 +2729,7 @@ wrappers passam a ler o mesmo estado. Arquivos auxiliares do alimentador
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="1 de setembro de 2026 10:37:12 UTC">1 de setembro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="10 de setembro de 2026 16:57:38 UTC">10 de setembro de 2026</span>
   </span>
 
     
