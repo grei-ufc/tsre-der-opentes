@@ -237,12 +237,26 @@ class PVGenerator:
 
         # 1. Process Irradiance (Normalize, clip negatives, fill NaNs)
         self.irrad_curve = (self.solar_station_curves['poa_irradiance_wm2'].iloc[data_slice] / self.irrad).reset_index(drop=True)
+        # Recorte de todo valor negativo para zero (ruído noturno do piranômetro)
         self.irrad_curve = self.irrad_curve.clip(lower=0).fillna(0)
+        
+        # Validação do teto absurdo de irradiância
+        if (self.irrad_curve > 1.5).any():
+            max_val = self.irrad_curve.max()
+            raise ValueError(f"Irradiância extrema (Pico: {max_val:.2f} p.u.) detectada na curva {self.FILE_CSV}.")
+            
         self.irrad_curve.name = f'my_shape{PV_id}_irrad'
 
         # 2. Process Temperature (Raw values, fill NaNs)
         self.temperature_curve = self.solar_station_curves['panel_temperature_celsius'].iloc[data_slice].reset_index(drop=True)
         self.temperature_curve = self.temperature_curve.fillna(25)
+        
+        # Validação IEC de Temperatura
+        if (self.temperature_curve < -40).any() or (self.temperature_curve > 85).any():
+            min_t = self.temperature_curve.min()
+            max_t = self.temperature_curve.max()
+            raise ValueError(f"Anomalia térmica detectada na curva {self.FILE_CSV} (Min: {min_t:.1f}°C, Max: {max_t:.1f}°C). Fora da faixa IEC [-40, 85].")
+            
         self.temperature_curve.name = f'my_shape{PV_id}_temperature'
 
         # 3. Handle Datetime & Indexing
@@ -627,25 +641,48 @@ def PVCreator(QtdPVs,
                 'PV_curve_id':None})
 
         # Initialize the list for generator objects
+        # Initialize the list for generator objects
         PVGen = []
+        available_curves = list(range(1, len(PV_list) + 1))
+        current_idx = 0
 
         # Instantiate converters and apply temporal resampling (interpolation)
         logger.info(f"Starting PV generation and {step} interpolation...")
         for PV, PV_data in enumerate(PV_Dictionaries):
-            new_pv = PVGenerator(
-                PV_id = PV+1,
-                PV_phases = PV_data['PV_phases'],
-                PV_bus = PV_data['PV_bus'],
-                PV_kv = PV_data['PV_kv'],
-                PV_kva = PV_data['PV_kva'],
-                PV_curve_id = PV_data['PV_curve_id'],
-                npts_origin = npts_origin,
-                PV_list = PV_list
-            )
-            # Resample curves to the simulation time step (step)
-            new_pv.CurvePCHIPInterpolation(step)
-            PVGen.append(new_pv)
-            logger.info(f"   > {new_pv.name} configured at bus {new_pv.bus} ({new_pv.kva} kVA)")
+            while True:
+                manual_curve = PV_data['PV_curve_id']
+                if manual_curve is not None:
+                    curve_id = manual_curve
+                else:
+                    if not available_curves:
+                        raise RuntimeError("Todas as curvas solares disponíveis estão corrompidas e foram banidas do pool!")
+                    curve_id = available_curves[current_idx % len(available_curves)]
+
+                try:
+                    new_pv = PVGenerator(
+                        PV_id = PV+1,
+                        PV_phases = PV_data['PV_phases'],
+                        PV_bus = PV_data['PV_bus'],
+                        PV_kv = PV_data['PV_kv'],
+                        PV_kva = PV_data['PV_kva'],
+                        PV_curve_id = curve_id,
+                        npts_origin = npts_origin,
+                        PV_list = PV_list
+                    )
+                    # Resample curves to the simulation time step (step)
+                    new_pv.CurvePCHIPInterpolation(step)
+                    PVGen.append(new_pv)
+                    logger.info(f"   > {new_pv.name} configured at bus {new_pv.bus} ({new_pv.kva} kVA) using curve {curve_id}")
+                    if manual_curve is None:
+                        current_idx += 1
+                    break
+                except ValueError as e:
+                    logger.warning(f"Falha ao carregar a curva {curve_id}: {e}")
+                    if manual_curve is not None:
+                        raise ValueError(f"PV manual na barra {PV_data['PV_bus']} requisitou curva defeituosa ({curve_id}).") from e
+                    else:
+                        logger.warning(f"Banindo curva {curve_id} permanentemente do pool de sobreviventes.")
+                        available_curves.remove(curve_id)
         print("")
         logger.info("--- STARTING DSS AND CSV FILES CREATION ---")
         print("")
