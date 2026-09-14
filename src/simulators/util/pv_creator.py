@@ -239,24 +239,24 @@ class PVGenerator:
         self.irrad_curve = (self.solar_station_curves['poa_irradiance_wm2'].iloc[data_slice] / self.irrad).reset_index(drop=True)
         # Recorte de todo valor negativo para zero (ruído noturno do piranômetro)
         self.irrad_curve = self.irrad_curve.clip(lower=0).fillna(0)
-        
+
         # Validação do teto absurdo de irradiância
         if (self.irrad_curve > 1.5).any():
             max_val = self.irrad_curve.max()
             raise ValueError(f"Irradiância extrema (Pico: {max_val:.2f} p.u.) detectada na curva {self.FILE_CSV}.")
-            
+
         self.irrad_curve.name = f'my_shape{PV_id}_irrad'
 
         # 2. Process Temperature (Raw values, fill NaNs)
         self.temperature_curve = self.solar_station_curves['panel_temperature_celsius'].iloc[data_slice].reset_index(drop=True)
         self.temperature_curve = self.temperature_curve.fillna(25)
-        
+
         # Validação IEC de Temperatura
         if (self.temperature_curve < -40).any() or (self.temperature_curve > 85).any():
             min_t = self.temperature_curve.min()
             max_t = self.temperature_curve.max()
             raise ValueError(f"Anomalia térmica detectada na curva {self.FILE_CSV} (Min: {min_t:.1f}°C, Max: {max_t:.1f}°C). Fora da faixa IEC [-40, 85].")
-            
+
         self.temperature_curve.name = f'my_shape{PV_id}_temperature'
 
         # 3. Handle Datetime & Indexing
