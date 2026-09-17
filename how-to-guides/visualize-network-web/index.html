@@ -1166,6 +1166,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#ligar-ao-opendss-numa-chamada" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ligar ao OpenDSS numa chamada
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#o-que-aparece-no-desenho" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1181,6 +1192,17 @@
     <span class="md-ellipsis">
       
         O que cada tipo mostra
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sem-o-attach_webvis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sem o attach_webvis
       
     </span>
   </a>
@@ -2391,6 +2413,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#ligar-ao-opendss-numa-chamada" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ligar ao OpenDSS numa chamada
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#o-que-aparece-no-desenho" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2406,6 +2439,17 @@
     <span class="md-ellipsis">
       
         O que cada tipo mostra
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sem-o-attach_webvis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sem o attach_webvis
       
     </span>
   </a>
@@ -2533,8 +2577,8 @@
 <h2 id="visao-geral">Visão geral<a class="headerlink" href="#visao-geral" title="Permanent link">&para;</a></h2>
 <p>O simulador <code>simulators.webvis</code> desenha a rede durante a simulação: as barras
 aparecem como nós coloridos pela tensão, as linhas e os transformadores como
-arestas, e um clique em qualquer nó abre a linha do tempo daquela grandeza —
-com uma curva por fase.</p>
+arestas, e um clique em qualquer nó abre a linha do tempo daquela grandeza, com
+uma curva por fase.</p>
 <p>É um fork do <a href="https://gitlab.com/mosaik/components/data/mosaik-web">mosaik-web</a>
 adaptado para redes trifásicas. Uma barra tem três tensões, não uma; o original
 só sabia mostrar um número por nó.</p>
@@ -2588,6 +2632,7 @@ início da simulação. O desenho aparece no primeiro passo.</p>
 <li><strong>Nó cinza tracejado</strong> — a barra não tem a fase selecionada.</li>
 </ul>
 <h2 id="configurar-no-cenario">Configurar no cenário<a class="headerlink" href="#configurar-no-cenario" title="Permanent link">&para;</a></h2>
+<p>Inicie o simulador como qualquer outro:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">SIM_CONFIG</span> <span class="o">=</span> <span class="p">{</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">&quot;WebVis&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;python&quot;</span><span class="p">:</span> <span class="s2">&quot;simulators.webvis:Simulator&quot;</span><span class="p">},</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="p">}</span>
@@ -2600,43 +2645,78 @@ início da simulação. O desenho aparece no primeiro passo.</p>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">port</span><span class="o">=</span><span class="mi">8000</span><span class="p">,</span>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="p">)</span>
 </span></code></pre></div>
+<h3 id="ligar-ao-opendss-numa-chamada">Ligar ao OpenDSS numa chamada<a class="headerlink" href="#ligar-ao-opendss-numa-chamada" title="Permanent link">&para;</a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">simulators.opendss.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">attach_webvis</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">dss_sim</span><span class="o">.</span><span class="n">Grid</span><span class="p">()</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">attach_webvis</span><span class="p">(</span><span class="n">world</span><span class="p">,</span> <span class="n">dss_sim</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">webvis</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Isso configura o desenho, declara como cada tipo é colorido, conecta as
+entidades e fixa as barras nas coordenadas do circuito. Por padrão desenha
+barras, PVs e baterias. As cargas ficam de fora porque num alimentador grande
+elas encobrem o traçado, e os reguladores porque a representação deles no
+desenho ainda não está definida.</p>
+<p>O que aparece é escolhido em <code>show</code>. Uma lista usa os presets:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">attach_webvis</span><span class="p">(</span><span class="n">world</span><span class="p">,</span> <span class="n">dss_sim</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">webvis</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Bus&quot;</span><span class="p">,</span> <span class="s2">&quot;Load&quot;</span><span class="p">,</span> <span class="s2">&quot;RegControl&quot;</span><span class="p">])</span>
+</span></code></pre></div>
+<p>Um dicionário é usado como está, e é assim que se recalibra um tipo:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">simulators.opendss.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">PRESETS</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">attach_webvis</span><span class="p">(</span><span class="n">world</span><span class="p">,</span> <span class="n">dss_sim</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">webvis</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="s2">&quot;Bus&quot;</span><span class="p">:</span> <span class="p">{</span><span class="o">**</span><span class="n">PRESETS</span><span class="p">[</span><span class="s2">&quot;Bus&quot;</span><span class="p">],</span> <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="mf">0.93</span><span class="p">,</span> <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="mf">1.05</span><span class="p">},</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="s2">&quot;PVSystem&quot;</span><span class="p">:</span> <span class="n">PRESETS</span><span class="p">[</span><span class="s2">&quot;PVSystem&quot;</span><span class="p">],</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">})</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Preset</th>
+<th>Grandeza</th>
+<th>Escala</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Bus</code></td>
+<td>Tensão por fase (<code>V1_pu</code>..<code>V3_pu</code>)</td>
+<td>0.90 a 1.10 pu</td>
+</tr>
+<tr>
+<td><code>Load</code></td>
+<td>Potência ativa total (<code>P_out_mw</code>)</td>
+<td>0 a 0.1 MW; quase sempre vale recalibrar</td>
+</tr>
+<tr>
+<td><code>PVSystem</code></td>
+<td>Geração por fase em pu da placa (<code>P1_pu</code>..<code>P3_pu</code>)</td>
+<td>0 a 1, fixa em qualquer circuito</td>
+</tr>
+<tr>
+<td><code>Storage</code></td>
+<td>Estado de carga (<code>SoC</code>)</td>
+<td>0 a 1</td>
+</tr>
+</tbody>
+</table>
+<p>Os presets ficam em <code>simulators/opendss/visualization.py</code>, e não dentro de
+<code>webvis/</code>, porque dependem dos nomes de atributo do adaptador OpenDSS. O webvis
+continua um fork genérico.</p>
 <h3 id="o-que-aparece-no-desenho">O que aparece no desenho<a class="headerlink" href="#o-que-aparece-no-desenho" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">webvis</span><span class="o">.</span><span class="n">set_config</span><span class="p">(</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">ignore_types</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="s2">&quot;Topology&quot;</span><span class="p">,</span> <span class="s2">&quot;RegController&quot;</span><span class="p">],</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">merge_types</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Line&quot;</span><span class="p">,</span> <span class="s2">&quot;Transformer&quot;</span><span class="p">],</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">timeline_hours</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">)</span>
-</span></code></pre></div>
-<ul>
-<li><code>ignore_types</code> — modelos que somem do desenho. O <code>Grid</code> é só o contêiner das
-  entidades e o <code>RegController</code> é o controlador Python, não parte da rede.
-  Acrescente <code>"Load"</code> para um desenho mais limpo em circuitos grandes.</li>
-<li><code>merge_types</code> — modelos que viram <strong>aresta</strong> em vez de nó: uma linha liga duas
-  barras, então é isso que ela deve desenhar.</li>
-<li><code>ignore_names</code> — remove entidades específicas, pelo <code>full_id</code>.</li>
-</ul>
-<div class="admonition warning">
-<p class="admonition-title">Toda conexão vira aresta</p>
+<p>Só os tipos declarados são desenhados. Todo o resto da simulação fica de fora
+sem precisar ser listado: o <code>Grid</code>, os controladores de regulador, painéis,
+inversores, leitores de CSV e coletores de dados.</p>
+<div class="admonition info">
+<p class="admonition-title">Por que isso importa</p>
 <p>O mosaik acrescenta ao grafo de entidades uma aresta para cada
-<code>world.connect</code>, e não apenas as declaradas em <code>rel</code>. Se o coletor de dados
-não estiver em <code>ignore_types</code>, ele aparece no meio da rede ligado a tudo que
-monitora.</p>
+<code>world.connect</code>, e o webvis desenha a partir desse grafo. Um simulador
+auxiliar que entrasse no desenho apareceria pendurado no alimentador,
+ligado a tudo o que ele lê ou escreve.</p>
 </div>
+<p>Linhas e transformadores entram como <code>merge_types</code>: viram <strong>arestas</strong> entre as
+barras, em vez de nós. <code>ignore_names</code> ainda serve para esconder uma entidade
+específica pelo <code>full_id</code>, e <code>ignore_types</code> continua aceito.</p>
 <h3 id="o-que-cada-tipo-mostra">O que cada tipo mostra<a class="headerlink" href="#o-que-cada-tipo-mostra" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">webvis</span><span class="o">.</span><span class="n">set_etypes</span><span class="p">({</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="s2">&quot;Bus&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>        <span class="s2">&quot;cls&quot;</span><span class="p">:</span> <span class="s2">&quot;pqbus&quot;</span><span class="p">,</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="s2">&quot;attrs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;V1_pu&quot;</span><span class="p">,</span> <span class="s2">&quot;V2_pu&quot;</span><span class="p">,</span> <span class="s2">&quot;V3_pu&quot;</span><span class="p">],</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="s2">&quot;series&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="s2">&quot;aggregate&quot;</span><span class="p">:</span> <span class="s2">&quot;min&quot;</span><span class="p">,</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="s2">&quot;V [pu]&quot;</span><span class="p">,</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="mf">0.90</span><span class="p">,</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="mf">1.10</span><span class="p">,</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>        <span class="s2">&quot;spread_max&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="p">},</span>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="p">})</span>
-</span></code></pre></div>
+<p>As chaves de configuração de um tipo, para quem montar o seu próprio:</p>
 <table>
 <thead>
 <tr>
@@ -2696,37 +2776,35 @@ e não só quando a geração começa a subir.</p>
 <p><code>min</code>/<code>max</code> valem para <strong>todos</strong> os elementos daquele tipo. Num alimentador
 com inversores de tamanhos diferentes, uma escala em kW deixa o pequeno
 sempre verde e satura o grande.</p>
-<p>Por isso o <code>PVSystem</code> deve ser desenhado com <code>P1_pu</code>/<code>P2_pu</code>/<code>P3_pu</code>, a
-geração em pu da placa do próprio inversor, com <code>min: 0</code> e <code>max: 1</code> fixos em
-qualquer circuito. Nem é preciso variar a potência para o problema aparecer:
-os seis PVs do IEEE13 têm a mesma placa de 1000 kW, mas os trifásicos
-entregam cerca de 333 kW por fase e os monofásicos 1000 kW.</p>
+<p>Por isso o preset do <code>PVSystem</code> usa <code>P1_pu</code>/<code>P2_pu</code>/<code>P3_pu</code>, a geração em
+pu da placa do próprio inversor, com <code>min: 0</code> e <code>max: 1</code> fixos em qualquer
+circuito. Nem é preciso variar a potência para o problema aparecer: os seis
+PVs do IEEE13 têm a mesma placa de 1000 kW, mas os trifásicos entregam cerca
+de 333 kW por fase e os monofásicos 1000 kW.</p>
 </div>
-<p>Conecte as entidades à topologia como a qualquer outro simulador:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">vis_topo</span> <span class="o">=</span> <span class="n">webvis</span><span class="o">.</span><span class="n">Topology</span><span class="p">()</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">buses</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">children</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;Bus&quot;</span><span class="p">]</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">connect_many_to_one</span><span class="p">(</span><span class="n">world</span><span class="p">,</span> <span class="n">buses</span><span class="p">,</span> <span class="n">vis_topo</span><span class="p">,</span> <span class="s2">&quot;V1_pu&quot;</span><span class="p">,</span> <span class="s2">&quot;V2_pu&quot;</span><span class="p">,</span> <span class="s2">&quot;V3_pu&quot;</span><span class="p">)</span>
+<h3 id="sem-o-attach_webvis">Sem o <code>attach_webvis</code><a class="headerlink" href="#sem-o-attach_webvis" title="Permanent link">&para;</a></h3>
+<p>Para uma simulação que não use o adaptador OpenDSS, a configuração é feita
+direto no webvis:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">webvis</span><span class="o">.</span><span class="n">set_config</span><span class="p">(</span><span class="n">merge_types</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Line&quot;</span><span class="p">])</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">webvis</span><span class="o">.</span><span class="n">set_etypes</span><span class="p">({</span><span class="s2">&quot;Bus&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;cls&quot;</span><span class="p">:</span> <span class="s2">&quot;pqbus&quot;</span><span class="p">,</span> <span class="s2">&quot;attrs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;V1_pu&quot;</span><span class="p">],</span> <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span> <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="mf">1.1</span><span class="p">}})</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">vis_topo</span> <span class="o">=</span> <span class="n">webvis</span><span class="o">.</span><span class="n">Topology</span><span class="p">()</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">connect_many_to_one</span><span class="p">(</span><span class="n">world</span><span class="p">,</span> <span class="n">buses</span><span class="p">,</span> <span class="n">vis_topo</span><span class="p">,</span> <span class="s2">&quot;V1_pu&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="desenhar-nas-coordenadas-reais">Desenhar nas coordenadas reais<a class="headerlink" href="#desenhar-nas-coordenadas-reais" title="Permanent link">&para;</a></h3>
 <p>Com as coordenadas das barras o alimentador sai igual ao diagrama do circuito,
-em vez do arranjo que a simulação de forças inventa — e não muda de forma a cada
-carregamento.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">dss_sim</span> <span class="o">=</span> <span class="n">world</span><span class="o">.</span><span class="n">start</span><span class="p">(</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="s2">&quot;DSS&quot;</span><span class="p">,</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">topofile</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">CIRCUITO_DSS</span><span class="p">),</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">step_size</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">buscoords</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">DATA_DIR</span> <span class="o">/</span> <span class="s2">&quot;IEEE34_BusXY.csv&quot;</span><span class="p">),</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">)</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">positions</span> <span class="o">=</span> <span class="n">dss_sim</span><span class="o">.</span><span class="n">get_bus_positions</span><span class="p">()</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">webvis</span><span class="o">.</span><span class="n">set_node_positions</span><span class="p">(</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="p">{</span><span class="n">e</span><span class="o">.</span><span class="n">full_id</span><span class="p">:</span> <span class="n">positions</span><span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">eid</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">children</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">eid</span> <span class="ow">in</span> <span class="n">positions</span><span class="p">}</span>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="p">)</span>
+em vez do arranjo que a simulação de forças inventa, e não muda de forma a cada
+carregamento. O <code>attach_webvis</code> já aplica as coordenadas que o circuito tiver.</p>
+<p>Vários alimentadores do IEEE trazem o arquivo de coordenadas mas não o carregam
+no <code>.dss</code> principal, como o <code>ieee34Mod1_w_loadcurve.dss</code>. Para esses, passe o
+arquivo ao iniciar o OpenDSS:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">dss_sim</span> <span class="o">=</span> <span class="n">world</span><span class="o">.</span><span class="n">start</span><span class="p">(</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="s2">&quot;DSS&quot;</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">topofile</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">CIRCUITO_DSS</span><span class="p">),</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">step_size</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">buscoords</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">DATA_DIR</span> <span class="o">/</span> <span class="s2">&quot;IEEE34_BusXY.csv&quot;</span><span class="p">),</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>O parâmetro <code>buscoords</code> existe porque vários alimentadores do IEEE trazem o
-arquivo de coordenadas mas não o carregam no <code>.dss</code> principal — é o caso do
-<code>ieee34Mod1_w_loadcurve.dss</code>. Barras sem coordenada continuam posicionadas pelo
-layout de forças.</p>
+<p>Barras sem coordenada continuam posicionadas pelo layout de forças.</p>
 <h3 id="alimentadores-grandes-ficam-apertados">Alimentadores grandes ficam apertados<a class="headerlink" href="#alimentadores-grandes-ficam-apertados" title="Permanent link">&para;</a></h3>
 <p>O desenho é ajustado <strong>uma vez</strong> ao tamanho da janela, e não há zoom nem
 deslocamento. Quanto mais barras, menos espaço para cada uma:</p>
@@ -2763,14 +2841,14 @@ deslocamento. Quanto mais barras, menos espaço para cada uma:</p>
 </table>
 <p>Em ordem de efeito:</p>
 <ul>
-<li><strong>Esconder as cargas</strong>: <code>ignore_types=[..., "Load"]</code>. No IEEE123 são 91 dos
-  231 nós. Elas pesam mais do que o número sugere: como não têm coordenada,
-  cada uma é semeada num anel de 34 a 50 px em volta da sua barra. Esse anel é
-  maior que o vão mediano entre barras, então cada carga cai dentro do
-  território da barra vizinha.</li>
-<li><strong>Reduzir o <code>radius</code></strong> dos tipos no <code>set_etypes</code>. Tem um limite: com nó
-  pequeno demais os três setores de fase deixam de ser distinguíveis, que é o
-  motivo de o padrão ser 9 e não menos.</li>
+<li><strong>Deixar as cargas de fora</strong>, que já é o padrão do <code>attach_webvis</code>. No
+  IEEE123 são 91 dos 231 nós. Elas pesam mais do que o número sugere: como não
+  têm coordenada, cada uma é semeada num anel de 34 a 50 px em volta da sua
+  barra. Esse anel é maior que o vão mediano entre barras, então cada carga cai
+  dentro do território da barra vizinha.</li>
+<li><strong>Reduzir o <code>radius</code></strong> dos tipos. Tem um limite: com nó pequeno demais os
+  três setores de fase deixam de ser distinguíveis, que é o motivo de o padrão
+  ser 9 e não menos.</li>
 <li><strong>Maximizar a janela</strong> antes de a simulação começar; o ajuste é feito no
   primeiro passo.</li>
 </ul>
@@ -2784,8 +2862,8 @@ cancelado. O que limita é o número de pixels da janela, não a unidade do
 </div>
 <h2 id="dentro-do-docker">Dentro do Docker<a class="headerlink" href="#dentro-do-docker" title="Permanent link">&para;</a></h2>
 <p>Use <code>host="0.0.0.0"</code> e publique a porta:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">ports</span><span class="p">:</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;8000:8000&quot;</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">ports</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;8000:8000&quot;</span>
 </span></code></pre></div>
 <h2 id="problemas-comuns">Problemas comuns<a class="headerlink" href="#problemas-comuns" title="Permanent link">&para;</a></h2>
 <table>
@@ -2801,20 +2879,16 @@ cancelado. O que limita é o número de pixels da janela, não a unidade do
 <td>Faltam entidades ligando as barras. Confira se <code>merge_types</code> inclui <code>"Transformer"</code>: bancos de reguladores e elevadoras de subestação não são linhas</td>
 </tr>
 <tr>
-<td>Um nó no meio da rede ligado a tudo</td>
-<td>Um simulador não listado em <code>ignore_types</code> — em geral o coletor de dados</td>
+<td>Um tipo pedido não aparece</td>
+<td>O nome em <code>show</code> não bate com o tipo mosaik (<code>PVSystem</code>, não <code>PV</code>). Com lista, um nome sem preset levanta erro; com dicionário, o tipo simplesmente não casa com nenhuma entidade</td>
 </tr>
 <tr>
-<td>Todos os nós cinza</td>
-<td>Nenhum atributo conectado à <code>Topology</code>, ou nomes em <code>attrs</code> diferentes dos atributos conectados</td>
+<td>Todos os nós de um tipo cinza</td>
+<td>Os nomes em <code>attrs</code> não são atributos que o simulador publica</td>
 </tr>
 <tr>
 <td>Aviso "Nao foi possivel fundir ... numa aresta"</td>
-<td>Um elemento de <code>merge_types</code> não tem exatamente duas barras — uma linha com barra ausente, ou um elemento também ligado ao coletor. O nó é desenhado como está</td>
-</tr>
-<tr>
-<td>A página não abre</td>
-<td>A porta 8000 já está em uso; passe outra em <code>port=</code></td>
+<td>Um elemento de <code>merge_types</code> não tem exatamente duas barras, como uma linha com barra ausente. O nó é desenhado como está</td>
 </tr>
 </tbody>
 </table>
@@ -2838,7 +2912,7 @@ cancelado. O que limita é o número de pixels da janela, não a unidade do
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="10 de setembro de 2026 16:57:38 UTC">10 de setembro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="17 de setembro de 2026 17:01:47 UTC">17 de setembro de 2026</span>
   </span>
 
     

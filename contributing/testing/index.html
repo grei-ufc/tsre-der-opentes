@@ -2334,6 +2334,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#test_opendss_visualizationpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        test_opendss_visualization.py
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2717,6 +2728,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#test_opendss_visualizationpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        test_opendss_visualization.py
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2819,7 +2841,7 @@
 
 <h1 id="testes">Testes<a class="headerlink" href="#testes" title="Permanent link">&para;</a></h1>
 <h2 id="visao-geral">Visão geral<a class="headerlink" href="#visao-geral" title="Permanent link">&para;</a></h2>
-<p>O projeto usa <strong>pytest</strong>, com 15 arquivos e 426 casos de teste (contando parametrização; rodando <code>uv run --no-sync python -m pytest tests/ -v</code> neste ambiente: 425 passed, 1 skipped).</p>
+<p>O projeto usa <strong>pytest</strong>, com 16 arquivos e 447 casos de teste (contando parametrização; rodando <code>uv run --no-sync python -m pytest tests/ -v</code> neste ambiente: 446 passed, 1 skipped).</p>
 <p>Duas categorias, misturadas entre os arquivos:</p>
 <ul>
 <li><strong>Testes de domínio</strong> — instanciam a classe diretamente (<code>OpenDSSBattery</code>, <code>InverterModel</code>, <code>VR_Model</code>, <code>SmartInverterModel</code>, <code>map_to_phases</code>), sem fixture, sem mosaik, sem OpenDSS.</li>
@@ -2882,15 +2904,21 @@
 </tr>
 <tr>
 <td><code>test_webvis_topology.py</code></td>
-<td>35</td>
+<td>40</td>
 <td>Não</td>
-<td>Limpeza do grafo de entidades e dados enviados ao navegador (<code>webvis.webvis_sim</code>)</td>
+<td>Limpeza do grafo de entidades, allow-list e dados enviados ao navegador (<code>webvis.webvis_sim</code>)</td>
 </tr>
 <tr>
 <td><code>test_webvis_server.py</code></td>
 <td>12</td>
 <td>Não³</td>
 <td>Arquivos estáticos e ciclo de vida do servidor da visualização</td>
+</tr>
+<tr>
+<td><code>test_opendss_visualization.py</code></td>
+<td>13</td>
+<td>Não</td>
+<td>Presets e <code>attach_webvis</code>, com dublês no lugar do webvis e do OpenDSS</td>
 </tr>
 <tr>
 <td><code>test_element_specs.py</code></td>
@@ -2906,7 +2934,7 @@
 </tr>
 <tr>
 <td><code>test_opendss_entities.py</code></td>
-<td>28</td>
+<td>31</td>
 <td>Sim</td>
 <td>Grafo de entidades mosaik (<code>rel</code>, <code>extra_info</code>) do adaptador OpenDSS</td>
 </tr>
@@ -3342,6 +3370,16 @@
 <td>Nenhuma referência (<code>rel</code>) solta; toda referência aponta para um <code>Bus-</code>; linha conecta duas barras</td>
 </tr>
 <tr>
+<td><code>TestTransformers</code></td>
+<td>5</td>
+<td>Transformadores ligam duas barras, os regulados são marcados, e as barras batem com o motor; sem eles o alimentador se parte em ilhas</td>
+</tr>
+<tr>
+<td><code>TestRegulators</code></td>
+<td>3</td>
+<td>O regulador fica entre as duas barras do transformador que comanda, como elemento série; a barra regulada continua em <code>extra_info</code></td>
+</tr>
+<tr>
 <td><code>TestExtraInfo</code></td>
 <td>6</td>
 <td>Todo filho tem <code>extra_info</code>; é serializável em JSON (necessário para o modo Docker); PV monofásico reporta o nó real</td>
@@ -3562,6 +3600,11 @@ circuito ativo.</p>
 <td>Coordenadas no quadrado unitário, sem distorcer a forma do alimentador; Y invertido para a tela</td>
 </tr>
 <tr>
+<td><code>TestAllowList</code></td>
+<td>5</td>
+<td>Com <code>etypes</code>, só o que ele lista é desenhado: controladores, <code>Topology</code> e coletor saem sem ser listados, e a linha monitorada ainda funde; sem <code>etypes</code>, vale o comportamento do upstream</td>
+</tr>
+<tr>
 <td><code>TestD3Topology</code></td>
 <td>4</td>
 <td>Formato consumido pelo D3: arestas por índice de nó, coordenadas só nas barras que as têm</td>
@@ -3592,6 +3635,33 @@ circuito ativo.</p>
 <td><code>TestShutdown</code></td>
 <td>6</td>
 <td>O encerramento termina de verdade, inclusive com navegador conectado: thread morta e nenhuma tarefa pendente</td>
+</tr>
+</tbody>
+</table>
+<h4 id="test_opendss_visualizationpy"><code>test_opendss_visualization.py</code><a class="headerlink" href="#test_opendss_visualizationpy" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Classe</th>
+<th>Testes</th>
+<th>O que valida</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TestResolveEtypes</code></td>
+<td>4</td>
+<td>Nomes resolvem para presets; nome desconhecido levanta erro listando os disponíveis; dicionário passa direto, sem alterar os presets</td>
+</tr>
+<tr>
+<td><code>TestPresets</code></td>
+<td>4</td>
+<td>Todo atributo de preset é publicado pelo adaptador; PV em pu da placa; cargas e reguladores fora do padrão</td>
+</tr>
+<tr>
+<td><code>TestAttachWebvis</code></td>
+<td>5</td>
+<td>Linhas e transformadores viram arestas, sem <code>ignore_types</code>; só os tipos pedidos são conectados; coordenadas indexadas pelo <code>full_id</code></td>
 </tr>
 </tbody>
 </table>
@@ -3665,7 +3735,7 @@ circuito ativo.</p>
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="10 de setembro de 2026 16:57:38 UTC">10 de setembro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="17 de setembro de 2026 17:01:47 UTC">17 de setembro de 2026</span>
   </span>
 
     
