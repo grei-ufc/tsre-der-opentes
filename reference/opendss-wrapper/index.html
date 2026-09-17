@@ -1369,6 +1369,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#get_element_lossesname-elementline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_element_losses(name, element="Line")
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_phase_lossesname-elementline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_phase_losses(name, element="Line")
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#get_total_powerelement" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1484,6 +1506,17 @@
     <span class="md-ellipsis">
       
         get_current(name, element, polar=True, mag_only=False, line_bus=1, phase=None, total=False, raw=False, winding=1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_ampacityname-elementline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_ampacity(name, element="Line")
       
     </span>
   </a>
@@ -2835,6 +2868,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#get_element_lossesname-elementline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_element_losses(name, element="Line")
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_phase_lossesname-elementline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_phase_losses(name, element="Line")
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#get_total_powerelement" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2950,6 +3005,17 @@
     <span class="md-ellipsis">
       
         get_current(name, element, polar=True, mag_only=False, line_bus=1, phase=None, total=False, raw=False, winding=1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_ampacityname-elementline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_ampacity(name, element="Line")
       
     </span>
   </a>
@@ -3375,10 +3441,33 @@ caminhos levanta <code>TypeError</code>; arquivos auxiliares vão nos <code>Redi
 <h4 id="get_losses"><code>get_losses()</code><a class="headerlink" href="#get_losses" title="Permanent link">&para;</a></h4>
 <p>Retorna as perdas totais do circuito.</p>
 <p><strong>Retorno</strong>: <code>tuple[float, float]</code> — <code>(P_kW, Q_kvar)</code></p>
+<h4 id="get_element_lossesname-elementline"><code>get_element_losses(name, element="Line")</code><a class="headerlink" href="#get_element_lossesname-elementline" title="Permanent link">&para;</a></h4>
+<p>Retorna a perda total de <strong>um</strong> elemento — o que entra por um terminal e não
+sai pelo outro. Só faz sentido físico em elementos série (<code>Line</code>,
+<code>Transformer</code>); num elemento shunt de um terminal o mesmo cálculo devolve a
+própria potência do elemento.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_element_losses</span><span class="p">(</span><span class="s2">&quot;650632&quot;</span><span class="p">,</span> <span class="s2">&quot;Line&quot;</span><span class="p">)</span>        <span class="c1"># (kW, kvar)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_element_losses</span><span class="p">(</span><span class="s2">&quot;xfm1&quot;</span><span class="p">,</span> <span class="s2">&quot;Transformer&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p><strong>Retorno</strong>: <code>tuple[float, float]</code> — <code>(P_kW, Q_kvar)</code></p>
+<div class="admonition warning">
+<p class="admonition-title">Unidades</p>
+<p>O motor reporta este par em <strong>W/var</strong> e o de <code>get_phase_losses()</code> em
+<strong>kW/kvar</strong>. A conversão acontece no wrapper, e as duas leituras saem daqui
+na mesma unidade.</p>
+</div>
+<h4 id="get_phase_lossesname-elementline"><code>get_phase_losses(name, element="Line")</code><a class="headerlink" href="#get_phase_lossesname-elementline" title="Permanent link">&para;</a></h4>
+<p>Mesma perda, repartida por fase. Não tem argumento <code>terminal</code>: a perda é do
+elemento inteiro.</p>
+<p><strong>Retorno</strong>: <code>tuple[list[float], list[float]]</code> — <code>([P1, P2, P3], [Q1, Q2, Q3])</code>
+em kW e kvar; a fase que o elemento não tem é <code>NaN</code>.</p>
+<p>O total do motor conta também o neutro, que as parcelas por fase não percorrem
+— com neutro solidamente aterrado os dois coincidem. A parcela de uma fase pode
+sair negativa sob acoplamento mútuo forte com correntes desequilibradas.</p>
 <h4 id="get_total_powerelement"><code>get_total_power(element)</code><a class="headerlink" href="#get_total_powerelement" title="Permanent link">&para;</a></h4>
 <p>Retorna a potência agregada de todos os elementos de uma classe.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_total_power</span><span class="p">(</span><span class="s2">&quot;Load&quot;</span><span class="p">)</span>      <span class="c1"># soma de todas as cargas</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_total_power</span><span class="p">(</span><span class="s2">&quot;PVSystem&quot;</span><span class="p">)</span>  <span class="c1"># soma de todos os PVSystems</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_total_power</span><span class="p">(</span><span class="s2">&quot;Load&quot;</span><span class="p">)</span>      <span class="c1"># soma de todas as cargas</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_total_power</span><span class="p">(</span><span class="s2">&quot;PVSystem&quot;</span><span class="p">)</span>  <span class="c1"># soma de todos os PVSystems</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -3568,6 +3657,23 @@ caminhos levanta <code>TypeError</code>; arquivos auxiliares vão nos <code>Redi
 </tr>
 </tbody>
 </table>
+<h4 id="get_ampacityname-elementline"><code>get_ampacity(name, element="Line")</code><a class="headerlink" href="#get_ampacityname-elementline" title="Permanent link">&para;</a></h4>
+<p>Retorna os limites de corrente do elemento — o denominador do carregamento.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_ampacity</span><span class="p">(</span><span class="s2">&quot;650632&quot;</span><span class="p">,</span> <span class="s2">&quot;Line&quot;</span><span class="p">)</span>   <span class="c1"># (400.0, 600.0)</span>
+</span></code></pre></div>
+<p><strong>Retorno</strong>: <code>tuple[float, float]</code> — <code>(normal, emergencial)</code> em amperes.</p>
+<p>O valor é estático: pertence ao circuito compilado, não a uma solução. Quem
+precisa dele a cada passo deve guardá-lo, como faz o adaptador mosaik, em vez de
+reler daqui. A herança do <code>LineCode</code> é resolvida pelo motor — não é preciso
+procurar o linecode nem interpretar a propriedade como texto.</p>
+<div class="admonition warning">
+<p class="admonition-title">O padrão do OpenDSS é 400 A</p>
+<p>Quando ninguém declara <code>normamps</code> — nem a linha nem o <code>LineCode</code> —, o motor
+entrega 400 A normais e 600 A emergenciais para qualquer linha. Nenhum dos
+alimentadores que acompanham o projeto declara ampacidade, então é esse o
+valor que sai em todos eles. Ver o aviso em
+<a href="../mosaik-adapters/#atributos-de-saida-get_data">Adaptadores Mosaik</a>.</p>
+</div>
 <hr />
 <h3 id="propriedades">Propriedades<a class="headerlink" href="#propriedades" title="Permanent link">&para;</a></h3>
 <h4 id="get_all_propertiesname-element"><code>get_all_properties(name, element)</code><a class="headerlink" href="#get_all_propertiesname-element" title="Permanent link">&para;</a></h4>
@@ -3649,7 +3755,7 @@ caminhos levanta <code>TypeError</code>; arquivos auxiliares vão nos <code>Redi
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="1 de setembro de 2026 10:37:12 UTC">1 de setembro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="17 de setembro de 2026 21:20:37 UTC">17 de setembro de 2026</span>
   </span>
 
     
