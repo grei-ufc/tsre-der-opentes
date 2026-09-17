@@ -344,6 +344,9 @@ def add_nodes(graph, dss, attachments, elements=()):
     for bus in dss.circuit.buses_names:
         bus_id = _bus_name(bus)
         dss.circuit.set_active_bus(bus)
+        # Sem coordenada no BusCoords, o OpenDSS reporta (0, 0). Esse zero não é
+        # uma posição, e quem desenhasse a barra ali a poria na origem.
+        has_coords = bool(dss.bus.coord_defined)
 
         graph.add_node(
             NetworkNode(
@@ -354,9 +357,9 @@ def add_nodes(graph, dss, attachments, elements=()):
                     "kv_base": dss.bus.kv_base,
                     "num_nodes": dss.bus.num_nodes,
                     "nodes": list(dss.bus.nodes),
-                    "x": dss.bus.x,
-                    "y": dss.bus.y,
-                    "coord_defined": bool(dss.bus.coord_defined),
+                    "x": dss.bus.x if has_coords else None,
+                    "y": dss.bus.y if has_coords else None,
+                    "coord_defined": has_coords,
                     # Toda barra traz a chave, mesmo vazia: o consumidor
                     # itera sem antes checar se ela existe.
                     "attached": attached_by_bus.get(bus_id, {t: [] for t in ELEMENT_TYPES}),

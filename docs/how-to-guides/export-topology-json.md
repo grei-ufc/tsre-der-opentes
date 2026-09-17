@@ -91,6 +91,12 @@ indexa pelo campo `id` de cada item.
 
 `voltage_pu` sai sempre `null`: o grafo é estático e nada escreve tensão nele.
 
+As coordenadas `x` e `y` vêm do arquivo de coordenadas referenciado no `.dss`
+principal do alimentador (comando `BusCoords`). Uma barra que não consta desse
+arquivo sai com `"x": null, "y": null` e `"coord_defined": false`. O OpenDSS
+reporta `(0, 0)` para ela, mas esse zero não é uma posição: desenhá-la ali a
+poria na origem do diagrama.
+
 ## Classificação de nós
 
 O `topology_builder.py` classifica cada barra pelo que está de fato ligado a
