@@ -36,7 +36,8 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
                        "P1_w", "Q1_var", "P2_w", "Q2_var", "P3_w", "Q3_var",
                        "Ploss1_kw", "Ploss2_kw", "Ploss3_kw",
                        "Qloss1_kvar", "Qloss2_kvar", "Qloss3_kvar",
-                       "Ploss_kw", "Qloss_kvar"],
+                       "Ploss_kw", "Qloss_kvar",
+                       "Loading1_pct", "Loading2_pct", "Loading3_pct"],
         },
         "Bus": {
             "public": False,
@@ -123,6 +124,7 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Line | `Ploss1_kw..Ploss3_kw` | `float` | Perda ativa por fase (kW) |
 | Line | `Qloss1_kvar..Qloss3_kvar` | `float` | Perda reativa por fase (kvar) |
 | Line | `Ploss_kw`, `Qloss_kvar` | `float` | Perda total da linha (kW / kvar) |
+| Line | `Loading1_pct..Loading3_pct` | `float` | Carregamento por fase: corrente em % de `normamps` — **leia o aviso abaixo** |
 | Bus | `V1_pu..V3_pu` | `float` | Tensão por fase (p.u.); `0.0` na fase que a barra não tem |
 | Bus | `V1_ang..V3_ang` | `float` | Ângulo por fase (graus) |
 | Bus | `V_min_pu`, `V_max_pu`, `V_mean_pu` | `float` | Extremos e média entre as **fases presentes** |
@@ -144,6 +146,31 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Storage | `P_act` | `float` | Potência ativa atual (kW) |
 | Storage | `Q_act` | `float` | Potência reativa atual (kvar) |
 | Storage | `SoC` | `float` | Estado de carga (%) |
+
+!!! warning "Carregamento: o denominador quase nunca é dado do alimentador"
+    `Loading1_pct..Loading3_pct` é a corrente da fase em porcentagem de
+    `normamps`, a ampacidade da linha. O OpenDSS resolve a herança: uma linha
+    que não declara `normamps` usa o do seu `LineCode`.
+
+    **Quando ninguém declara nada, o OpenDSS usa 400 A — para qualquer linha.**
+    E é o caso de todos os alimentadores que acompanham o projeto: nenhum dos 44
+    arquivos `.dss` do IEEE 13, 34 e 123 barras declara ampacidade. O mesmo
+    limite vale para o tronco da subestação e para o ramal monofásico.
+
+    O efeito é visível: no IEEE13 a linha `650632` — o tronco, que carrega o
+    alimentador inteiro — passa 564 A e marca **141%**. Ela não está
+    sobrecarregada; o que está errado é o denominador.
+
+    Para obter um número que signifique alguma coisa, declare a ampacidade onde
+    ela pertence, no `.dss`:
+
+    ```
+    New LineCode.acsr336 nphases=3 ... normamps=530 emergamps=700
+    ```
+
+    O adaptador lê o que estiver no circuito, sem configuração nenhuma. Os dois
+    limites em vigor ficam visíveis em `extra_info` de cada linha
+    (`norm_amps`, `emerg_amps`), para conferir contra o que a conta foi feita.
 
 !!! info "Perdas"
     A perda é do elemento inteiro, e não de um terminal: é o que entra por um

@@ -324,6 +324,54 @@ def read_regulator(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dic
     return {attr: measurements[keys[attr]] for attr in wanted}
 
 
+LINE_LOADING_OUTPUTS = ("Loading1_pct", "Loading2_pct", "Loading3_pct")
+
+
+def read_line(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[str, Any]:
+    """Lê grandezas por fase mais o carregamento em % da ampacidade da linha.
+
+    Em amperes não dá para dizer se uma linha está folgada ou no limite: 200 A
+    são metade da capacidade de um tronco e o dobro da de um ramal. O
+    carregamento põe as duas na mesma escala, e é por fase porque é por fase que
+    a corrente desequilibra — a fase mais carregada é que decide.
+
+    !!! warning "O denominador costuma ser um padrão do motor"
+        Quando o circuito não declara ``normamps`` — nem na linha nem no
+        ``LineCode`` —, o OpenDSS usa 400 A para qualquer linha, e é contra esse
+        número que a conta é feita. Nenhum dos alimentadores que acompanham o
+        projeto declara ampacidade. Ver :meth:`~._reader.ReaderMixin.get_ampacity`.
+    """
+    attrs = list(attrs)
+    result = read_phases(sim, name, attrs, spec)
+
+    wanted = [attr for attr in attrs if attr in LINE_LOADING_OUTPUTS]
+    if not wanted:
+        return result
+
+    norm_amps, _ = sim.line_ampacity(name)
+
+    # Sem limite conhecido não há em relação a que normalizar. ABSENT diz isso
+    # com a mesma convenção da fase que não existe, e mantém a divisão fora do
+    # caminho de um denominador zero.
+    if norm_amps <= 0:
+        result.update(dict.fromkeys(wanted, ABSENT))
+        return result
+
+    # Releitura barata: o snapshot do elemento já está em cache desde a chamada
+    # de read_phases, e só é invalidado por uma escrita.
+    mags, _ = sim.dss_wrapper.get_phase_currents(
+        name, element=spec.dss_class, terminal=spec.terminal
+    )
+
+    for index, attr in enumerate(LINE_LOADING_OUTPUTS):
+        # NaN se propaga sozinho: a fase que a linha não tem continua ausente no
+        # carregamento, em vez de virar um zero que pareceria linha descarregada.
+        if attr in wanted:
+            result[attr] = normalize_zero(100.0 * mags[index] / norm_amps)
+
+    return result
+
+
 def read_storage(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[str, Any]:
     """Lê grandezas por fase mais o estado de carga da bateria."""
     result = read_phases(sim, name, attrs, spec)
@@ -454,7 +502,7 @@ MODEL_SPECS: dict[str, ModelSpec] = {
     ),
     "Line": ModelSpec(
         dss_class="Line",
-        reader=read_phases,
+        reader=read_line,
         # As perdas saem em kW/kvar, e o nome diz isso: o sufixo `_w` das
         # potências é herdado e não corresponde à unidade que o motor entrega.
         attr_map=phase_attr_map(
@@ -467,6 +515,8 @@ MODEL_SPECS: dict[str, ModelSpec] = {
             p_loss_total=("Ploss_kw",),
             q_loss_total=("Qloss_kvar",),
         ),
+        # Corrente em % da ampacidade da linha. Ver read_line.
+        extra_outputs=LINE_LOADING_OUTPUTS,
     ),
     "Transformer": ModelSpec(
         dss_class="Transformer",

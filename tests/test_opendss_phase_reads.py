@@ -205,6 +205,31 @@ class TestElementLosses:
             dss_13bus.set_element = original
 
 
+class TestAmpacity:
+    """O limite de corrente da linha — o denominador do carregamento."""
+
+    def test_it_is_the_same_field_the_lines_api_reports(self, dss_13bus):
+        """`cktelement` e `lines` leem o mesmo campo; a via usada aqui é a primeira."""
+        dss_13bus.dss.lines.name = "650632"
+
+        assert dss_13bus.get_ampacity("650632", "Line") == (
+            dss_13bus.dss.lines.norm_amps,
+            dss_13bus.dss.lines.emerg_amps,
+        )
+
+    def test_the_shipped_feeders_declare_none(self, dss_13bus):
+        """Documenta em código a ressalva que a referência destaca.
+
+        Nenhum ``.dss`` do IEEE13 declara ``normamps``, então toda linha cai no
+        padrão do motor — 400 A do tronco ao ramal monofásico. Se algum dia o
+        circuito passar a declarar ampacidade, este teste falha e aponta para a
+        documentação que precisa acompanhar.
+        """
+        ratings = {dss_13bus.get_ampacity(name, "Line") for name in dss_13bus.dss.lines.names}
+
+        assert ratings == {(400.0, 600.0)}
+
+
 class TestMosaikAttributeExtraction:
     def test_registry_reader_uses_real_phase(self, dss_13bus):
         """The registry reader maps to the element's node, not to position."""

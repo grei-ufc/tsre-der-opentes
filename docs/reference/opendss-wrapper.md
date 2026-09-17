@@ -197,6 +197,28 @@ Mesmos parâmetros de `get_power()`, com adição de:
 |---|---|---|
 | `winding` | `int` | Para transformadores: índice do winding (default: 1) |
 
+#### `get_ampacity(name, element="Line")`
+
+Retorna os limites de corrente do elemento — o denominador do carregamento.
+
+```python
+dss.get_ampacity("650632", "Line")   # (400.0, 600.0)
+```
+
+**Retorno**: `tuple[float, float]` — `(normal, emergencial)` em amperes.
+
+O valor é estático: pertence ao circuito compilado, não a uma solução. Quem
+precisa dele a cada passo deve guardá-lo, como faz o adaptador mosaik, em vez de
+reler daqui. A herança do `LineCode` é resolvida pelo motor — não é preciso
+procurar o linecode nem interpretar a propriedade como texto.
+
+!!! warning "O padrão do OpenDSS é 400 A"
+    Quando ninguém declara `normamps` — nem a linha nem o `LineCode` —, o motor
+    entrega 400 A normais e 600 A emergenciais para qualquer linha. Nenhum dos
+    alimentadores que acompanham o projeto declara ampacidade, então é esse o
+    valor que sai em todos eles. Ver o aviso em
+    [Adaptadores Mosaik](mosaik-adapters.md#atributos-de-saida-get_data).
+
 ---
 
 ### Propriedades

@@ -53,6 +53,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self._type_by_eid = {}
         self._bus_eids = {}
         self._pv_nameplate = {}
+        self._line_ampacity = {}
 
     # ------------------------------------------------------------------
     # Metadados das entidades
@@ -113,6 +114,22 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             PVSystem conhecido.
         """
         return self._pv_nameplate.get(name, (0.0, 0))
+
+    def line_ampacity(self, name):
+        """Limites de corrente de uma linha: ``(normal, emergencial)`` em A.
+
+        Lida uma vez na criação das entidades porque é dado do circuito
+        compilado, não da solução: relê-la a cada passo custaria uma ida ao
+        motor por linha para devolver sempre o mesmo número.
+
+        Args:
+            name: Nome da linha no OpenDSS.
+
+        Returns:
+            Tupla ``(normal, emergencial)``, ou ``(0.0, 0.0)`` se o nome não for
+            de uma linha conhecida.
+        """
+        return self._line_ampacity.get(name, (0.0, 0.0))
 
     @property
     def storage_map(self):
@@ -358,6 +375,10 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             nodes1 = _resolve_nodes(nodes1, phases)
             nodes2 = _resolve_nodes(nodes2, phases)
 
+            # Denominador do carregamento; ver line_ampacity().
+            norm_amps, emerg_amps = self.dss_wrapper.get_ampacity(name, "Line")
+            self._line_ampacity[name] = (norm_amps, emerg_amps)
+
             self._add_child(
                 eid,
                 "Line",
@@ -375,6 +396,11 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                     "phases": phases,
                     "length": _as_float(row.get("length")),
                     "linecode": row.get("linecode", ""),
+                    # Expostos para que o cenário veja contra o que o
+                    # carregamento está sendo medido — e perceba quando é o
+                    # padrão do OpenDSS, e não um dado do alimentador.
+                    "norm_amps": norm_amps,
+                    "emerg_amps": emerg_amps,
                 },
             )
 

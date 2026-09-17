@@ -320,6 +320,30 @@ class ReaderMixin:
         currents = snapshot.currents_mag_ang[values]
         return map_to_phases(nodes, currents[0::2]), map_to_phases(nodes, currents[1::2])
 
+    def get_ampacity(self, name: str, element: str = "Line") -> tuple[float, float]:
+        """Current limits of an element: the normal and the emergency ratings.
+
+        É o denominador do carregamento. O valor é estático — pertence ao
+        circuito compilado, e não a uma solução —, então quem o usa a cada passo
+        deve guardá-lo em vez de reler daqui.
+
+        Uma linha que não declara ``normamps`` herda o do seu ``LineCode``; a
+        herança é resolvida pelo motor, então não é preciso procurar o linecode
+        nem interpretar a propriedade como texto. **Quando ninguém declara nada,
+        o OpenDSS entrega o padrão dele — 400 A normais e 600 A emergenciais —
+        para qualquer linha, do tronco ao ramal monofásico.** Nenhum dos
+        alimentadores que acompanham o projeto declara ampacidade.
+
+        Args:
+            name: Element name.
+            element: Element class (``'Line'``, ``'Transformer'``).
+
+        Returns:
+            Tuple ``(normal, emergencial)`` em amperes.
+        """
+        self.set_element(name, element)
+        return self.dss.cktelement.norm_amps, self.dss.cktelement.emerg_amps
+
     def get_phase_losses(self, name: str, element: str = "Line") -> tuple[list[float], list[float]]:
         """Power lost inside one element, broken down per phase.
 

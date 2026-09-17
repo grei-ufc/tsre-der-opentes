@@ -17,6 +17,7 @@ from simulators.opendss._utils import ABSENT
 from simulators.opendss.api_opendss import OpenDSSSimulator
 from simulators.opendss.element_specs import (
     BUS_AGGREGATES,
+    LINE_LOADING_OUTPUTS,
     MODEL_SPECS,
     build_meta,
     bus_aggregates,
@@ -388,6 +389,125 @@ class TestGenerationInPerUnit:
 
     def test_unknown_pv_has_no_nameplate(self, sim):
         assert sim.pv_nameplate("nao-existe") == (0.0, 0)
+
+
+class TestLineLoading:
+    """Carregamento por fase: a corrente em % da ampacidade da linha.
+
+    Em amperes não dá para dizer se uma linha está folgada ou no limite. O
+    carregamento põe tronco e ramal na mesma escala — desde que o denominador
+    seja um dado do alimentador, o que nos circuitos deste repositório não é.
+    """
+
+    def test_it_is_the_current_over_the_rating(self, sim):
+        eid = "Line-650632"
+        data = sim.get_data({eid: ["I1_A", "I2_A", "I3_A", *LINE_LOADING_OUTPUTS]})[eid]
+        norm_amps = sim.get_extra_info()[eid]["norm_amps"]
+
+        for phase, (corrente, carga) in enumerate(
+            zip(["I1_A", "I2_A", "I3_A"], LINE_LOADING_OUTPUTS, strict=True), start=1
+        ):
+            assert data[carga] == pytest.approx(100.0 * data[corrente] / norm_amps), f"fase {phase}"
+
+    def test_absent_phases_are_absent_not_zero(self, sim):
+        """Zero seria lido como linha descarregada; a fase nem existe."""
+        # Line.684652 é monofásica na fase 1.
+        data = sim.get_data({"Line-684652": LINE_LOADING_OUTPUTS})["Line-684652"]
+
+        assert not math.isnan(data["Loading1_pct"])
+        assert math.isnan(data["Loading2_pct"])
+        assert math.isnan(data["Loading3_pct"])
+
+    def test_the_ratings_reach_the_scenario(self, sim):
+        """Sem o denominador à vista, não dá para saber o que o % significa."""
+        info = sim.get_extra_info()["Line-650632"]
+
+        assert info["norm_amps"] > 0
+        assert info["emerg_amps"] > 0
+
+    def test_a_line_without_a_rating_is_absent_not_an_error(self, sim):
+        """Denominador zero: ausência de referência, não divisão por zero."""
+        eid = "Line-650632"
+        original = sim._line_ampacity["650632"]
+        sim._line_ampacity["650632"] = (0.0, 0.0)
+        try:
+            data = sim.get_data({eid: LINE_LOADING_OUTPUTS})[eid]
+        finally:
+            sim._line_ampacity["650632"] = original
+
+        assert all(math.isnan(v) for v in data.values())
+
+    def test_reading_the_loading_costs_no_extra_engine_visit(self, sim):
+        """As correntes já estão no snapshot; o rating veio na criação."""
+        wrapper = sim.dss_wrapper
+        wrapper.invalidate_snapshot()
+        sim.get_data({"Line-650632": ["I1_A"]})
+
+        calls = []
+        original = wrapper.set_element
+        wrapper.set_element = lambda *a, **k: (calls.append(a), original(*a, **k))[1]
+        try:
+            sim.get_data({"Line-650632": LINE_LOADING_OUTPUTS})
+        finally:
+            wrapper.set_element = original
+
+        assert calls == [], "o elemento foi reativado só para calcular o carregamento"
+
+
+DECLARED_AMPACITY_CIRCUIT = """\
+Redirect "{master}"
+New LineCode.limitada nphases=3 baseFreq=60 rmatrix=[0.1|0.03 0.1|0.03 0.03 0.1] \
+xmatrix=[0.2|0.09 0.2|0.09 0.09 0.2] units=kft normamps=100 emergamps=150
+New Line.herda bus1=671 bus2=680 linecode=limitada length=0.5 units=kft
+New Line.declara bus1=671 bus2=680 linecode=limitada length=0.5 units=kft normamps=250
+"""
+
+
+@pytest.fixture(scope="module")
+def declared_sim(tmp_path_factory):
+    """IEEE13 com duas linhas que têm ampacidade de verdade.
+
+    Os alimentadores que acompanham o projeto não declaram nenhuma, então é
+    aqui que se verifica que um ``normamps`` declarado — e um herdado do
+    ``LineCode`` — chega mesmo ao carregamento.
+    """
+    master = DATA_DIR / "IEEE13Nodeckt.dss"
+    if not master.exists():
+        pytest.skip(f"IEEE13 fixture not found at {master}")
+
+    path = tmp_path_factory.mktemp("ampacity") / "limites.dss"
+    path.write_text(DECLARED_AMPACITY_CIRCUIT.format(master=master.as_posix()))
+
+    simulator = OpenDSSSimulator()
+    simulator.init("DSS-0", 1.0, topofile=str(path), step_size=300)
+    if simulator.dss_wrapper.dss.circuit.num_buses == 0:
+        pytest.skip("IEEE13 failed to compile (check the OpenDSS DataPath)")
+
+    simulator.create(1, "Grid")
+    simulator.step(0, {}, 300)
+    return simulator
+
+
+class TestDeclaredAmpacity:
+    def test_a_rating_inherited_from_the_linecode_is_used(self, declared_sim):
+        """O motor resolve a herança: não é preciso procurar o LineCode."""
+        assert declared_sim.line_ampacity("herda") == (100.0, 150.0)
+
+    def test_a_rating_declared_on_the_line_overrides_the_linecode(self, declared_sim):
+        assert declared_sim.line_ampacity("declara") == (250.0, 150.0)
+
+    def test_the_same_current_reads_a_lower_loading_on_the_larger_rating(self, declared_sim):
+        """Duas linhas idênticas entre as mesmas barras: só o limite difere.
+
+        250/100 = 2.5, então a que tem o limite maior tem de marcar 2.5 vezes
+        menos — é o que prova que o denominador é mesmo o da linha, e não um
+        valor comum a todas.
+        """
+        herda = declared_sim.get_data({"Line-herda": ["Loading1_pct", "I1_A"]})["Line-herda"]
+        declara = declared_sim.get_data({"Line-declara": ["Loading1_pct", "I1_A"]})["Line-declara"]
+
+        assert declara["I1_A"] == pytest.approx(herda["I1_A"], rel=1e-6)
+        assert herda["Loading1_pct"] == pytest.approx(2.5 * declara["Loading1_pct"], rel=1e-6)
 
 
 STORAGE_CIRCUIT = """\

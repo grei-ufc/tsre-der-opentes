@@ -122,6 +122,7 @@ attr_map=phase_attr_map(
 | `P_meas`, `Q_meas` | Total somado nas fases presentes |
 | `Ploss1_kw`..`Ploss3_kw` | Perda ativa por fase (`Line`, `Transformer`) |
 | `Ploss_kw`, `Qloss_kvar` | Perda total do elemento, lida do motor |
+| `Loading1_pct`..`Loading3_pct` | Corrente em % da ampacidade da linha (fora do `attr_map`; ver adiante) |
 
 O `sign=-1` de PVSystem e Storage inverte a convenção do OpenDSS, em que gerar
 é potência negativa. O `scale` é aplicado só aos totais: é assim que `P_out_mw`
@@ -142,6 +143,25 @@ Um modelo que precise de algo fora desse mapa declara um *reader* próprio e o
 anuncia em `extra_outputs`. É o caso do `SoC` do `Storage` e da geração em pu da
 placa do `PVSystem` (`P_pu`, `P1_pu`..`P3_pu`), que divide pela capacidade de
 cada inversor e não por um fator constante.
+
+### Normalizar pela placa do próprio elemento
+
+O carregamento das linhas (`Loading1_pct`..`Loading3_pct`) segue esse mesmo
+caminho, e pelo mesmo motivo: o fator varia de elemento para elemento, então não
+cabe num mapa de constantes. `read_line` divide a corrente de cada fase pela
+ampacidade daquela linha, como `read_pvsystem` divide a geração pela placa
+daquele inversor.
+
+O denominador é lido uma vez, na criação das entidades, e guardado no simulador
+(`line_ampacity`, espelhando `pv_nameplate`). É dado do circuito compilado, não
+da solução: relê-lo a cada passo seria uma ida ao motor por linha para devolver
+sempre o mesmo número. As correntes já estão no `ElementSnapshot`, então o
+carregamento não custa nenhuma leitura extra.
+
+A diferença em relação ao PVSystem é o motivo de a placa ficar em cache. No PV,
+o `pmpp` do elemento é reescrito a cada passo pelo setpoint, e reler o motor
+daria a geração comandada no lugar da capacidade. A ampacidade ninguém reescreve
+— o cache ali é por custo, não por correção.
 
 ## Controle de PVSystem
 
