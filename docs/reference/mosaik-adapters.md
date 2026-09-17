@@ -345,6 +345,20 @@ controle.
 }
 ```
 
+### init()
+
+```python
+def init(self, sid, time_resolution, step_size=60, verbose=False):
+```
+
+`verbose=True` imprime a tensão, a corrente e o tap de cada regulador a cada
+passo. Fica desligado por padrão, porque com vários reguladores a saída enche o
+terminal:
+
+```python
+reg_sim = world.start("RegControl", step_size=STEP_SIZE, verbose=True)
+```
+
 ### Atributos
 
 | Atributo | Direção | Tipo | Descrição |

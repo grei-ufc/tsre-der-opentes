@@ -153,10 +153,22 @@ class RegulatorSimulator(mosaik_api_v3.Simulator):
         super().__init__(META)
         self.controllers = {}
         self.step_size = None
+        self.verbose = False
 
-    def init(self, sid, time_resolution, step_size=60):
+    def init(self, sid, time_resolution, step_size=60, verbose=False):
+        """Inicializa o simulador.
+
+        Args:
+            sid: Identificador do simulador no mosaik.
+            time_resolution: Resolução temporal do mosaik.
+            step_size: Passo de simulação, em segundos.
+            verbose: Imprime a tensão, a corrente e o tap de cada regulador a
+                cada passo. Desligado por padrão: com vários reguladores a
+                saída enche o terminal.
+        """
         self.sid = sid
         self.step_size = step_size
+        self.verbose = verbose
         return self.meta
 
     def create(self, num, model, **model_params):
@@ -188,9 +200,9 @@ class RegulatorSimulator(mosaik_api_v3.Simulator):
             v = next(iter(inputs[eid]["v_meas"].values())) if "v_meas" in inputs.get(eid, {}) else 0
             i = next(iter(inputs[eid]["i_meas"].values())) if "i_meas" in inputs.get(eid, {}) else 0
 
-            if time < 2400:
+            if self.verbose:
                 print(f"[{time}s] {eid}: V_pri={v:.1f}V | I_pri={i:.1f}A | Tap={logic.tap}")
-                # Execute logic
+
             logic.run(V_meas=v, I_meas=i)
 
         return time + self.step_size
