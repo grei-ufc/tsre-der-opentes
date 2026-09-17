@@ -120,10 +120,23 @@ attr_map=phase_attr_map(
 | `I1_A`..`I3_A` | Magnitude da corrente por fase |
 | `I1_ang`..`I3_ang` | Ângulo da corrente por fase |
 | `P_meas`, `Q_meas` | Total somado nas fases presentes |
+| `Ploss1_kw`..`Ploss3_kw` | Perda ativa por fase (`Line`, `Transformer`) |
+| `Ploss_kw`, `Qloss_kvar` | Perda total do elemento, lida do motor |
 
 O `sign=-1` de PVSystem e Storage inverte a convenção do OpenDSS, em que gerar
 é potência negativa. O `scale` é aplicado só aos totais: é assim que `P_out_mw`
 da carga sai em MW a partir dos kW do motor.
+
+As perdas dos elementos série entram pelo mesmo mapa, com os parâmetros
+`p_loss`, `q_loss`, `p_loss_total` e `q_loss_total`. Nem o `sign` nem o `scale`
+se aplicam a elas: perda é dissipação — não é injeção que se inverta —, e o
+nome do atributo (`Ploss1_kw`, `Ploss_kw`) já traz a unidade em que ele sai.
+
+As perdas também não são buscadas junto com as potências: são duas leituras a
+mais por elemento, que só as linhas e os transformadores expõem, e num
+alimentador de 123 barras isso pesaria em toda leitura. O `ElementSnapshot` as
+preenche na primeira vez que um atributo de perda é pedido, dentro do mesmo
+cache de solução.
 
 Um modelo que precise de algo fora desse mapa declara um *reader* próprio e o
 anuncia em `extra_outputs`. É o caso do `SoC` do `Storage` e da geração em pu da

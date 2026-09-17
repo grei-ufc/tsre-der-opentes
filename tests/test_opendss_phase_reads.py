@@ -117,6 +117,94 @@ class TestTransformerWindings:
         assert p[2] != 0.0
 
 
+class TestElementLosses:
+    """Perdas por elemento: a repartição por fase e o total.
+
+    As duas leituras do motor saem em unidades diferentes — ``losses`` em W/var
+    e ``phase_losses`` em kW/kvar —, e nada no valor denuncia a troca: um erro
+    de mil vezes nas perdas de uma linha ainda parece um número plausível de
+    potência. Por isso os testes abaixo ancoram em identidades físicas, e não em
+    valores esperados.
+    """
+
+    def test_loss_is_what_does_not_come_out_the_other_end(self, dss_13bus):
+        """A perda da linha é o que entra por um terminal e não sai pelo outro."""
+        p_in, _ = dss_13bus.get_phase_powers("650632", element="Line", terminal=1)
+        p_out, _ = dss_13bus.get_phase_powers("650632", element="Line", terminal=2)
+        p_loss, _ = dss_13bus.get_element_losses("650632", element="Line")
+
+        assert p_loss == pytest.approx(sum_phases(p_in) + sum_phases(p_out), rel=1e-9)
+
+    def test_total_is_in_kw_like_the_phases(self, dss_13bus):
+        """O motor entrega este total em W; o wrapper converte.
+
+        Sem a conversão as duas leituras sairiam com mil vezes de diferença uma
+        da outra — e o erro passaria por um valor de potência qualquer.
+        """
+        p_phase, q_phase = dss_13bus.get_phase_losses("650632", element="Line")
+        p_total, q_total = dss_13bus.get_element_losses("650632", element="Line")
+
+        assert p_total == pytest.approx(sum_phases(p_phase), rel=1e-9)
+        assert q_total == pytest.approx(sum_phases(q_phase), rel=1e-9)
+
+    def test_circuit_losses_are_the_sum_of_the_series_elements(self, dss_13bus):
+        """Fecha o balanço do alimentador inteiro, na unidade do circuito."""
+        total = sum(
+            dss_13bus.get_element_losses(name, element="Line")[0]
+            for name in dss_13bus.dss.lines.names
+        )
+        total += sum(
+            dss_13bus.get_element_losses(name, element="Transformer")[0]
+            for name in dss_13bus.dss.transformers.names
+        )
+
+        assert total == pytest.approx(dss_13bus.get_losses()[0], rel=1e-6)
+
+    @pytest.mark.parametrize(
+        ("line", "present"),
+        [
+            ("650632", {0, 1, 2}),
+            # 645646 fica em 645.3.2 / 646.3.2: as fases são 2 e 3, e a primeira
+            # parcela que o motor devolve é a da fase 3, não a da fase 1.
+            ("645646", {1, 2}),
+            ("684652", {0}),
+        ],
+    )
+    def test_phase_losses_land_on_the_lines_own_phases(self, dss_13bus, line, present):
+        p_loss, _ = dss_13bus.get_phase_losses(line, element="Line")
+
+        assert {i for i, v in enumerate(p_loss) if not math.isnan(v)} == present
+
+    def test_a_single_phase_regulator_reports_on_its_phase(self, dss_13bus):
+        # Transformer.reg3 regula a fase 3; o neutro entra no total, não nas fases.
+        p_loss, _ = dss_13bus.get_phase_losses("reg3", element="Transformer")
+
+        assert math.isnan(p_loss[0])
+        assert math.isnan(p_loss[1])
+        assert not math.isnan(p_loss[2])
+
+    def test_losses_are_not_fetched_with_the_powers(self, dss_13bus):
+        """Duas leituras a mais por elemento que quase nenhum cenário pede."""
+        dss_13bus.invalidate_snapshot()
+        dss_13bus.get_phase_powers("650632", element="Line")
+
+        assert dss_13bus._snapshot.elements[("line", "650632")].losses is None
+
+    def test_the_second_loss_read_is_served_from_the_cache(self, dss_13bus):
+        dss_13bus.invalidate_snapshot()
+        first = dss_13bus.get_phase_losses("650632", element="Line")
+
+        calls = []
+        original = dss_13bus.set_element
+        dss_13bus.set_element = lambda *a, **k: (calls.append(a), original(*a, **k))[1]
+        try:
+            assert dss_13bus.get_phase_losses("650632", element="Line") == first
+            assert dss_13bus.get_element_losses("650632", element="Line")
+            assert calls == [], "o elemento foi reativado para uma leitura já em cache"
+        finally:
+            dss_13bus.set_element = original
+
+
 class TestMosaikAttributeExtraction:
     def test_registry_reader_uses_real_phase(self, dss_13bus):
         """The registry reader maps to the element's node, not to position."""

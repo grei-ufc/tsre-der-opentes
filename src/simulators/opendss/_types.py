@@ -20,14 +20,23 @@ class ElementSnapshot:
     Holds the terminal layout together with the raw ``powers`` and
     ``currents_mag_ang`` arrays, so every per-phase quantity of the element can
     be derived without going back to the engine.
+
+    As perdas ficam de fora dessa primeira visita: são duas leituras a mais por
+    elemento, e só as linhas e os transformadores as expõem. Pagá-las em toda
+    leitura de potência sairia caro num alimentador de 123 barras para nada.
+    :meth:`~._reader.ReaderMixin._element_losses` as preenche na primeira vez
+    que alguém pedir, e o cache vale até a próxima solução como o resto.
     """
 
     full_name: str
     n_cond: int
     n_term: int
+    n_phases: int
     node_order: list[int]
     powers: Any
     currents_mag_ang: Any
+    losses: Any = None
+    phase_losses: Any = None
 
 
 @dataclass

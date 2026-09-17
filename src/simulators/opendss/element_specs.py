@@ -24,8 +24,13 @@ SOURCE_P_SUM = "p_sum"
 SOURCE_Q_SUM = "q_sum"
 SOURCE_I_MAG = "i_mag"
 SOURCE_I_ANG = "i_ang"
+SOURCE_P_LOSS = "p_loss"
+SOURCE_Q_LOSS = "q_loss"
+SOURCE_P_LOSS_SUM = "p_loss_sum"
+SOURCE_Q_LOSS_SUM = "q_loss_sum"
 
 _POWER_SOURCES = (SOURCE_P, SOURCE_Q, SOURCE_P_SUM, SOURCE_Q_SUM)
+_LOSS_SOURCES = (SOURCE_P_LOSS, SOURCE_Q_LOSS, SOURCE_P_LOSS_SUM, SOURCE_Q_LOSS_SUM)
 
 
 # ----------------------------------------------------------------------
@@ -119,6 +124,10 @@ def phase_attr_map(
     i_ang: tuple[str, ...] = (),
     p_total: tuple[str, ...] = (),
     q_total: tuple[str, ...] = (),
+    p_loss: tuple[str, ...] = (),
+    q_loss: tuple[str, ...] = (),
+    p_loss_total: tuple[str, ...] = (),
+    q_loss_total: tuple[str, ...] = (),
     sign: int = 1,
     scale: float = 1.0,
 ) -> dict[str, tuple[str, int, float]]:
@@ -128,6 +137,9 @@ def phase_attr_map(
         p, q: Nomes dos atributos de potência ativa/reativa por fase.
         i_mag, i_ang: Nomes dos atributos de módulo/ângulo de corrente por fase.
         p_total, q_total: Nomes dos atributos de total somado nas fases.
+        p_loss, q_loss: Nomes dos atributos de perda ativa/reativa por fase.
+        p_loss_total, q_loss_total: Nomes dos atributos de perda total do
+            elemento.
         sign: ``-1`` inverte a convenção do OpenDSS para injeção positiva.
         scale: Fator de unidade aplicado aos totais (ex.: ``1/1000`` para MW).
 
@@ -145,9 +157,20 @@ def phase_attr_map(
         for index, attr in enumerate(names):
             mapping[attr] = (source, index, 1.0)
 
+    # Perda é dissipação, sempre positiva no sentido do elemento: nem o `sign`
+    # da injeção nem o `scale` dos totais se aplicam. A escala fica de fora
+    # porque o nome do atributo de perda já carrega a unidade em que ele sai.
+    for source, names in ((SOURCE_P_LOSS, p_loss), (SOURCE_Q_LOSS, q_loss)):
+        for index, attr in enumerate(names):
+            mapping[attr] = (source, index, 1.0)
+
     for source, names in ((SOURCE_P_SUM, p_total), (SOURCE_Q_SUM, q_total)):
         for attr in names:
             mapping[attr] = (source, 0, sign * scale)
+
+    for source, names in ((SOURCE_P_LOSS_SUM, p_loss_total), (SOURCE_Q_LOSS_SUM, q_loss_total)):
+        for attr in names:
+            mapping[attr] = (source, 0, 1.0)
 
     return mapping
 
@@ -160,8 +183,9 @@ def phase_attr_map(
 def read_phases(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[str, Any]:
     """Lê grandezas por fase de um elemento, buscando só as fontes necessárias.
 
-    Potências e correntes vêm de chamadas distintas ao motor, então cada uma é
-    buscada apenas se algum atributo pedido depender dela — e no máximo uma vez.
+    Potências, correntes e perdas vêm de chamadas distintas ao motor, então cada
+    uma é buscada apenas se algum atributo pedido depender dela — e no máximo
+    uma vez.
     """
     cache: dict[str, list[float]] = {}
 
@@ -177,6 +201,17 @@ def read_phases(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[s
                 # contaminaria o total de todo elemento que não é trifásico.
                 cache[SOURCE_P_SUM] = [sum_phases(values_p)]
                 cache[SOURCE_Q_SUM] = [sum_phases(values_q)]
+            elif kind in _LOSS_SOURCES:
+                # Perda é do elemento inteiro, não de um terminal: o `terminal`
+                # do spec não entra aqui.
+                loss_p, loss_q = sim.dss_wrapper.get_phase_losses(name, element=spec.dss_class)
+                cache[SOURCE_P_LOSS] = loss_p
+                cache[SOURCE_Q_LOSS] = loss_q
+                # O total vem do motor, e não da soma das fases: ele conta
+                # também o neutro. Ver `get_element_losses`.
+                total_p, total_q = sim.dss_wrapper.get_element_losses(name, element=spec.dss_class)
+                cache[SOURCE_P_LOSS_SUM] = [total_p]
+                cache[SOURCE_Q_LOSS_SUM] = [total_q]
             else:
                 mags, angs = sim.dss_wrapper.get_phase_currents(
                     name, element=spec.dss_class, terminal=spec.terminal
@@ -420,11 +455,17 @@ MODEL_SPECS: dict[str, ModelSpec] = {
     "Line": ModelSpec(
         dss_class="Line",
         reader=read_phases,
+        # As perdas saem em kW/kvar, e o nome diz isso: o sufixo `_w` das
+        # potências é herdado e não corresponde à unidade que o motor entrega.
         attr_map=phase_attr_map(
             p=("P1_w", "P2_w", "P3_w"),
             q=("Q1_var", "Q2_var", "Q3_var"),
             i_mag=("I1_A", "I2_A", "I3_A"),
             i_ang=("I1_ang", "I2_ang", "I3_ang"),
+            p_loss=("Ploss1_kw", "Ploss2_kw", "Ploss3_kw"),
+            q_loss=("Qloss1_kvar", "Qloss2_kvar", "Qloss3_kvar"),
+            p_loss_total=("Ploss_kw",),
+            q_loss_total=("Qloss_kvar",),
         ),
     ),
     "Transformer": ModelSpec(
@@ -442,6 +483,12 @@ MODEL_SPECS: dict[str, ModelSpec] = {
             i_ang=("I1_ang", "I2_ang", "I3_ang"),
             p_total=("P_total_kw",),
             q_total=("Q_total_kvar",),
+            # Perda do transformador inteiro (cobre + ferro), e não de um
+            # enrolamento: é o que sobra entre os dois lados.
+            p_loss=("Ploss1_kw", "Ploss2_kw", "Ploss3_kw"),
+            q_loss=("Qloss1_kvar", "Qloss2_kvar", "Qloss3_kvar"),
+            p_loss_total=("Ploss_kw",),
+            q_loss_total=("Qloss_kvar",),
         ),
     ),
     "RegControl": ModelSpec(

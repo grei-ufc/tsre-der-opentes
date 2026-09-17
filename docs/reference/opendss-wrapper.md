@@ -72,6 +72,37 @@ Retorna as perdas totais do circuito.
 
 **Retorno**: `tuple[float, float]` — `(P_kW, Q_kvar)`
 
+#### `get_element_losses(name, element="Line")`
+
+Retorna a perda total de **um** elemento — o que entra por um terminal e não
+sai pelo outro. Só faz sentido físico em elementos série (`Line`,
+`Transformer`); num elemento shunt de um terminal o mesmo cálculo devolve a
+própria potência do elemento.
+
+```python
+dss.get_element_losses("650632", "Line")        # (kW, kvar)
+dss.get_element_losses("xfm1", "Transformer")
+```
+
+**Retorno**: `tuple[float, float]` — `(P_kW, Q_kvar)`
+
+!!! warning "Unidades"
+    O motor reporta este par em **W/var** e o de `get_phase_losses()` em
+    **kW/kvar**. A conversão acontece no wrapper, e as duas leituras saem daqui
+    na mesma unidade.
+
+#### `get_phase_losses(name, element="Line")`
+
+Mesma perda, repartida por fase. Não tem argumento `terminal`: a perda é do
+elemento inteiro.
+
+**Retorno**: `tuple[list[float], list[float]]` — `([P1, P2, P3], [Q1, Q2, Q3])`
+em kW e kvar; a fase que o elemento não tem é `NaN`.
+
+O total do motor conta também o neutro, que as parcelas por fase não percorrem
+— com neutro solidamente aterrado os dois coincidem. A parcela de uma fase pode
+sair negativa sob acoplamento mútuo forte com correntes desequilibradas.
+
 #### `get_total_power(element)`
 
 Retorna a potência agregada de todos os elementos de uma classe.

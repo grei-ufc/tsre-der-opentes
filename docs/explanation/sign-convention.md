@@ -55,3 +55,15 @@ Para linhas (Line) e barras (Bus), os valores são extraídos diretamente sem in
 - **Barras**: tensões por fase (V1_pu, V2_pu, V3_pu)
 
 Esses valores não representam geração, então não precisam de inversão.
+
+## Perdas
+
+As perdas de linhas e transformadores (`Ploss_kw`, `Qloss_kvar` e as parcelas
+por fase) também saem sem inversão: perda é dissipação, e o total é positivo
+qualquer que seja o sentido do fluxo — inclusive quando a geração distribuída
+inverte o fluxo do trecho.
+
+A exceção aparente é a parcela de **uma** fase, que pode sair negativa em
+linhas com acoplamento mútuo forte e correntes desequilibradas: parte da perda
+é atribuída à fase vizinha. Isso é repartição, não sinal — o total continua
+positivo.

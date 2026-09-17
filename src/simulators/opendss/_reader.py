@@ -91,11 +91,38 @@ class ReaderMixin:
                 full_name=self.dss.cktelement.name,
                 n_cond=self.dss.cktelement.num_conductors,
                 n_term=self.dss.cktelement.num_terminals,
+                n_phases=self.dss.cktelement.num_phases,
                 node_order=list(self.dss.cktelement.node_order),
                 powers=self.dss.cktelement.powers,
                 currents_mag_ang=self.dss.cktelement.currents_mag_ang,
             )
             self._snapshot.elements[key] = snapshot
+
+        return snapshot
+
+    def _element_losses_snapshot(self, name: str, element: str) -> ElementSnapshot:
+        """Snapshot of *element* with the loss arrays filled in.
+
+        Losses cost two engine reads that most elements never need, so they are
+        fetched the first time they are asked for rather than with the rest of
+        the snapshot. Both arrays come from the same visit: a caller wanting the
+        per-phase breakdown almost always wants the total next to it, and the
+        two are only comparable when they describe the same solution.
+
+        Args:
+            name: Element name.
+            element: Element class.
+
+        Returns:
+            The cached :class:`ElementSnapshot`, with ``losses`` and
+            ``phase_losses`` populated.
+        """
+        snapshot = self._element_snapshot(name, element)
+
+        if snapshot.losses is None:
+            self.set_element(name, element)
+            snapshot.losses = self.dss.cktelement.losses
+            snapshot.phase_losses = self.dss.cktelement.phase_losses
 
         return snapshot
 
@@ -292,6 +319,60 @@ class ReaderMixin:
         nodes, values = self._terminal_nodes_and_slice(snapshot, terminal)
         currents = snapshot.currents_mag_ang[values]
         return map_to_phases(nodes, currents[0::2]), map_to_phases(nodes, currents[1::2])
+
+    def get_phase_losses(self, name: str, element: str = "Line") -> tuple[list[float], list[float]]:
+        """Power lost inside one element, broken down per phase.
+
+        A perda é do elemento inteiro, e não de um terminal: o motor soma
+        ``V·conj(I)`` sobre todos os terminais, que é justamente o que sobra
+        entre o que entra por um lado e o que sai pelo outro. Por isso não há
+        argumento ``terminal`` aqui, ao contrário de :meth:`get_phase_powers`.
+
+        Só faz sentido físico em elementos série — ``Line`` e ``Transformer``.
+        Num elemento shunt de um terminal (carga, PV, bateria) o mesmo cálculo
+        devolve a própria potência do elemento, não uma perda.
+
+        A parcela de uma fase pode ser negativa em linhas com acoplamento mútuo
+        forte e correntes desequilibradas: parte da perda é atribuída à fase
+        vizinha. É a repartição que fica estranha, não o total.
+
+        Args:
+            name: Element name.
+            element: Element class (``'Line'``, ``'Transformer'``).
+
+        Returns:
+            Tuple ``([P1, P2, P3], [Q1, Q2, Q3])`` in **kW and kvar**; phases
+            the element does not have are :data:`~._utils.ABSENT` (``NaN``).
+        """
+        snapshot = self._element_losses_snapshot(name, element)
+
+        # O motor entrega 2*num_phases valores, [P1, Q1, P2, Q2, ...], na ordem
+        # dos condutores do terminal 1 — daí o corte do node_order.
+        nodes = snapshot.node_order[: snapshot.n_phases]
+        values = snapshot.phase_losses
+        return map_to_phases(nodes, values[0::2]), map_to_phases(nodes, values[1::2])
+
+    def get_element_losses(self, name: str, element: str = "Line") -> tuple[float, float]:
+        """Total power lost inside one element.
+
+        O escalar que acompanha :meth:`get_phase_losses`, e não a soma dela: o
+        motor conta aqui todos os condutores, o neutro inclusive, enquanto a
+        versão por fase só percorre os condutores de fase. Num neutro
+        solidamente aterrado as duas coincidem; num neutro flutuante, que tem
+        tensão própria, o total é o número correto.
+
+        Args:
+            name: Element name.
+            element: Element class (``'Line'``, ``'Transformer'``).
+
+        Returns:
+            Tuple ``(P, Q)`` in **kW and kvar**. O motor reporta este par em
+            W/var — ao contrário do de :meth:`get_phase_losses`, que já vem em
+            kW/kvar —, e a conversão acontece aqui para que as duas leituras
+            saiam do wrapper na mesma unidade.
+        """
+        p_w, q_var = self._element_losses_snapshot(name, element).losses
+        return p_w / 1000.0, q_var / 1000.0
 
     def get_power_total(
         self, name: str, element: str = "Load", terminal: int = 1

@@ -33,7 +33,10 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
             "public": False,
             "params": [],
             "attrs": ["is_open", "I1_A", "I1_ang", "I2_A", "I2_ang", "I3_A", "I3_ang",
-                       "P1_w", "Q1_var", "P2_w", "Q2_var", "P3_w", "Q3_var"],
+                       "P1_w", "Q1_var", "P2_w", "Q2_var", "P3_w", "Q3_var",
+                       "Ploss1_kw", "Ploss2_kw", "Ploss3_kw",
+                       "Qloss1_kvar", "Qloss2_kvar", "Qloss3_kvar",
+                       "Ploss_kw", "Qloss_kvar"],
         },
         "Bus": {
             "public": False,
@@ -46,7 +49,10 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
             "params": [],
             "attrs": ["P1_kw", "P2_kw", "P3_kw", "Q1_kvar", "Q2_kvar", "Q3_kvar",
                        "I1_A", "I2_A", "I3_A", "I1_ang", "I2_ang", "I3_ang",
-                       "P_total_kw", "Q_total_kvar"],
+                       "P_total_kw", "Q_total_kvar",
+                       "Ploss1_kw", "Ploss2_kw", "Ploss3_kw",
+                       "Qloss1_kvar", "Qloss2_kvar", "Qloss3_kvar",
+                       "Ploss_kw", "Qloss_kvar"],
         },
         "RegControl": {
             "public": False,
@@ -114,6 +120,9 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Line | `I1_A..I3_A` | `float` | Corrente por fase (A) |
 | Line | `P1_w..P3_w` | `float` | Potência ativa por fase (W) |
 | Line | `Q1_var..Q3_var` | `float` | Potência reativa por fase (var) |
+| Line | `Ploss1_kw..Ploss3_kw` | `float` | Perda ativa por fase (kW) |
+| Line | `Qloss1_kvar..Qloss3_kvar` | `float` | Perda reativa por fase (kvar) |
+| Line | `Ploss_kw`, `Qloss_kvar` | `float` | Perda total da linha (kW / kvar) |
 | Bus | `V1_pu..V3_pu` | `float` | Tensão por fase (p.u.); `0.0` na fase que a barra não tem |
 | Bus | `V1_ang..V3_ang` | `float` | Ângulo por fase (graus) |
 | Bus | `V_min_pu`, `V_max_pu`, `V_mean_pu` | `float` | Extremos e média entre as **fases presentes** |
@@ -122,6 +131,9 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Transformer | `Q1_kvar..Q3_kvar` | `float` | Potência reativa por fase no enrolamento 1 (kvar) |
 | Transformer | `I1_A..I3_A` | `float` | Corrente por fase (A) |
 | Transformer | `P_total_kw`, `Q_total_kvar` | `float` | Soma das fases |
+| Transformer | `Ploss1_kw..Ploss3_kw` | `float` | Perda ativa por fase (kW) |
+| Transformer | `Qloss1_kvar..Qloss3_kvar` | `float` | Perda reativa por fase (kvar) |
+| Transformer | `Ploss_kw`, `Qloss_kvar` | `float` | Perda total do transformador (kW / kvar) |
 | RegControl | `v_meas` | `complex` | Tensão medida no alvo |
 | RegControl | `i_meas` | `complex` | Corrente medida no primário |
 | RegControl | `tap` | `int` | Posição atual do tap |
@@ -133,7 +145,19 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Storage | `Q_act` | `float` | Potência reativa atual (kvar) |
 | Storage | `SoC` | `float` | Estado de carga (%) |
 
----
+!!! info "Perdas"
+    A perda é do elemento inteiro, e não de um terminal: é o que entra por um
+    lado e não sai pelo outro. Por isso só `Line` e `Transformer` a expõem —
+    num elemento shunt de um terminal o mesmo cálculo devolveria a própria
+    potência do elemento.
+
+    `Ploss_kw` vem do motor, e não da soma das parcelas por fase: ele conta
+    também o neutro, que as parcelas por fase não percorrem. As duas coincidem
+    com neutro solidamente aterrado.
+
+    A parcela de uma fase pode sair **negativa** em linhas com acoplamento
+    mútuo forte e correntes desequilibradas — parte da perda é atribuída à fase
+    vizinha. É a repartição que fica estranha, não o total.
 
 ## Inverter
 

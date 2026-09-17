@@ -136,6 +136,64 @@ class TestPhaseAttrMap:
         mapping = phase_attr_map(p_total=("P_out_mw",), scale=1 / 1000.0)
         assert mapping["P_out_mw"] == ("p_sum", 0, 0.001)
 
+    def test_losses_ignore_sign_and_scale(self):
+        """Perda é dissipação: não é injeção que se inverta nem total que se reescale.
+
+        O nome do atributo de perda já traz a unidade, então herdar o `scale`
+        dos totais faria um `Ploss_kw` sair em MW.
+        """
+        mapping = phase_attr_map(
+            p_loss=("Ploss1_kw",),
+            p_loss_total=("Ploss_kw",),
+            sign=-1,
+            scale=1 / 1000.0,
+        )
+
+        assert mapping["Ploss1_kw"] == ("p_loss", 0, 1.0)
+        assert mapping["Ploss_kw"] == ("p_loss_sum", 0, 1.0)
+
+
+class TestLosses:
+    """As perdas chegando ao cenário pelo caminho do mosaik."""
+
+    @pytest.mark.parametrize("model", ["Line", "Transformer"])
+    def test_series_models_expose_losses(self, model):
+        attrs = set(build_meta()["models"][model]["attrs"])
+
+        assert {"Ploss_kw", "Qloss_kvar", "Ploss1_kw", "Qloss1_kvar"} <= attrs
+
+    @pytest.mark.parametrize("model", ["Load", "PVSystem", "Storage", "Bus"])
+    def test_shunt_models_do_not(self, model):
+        """Num elemento de um terminal o mesmo cálculo devolve a potência dele.
+
+        Seria uma "perda" do tamanho da carga — um número plausível e errado.
+        """
+        assert not [a for a in build_meta()["models"][model]["attrs"] if "loss" in a.lower()]
+
+    def test_line_loss_is_the_power_that_does_not_arrive(self, sim):
+        """Confere a unidade contra as potências do próprio adaptador."""
+        eid = "Line-650632"
+        data = sim.get_data({eid: ["P1_w", "P2_w", "P3_w", "Ploss_kw", "Ploss1_kw"]})[eid]
+        # Em módulo: com os PVs do circuito despachando, o fluxo desta linha se
+        # inverte, e o que interessa aqui é a ordem de grandeza.
+        passante = abs(
+            sum(v for v in (data["P1_w"], data["P2_w"], data["P3_w"]) if not math.isnan(v))
+        )
+
+        # A linha 650632 carrega o alimentador inteiro: a perda é uma fração
+        # pequena do que passa por ela, e não da ordem dela.
+        assert 0 < data["Ploss_kw"] < 0.1 * passante
+        assert data["Ploss1_kw"] <= data["Ploss_kw"]
+
+    def test_absent_phases_are_absent_not_zero(self, sim):
+        """Mesma convenção do resto do adaptador: a fase que não existe é NaN."""
+        # Line.684652 é monofásica na fase 1.
+        data = sim.get_data({"Line-684652": ["Ploss1_kw", "Ploss2_kw", "Ploss3_kw"]})["Line-684652"]
+
+        assert not math.isnan(data["Ploss1_kw"])
+        assert math.isnan(data["Ploss2_kw"])
+        assert math.isnan(data["Ploss3_kw"])
+
 
 class TestGeneratedMeta:
     def test_meta_has_every_model(self):
