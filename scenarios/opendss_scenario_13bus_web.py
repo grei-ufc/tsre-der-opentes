@@ -1,6 +1,6 @@
 """Smoke test da visualização web: IEEE13 com as três tensões de fase.
 
-É o cenário mínimo que exercita o caminho inteiro — grafo de entidades do
+É o cenário mínimo que exercita o caminho inteiro: grafo de entidades do
 OpenDSS -> topologia D3 -> WebSocket -> navegador. Use-o para verificar que a
 visualização sobe antes de investigar problemas nos cenários maiores.
 
@@ -16,7 +16,8 @@ import warnings
 from pathlib import Path
 
 import mosaik
-from mosaik.util import connect_many_to_one
+
+from simulators.opendss.visualization import PRESETS, attach_webvis
 
 # Ver o comentário em opendss_scenario_34bus_web.py: o aviso de "simulation too
 # slow" dispara com qualquer atraso positivo, por menor que seja, e não indica
@@ -53,18 +54,9 @@ SIM_CONFIG = {
     },
 }
 
-# As três fases da barra, uma por setor do nó. Com um atributo só — como era
-# este cenário antes — não há o que dividir, e o desenho volta a ser um disco.
-BUS_ETYPE = {
-    "cls": "pqbus",
-    "attrs": ["V1_pu", "V2_pu", "V3_pu"],
-    "series": ["A", "B", "C"],
-    "aggregate": "min",
-    "unit": "V [pu]",
-    "default": 1.0,
-    "min": 0.93,
-    "max": 1.05,
-    "spread_max": 0.05,
+# A faixa de tensão deste alimentador é mais estreita que a do preset.
+SHOW = {
+    "Bus": {**PRESETS["Bus"], "min": 0.93, "max": 1.05},
 }
 
 
@@ -84,29 +76,7 @@ def run_scenario():
         )
 
         grid = dss_sim.Grid()
-        children = list(grid.children)
-
-        webvis.set_config(
-            # Cargas e reguladores existem no circuito, mas ficam fora do
-            # desenho: aqui interessam as barras e as ligações entre elas.
-            ignore_types=["Grid", "Topology", "Load", "RegControl"],
-            # Linha e transformador são ligações entre barras, não nós. Sem
-            # incluir o transformador, 650 <-> rg60 (reguladores) e 633 <-> 634
-            # (XFM1) ficariam sem aresta e o desenho sairia em pedaços.
-            merge_types=["Line", "Transformer"],
-            timeline_hours=24,
-        )
-        webvis.set_etypes({"Bus": BUS_ETYPE})
-        vis_topo = webvis.Topology()
-
-        buses = [e for e in children if e.type == "Bus"]
-        connect_many_to_one(world, buses, vis_topo, *BUS_ETYPE["attrs"])
-        print(f"{len(buses)} barras conectadas à visualização.")
-
-        positions = dss_sim.get_bus_positions()
-        known = {e.full_id: positions[e.eid] for e in buses if e.eid in positions}
-        webvis.set_node_positions(known)
-        print(f"{len(known)} barras com coordenada real.")
+        attach_webvis(world, dss_sim, grid, webvis, show=SHOW)
 
         print(f"\nAbra o navegador em http://{WEB_HOST}:{WEB_PORT}/ e aguarde o primeiro passo.")
         world.run(until=END_TIME, rt_factor=RT_FACTOR, print_progress=True)

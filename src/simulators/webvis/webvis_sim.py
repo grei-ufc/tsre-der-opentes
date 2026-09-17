@@ -395,15 +395,29 @@ class Simulator(mosaik_api_v3.Simulator):
         logger.info("Topology created")
 
     def _clean_nx_graph(self, nxg):
-        """Remove and merge nodes and edges according to ``self.ignore_types``
-        and ``self.merge_types``."""
+        """Remove e funde nós conforme a configuração.
+
+        [OpenTES] Com ``etypes`` configurado, só é desenhado o que ele lista,
+        mais os ``merge_types``, que viram arestas. O upstream desenhava tudo o
+        que não estivesse em ``ignore_types``, o que obrigava o cenário a manter
+        duas listas em acordo: um tipo esquecido ali virava um círculo cinza sem
+        dado, e um simulador auxiliar (controlador, inversor, coletor) aparecia
+        pendurado no alimentador. ``ignore_types`` e ``ignore_names`` continuam
+        valendo, para compatibilidade e para esconder uma entidade específica.
+
+        A remoção vem antes da fusão: uma linha ligada ao coletor tem três
+        vizinhos até o coletor sair do grafo.
+        """
         self._merge_nodes(nxg, [n for n in nxg.nodes if n in self.config["merge_nodes"]])
 
+        drawable = self._drawable_types()
         nxg.remove_nodes_from(
             [
                 n
                 for n, d in nxg.nodes.items()
-                if d["type"] in self.config["ignore_types"] or n in self.config["ignore_names"]
+                if d["type"] in self.config["ignore_types"]
+                or n in self.config["ignore_names"]
+                or (drawable is not None and d["type"] not in drawable)
             ]
         )
 
@@ -411,6 +425,17 @@ class Simulator(mosaik_api_v3.Simulator):
             nxg,
             [n for n, d in nxg.nodes.items() if d["type"] in self.config["merge_types"]],
         )
+
+    def _drawable_types(self):
+        """Tipos que podem aparecer no desenho, ou ``None`` para todos.
+
+        Sem ``etypes`` vale o comportamento do upstream: desenha-se tudo o que
+        não foi ignorado.
+        """
+        etypes = self.config["etypes"]
+        if not etypes:
+            return None
+        return set(etypes) | set(self.config["merge_types"])
 
     def _merge_nodes(self, nxg, nodes):
         """Substitui cada nó por uma aresta ligando seus dois vizinhos.

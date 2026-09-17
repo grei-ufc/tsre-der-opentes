@@ -19,7 +19,8 @@ SIM_CONFIG = {
 }
 
 webvis = world.start("WebVis", start_date="2025-01-01 00:00:00", step_size=300)
-webvis.set_config(ignore_types=["Grid", "Topology", "Monitor"], merge_types=["Line"])
+# Só os tipos de set_etypes são desenhados; Grid, Topology e o coletor saem sozinhos.
+webvis.set_config(merge_types=["Line"])
 webvis.set_etypes(
     {
         "Bus": {
@@ -75,10 +76,14 @@ Todas marcadas com `[OpenTES]` no código.
   navegador alternar entre as fases sem refazer a simulação.
 - **Agregação configurável** (`aggregate`): `first`, `min`, `max`, `mean` ou
   `spread`.
-- **`ignore_zero`.** O OpenDSS reporta `0.0` na fase que a barra não tem; sem
-  descartá-la, todo ramal monofásico apareceria como tensão colapsada. Ligado
-  por padrão só quando há mais de um atributo, porque num atributo único (uma
-  potência, um tap) o zero é um valor legítimo.
+- **Fase ausente é `NaN`, zero é zero.** O adaptador reporta `NaN` na fase que
+  o elemento não tem, e o backend a envia como `null` (o `JSON.parse` do
+  navegador rejeita `NaN`). O zero medido é tratado como qualquer valor: um
+  inversor ao amanhecer aparece desde o primeiro passo.
+- **Allow-list.** Com `set_etypes` chamado, só são desenhados os tipos que ele
+  lista, mais os `merge_types`. O upstream desenhava tudo o que não estivesse em
+  `ignore_types`, e um tipo esquecido ali virava um círculo cinza sem dado.
+  `ignore_types` e `ignore_names` continuam aceitos.
 - **`set_node_positions`.** Coordenadas reais das barras, normalizadas para o
   quadrado unitário **sem distorcer a proporção** — normalizar cada eixo pela
   sua própria extensão esticaria um alimentador longo e estreito até virar um

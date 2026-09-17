@@ -14,6 +14,8 @@ OUTPUT_DIR = PROJECT_ROOT / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 ARQUIVO_RESULTADOS_CSV = OUTPUT_DIR / "result_run_ieee123_cosim_5min.csv"
+JSON_OUTPUT = OUTPUT_DIR / "topologia_ieee123.json"
+
 # ARQUIVO_RESULTADOS_CSV = OUTPUT_DIR / "result_run_ieee123_cosim_5min_edited.csv"
 
 START_DATE = "2024-01-01 00:00:00"
@@ -40,7 +42,9 @@ def run_scenario():
         print("--- Inicializando Simuladores ---")
 
         # 1. Iniciando OpenDSS
-        dss_sim = world.start("DSS", topofile=str(CIRCUITO_DSS), step_size=STEP_SIZE)
+        dss_sim = world.start("DSS", topofile=str(CIRCUITO_DSS),
+                              step_size=STEP_SIZE,
+                              output_graph_path=str(JSON_OUTPUT))
 
         # 2. Iniciando Coletor
         collector = world.start(
@@ -92,7 +96,7 @@ def run_scenario():
 
         print(f"\nInicializando simulação de {N_PASSOS} para (Step={STEP_SIZE}...)")
 
-        world.run(until=END_TIME, print_progress=False)
+        world.run(until=END_TIME, print_progress=True)
         print("Simulação concluída.")
 
         # --- Check Rápido ---

@@ -6,6 +6,7 @@ These tests pin the model-derived behaviour that replaced it.
 """
 
 import datetime as dt
+import json
 import pathlib
 import sys
 
@@ -13,6 +14,7 @@ import pytest
 
 sys.path.insert(0, "src")
 
+from simulators.opendss.graph_model import serialize_graph
 from simulators.opendss.opendss_wrapper import OpenDSS
 from simulators.opendss.topology_builder import build_graph, get_source_bus
 
@@ -145,6 +147,34 @@ class TestNodeMetadata:
         assert node.metadata["num_nodes"] > 0
         assert "x" in node.metadata
         assert "y" in node.metadata
+
+    def test_defined_coordinates_are_numbers(self, ieee123):
+        located = [n for n in ieee123.graph.nodes.values() if n.metadata["coord_defined"]]
+        assert located
+
+        for node in located:
+            assert isinstance(node.metadata["x"], float)
+            assert isinstance(node.metadata["y"], float)
+
+    def test_missing_coordinates_are_null_not_origin(self, ieee123):
+        """Barra fora do BusCoords: o OpenDSS diz (0, 0), que não é uma posição.
+
+        No IEEE123, ``300_open`` e ``94_open`` são artefatos das chaves abertas e
+        não constam do ``BusCoords.dat``.
+        """
+        unlocated = [n for n in ieee123.graph.nodes.values() if not n.metadata["coord_defined"]]
+        assert unlocated, "o IEEE123 deveria ter barras sem coordenada"
+
+        for node in unlocated:
+            assert node.metadata["x"] is None
+            assert node.metadata["y"] is None
+
+    def test_missing_coordinates_serialize_as_json_null(self, ieee123):
+        payload = json.loads(json.dumps(serialize_graph(ieee123.graph), allow_nan=False))
+        unlocated = [n for n in payload["nodes"] if not n["metadata"]["coord_defined"]]
+
+        assert unlocated
+        assert all(n["metadata"]["x"] is None and n["metadata"]["y"] is None for n in unlocated)
 
     def test_edges_carry_phase_count(self, ieee13):
         for edge in ieee13.graph.edges.values():

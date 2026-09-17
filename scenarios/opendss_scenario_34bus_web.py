@@ -7,10 +7,11 @@ canto superior direito trocando qual grandeza colore o mapa. Clicar num nó abre
 a linha do tempo com uma curva por fase.
 
 O IEEE34 é um bom caso para isso: tem dois bancos de reguladores, ramais
-monofásicos e um desequilíbrio de tensão visível entre as fases.
+monofásicos e um desequilíbrio de tensão visível entre as fases. Os
+reguladores atuam em malha fechada, mas não são desenhados.
 
-Para um desenho mais limpo, acrescente ``"Load"`` a ``ignore_types``: as 68
-cargas somem e ficam só as barras e os reguladores.
+Para um desenho mais limpo, tire ``"Load"`` de :data:`SHOW`: as 68 cargas somem
+e ficam só as barras.
 """
 
 import sys
@@ -18,7 +19,8 @@ import warnings
 from pathlib import Path
 
 import mosaik
-from mosaik.util import connect_many_to_one
+
+from simulators.opendss.visualization import PRESETS, attach_webvis
 
 # O mosaik avisa em todo passo em que a simulação está atrasada em relação ao
 # rt_factor, mesmo que por microssegundos: `scheduler.rt_check` dispara com
@@ -64,40 +66,9 @@ SIM_CONFIG = {
     },
 }
 
-ETYPES = {
-    "Bus": {
-        "cls": "pqbus",
-        "attrs": ["V1_pu", "V2_pu", "V3_pu"],
-        "series": ["A", "B", "C"],
-        # A fase mais baixa é a que decide se a barra está em conformidade.
-        "aggregate": "min",
-        "unit": "V [pu]",
-        "default": 1.0,
-        "min": 0.90,
-        "max": 1.10,
-        # Escala do botão "desb": 5% de amplitude entre fases já é muito.
-        "spread_max": 0.05,
-    },
-    "Load": {
-        "cls": "load",
-        "attrs": ["P_out_mw"],
-        "unit": "P [MW]",
-        "default": 0,
-        "min": 0,
-        "max": 0.2,
-        # Menor que as barras: a carga é o que se pendura na rede, não um ponto
-        # dela. Sem isso os dois tipos ficam do mesmo tamanho no desenho.
-        "radius": 5,
-    },
-    "RegControl": {
-        "cls": "special",
-        "attrs": ["tap"],
-        "unit": "tap",
-        "default": 0,
-        "min": -16,
-        "max": 16,
-        "radius": 6,
-    },
+SHOW = {
+    "Bus": PRESETS["Bus"],
+    "Load": {**PRESETS["Load"], "max": 0.2},
 }
 
 
@@ -126,7 +97,7 @@ def run_scenario():
         children = list(grid.children)
 
         connect_regulators(world, dss_sim, reg_sim, children)
-        connect_visualization(world, dss_sim, webvis, children)
+        attach_webvis(world, dss_sim, grid, webvis, show=SHOW)
 
         print(f"\nAbra o navegador em http://{WEB_HOST}:{WEB_PORT}/ e aguarde o primeiro passo.")
         world.run(until=END_TIME, rt_factor=RT_FACTOR, print_progress=False)
@@ -182,33 +153,6 @@ def connect_regulators(world, dss_sim, reg_sim, children):
         world.connect(ctrl_entity, dss_entity, ("tap_cmd", "tap"))
 
         print(f"  -> {info['name']} @ {info['target_bus']}.{info['target_phase']}")
-
-
-def connect_visualization(world, dss_sim, webvis, children):
-    """Liga as entidades do circuito à topologia desenhada no navegador."""
-    webvis.set_config(
-        # O Grid é só o contêiner das entidades, e o RegController é o
-        # controlador Python: nenhum dos dois é parte da rede desenhada.
-        ignore_types=["Grid", "Topology", "RegController"],
-        # Linha e transformador são ligações entre barras, não nós do desenho.
-        merge_types=["Line", "Transformer"],
-        timeline_hours=24,
-    )
-    webvis.set_etypes(ETYPES)
-
-    vis_topo = webvis.Topology()
-
-    for model_type, conf in ETYPES.items():
-        entities = [e for e in children if e.type == model_type]
-        if not entities:
-            continue
-        connect_many_to_one(world, entities, vis_topo, *conf["attrs"])
-        print(f"{len(entities):>3} {model_type} conectadas à visualização")
-
-    positions = dss_sim.get_bus_positions()
-    known = {e.full_id: positions[e.eid] for e in children if e.eid in positions}
-    webvis.set_node_positions(known)
-    print(f"{len(known):>3} barras com coordenada real (as demais ficam no layout de forças)")
 
 
 if __name__ == "__main__":

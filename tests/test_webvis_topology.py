@@ -312,6 +312,76 @@ class TestNormalizePositions:
         assert normalize_positions({}) == {}
 
 
+ONLY_BUSES = {"Bus": {"attrs": ["V1_pu"]}}
+
+
+class TestAllowList:
+    """Com ``etypes`` configurado, só o que ele lista é desenhado."""
+
+    def test_types_outside_etypes_are_not_drawn(self, sim):
+        """Controladores e o próprio Topology saem sem ninguém listá-los."""
+        nxg = make_graph(
+            {
+                "DSS-0.Bus-650": "Bus",
+                "DSS-0.Load-671": "Load",
+                "Ctrl-0.RegController-0": "RegController",
+                "Web-0.topo": "Topology",
+            },
+            [("DSS-0.Load-671", "DSS-0.Bus-650")],
+        )
+        sim.set_etypes(ONLY_BUSES)
+        sim._clean_nx_graph(nxg)
+
+        assert set(nxg.nodes) == {"DSS-0.Bus-650"}
+
+    def test_merge_types_survive_the_allow_list(self, sim):
+        nxg = make_graph(
+            {"DSS-0.Bus-650": "Bus", "DSS-0.Line-650632": "Line", "DSS-0.Bus-632": "Bus"},
+            [("DSS-0.Bus-650", "DSS-0.Line-650632"), ("DSS-0.Line-650632", "DSS-0.Bus-632")],
+        )
+        sim.set_config(merge_types=["Line"])
+        sim.set_etypes(ONLY_BUSES)
+        sim._clean_nx_graph(nxg)
+
+        assert nxg.has_edge("DSS-0.Bus-650", "DSS-0.Bus-632")
+
+    def test_an_unlisted_collector_does_not_block_a_merge(self, sim):
+        """A linha monitorada tem três vizinhos até o coletor sair do grafo."""
+        nxg = make_graph(
+            {
+                "DSS-0.Bus-650": "Bus",
+                "DSS-0.Line-650632": "Line",
+                "DSS-0.Bus-632": "Bus",
+                "Collector-0.Monitor-0": "Monitor",
+            },
+            [
+                ("DSS-0.Bus-650", "DSS-0.Line-650632"),
+                ("DSS-0.Line-650632", "DSS-0.Bus-632"),
+                ("DSS-0.Line-650632", "Collector-0.Monitor-0"),
+            ],
+        )
+        sim.set_config(merge_types=["Line"])
+        sim.set_etypes(ONLY_BUSES)
+        sim._clean_nx_graph(nxg)
+
+        assert nxg.has_edge("DSS-0.Bus-650", "DSS-0.Bus-632")
+
+    def test_without_etypes_everything_is_kept(self, sim):
+        """Sem ``etypes`` vale o comportamento do upstream."""
+        nxg = make_graph({"DSS-0.Bus-650": "Bus", "DSS-0.Load-671": "Load"}, [])
+        sim._clean_nx_graph(nxg)
+
+        assert set(nxg.nodes) == {"DSS-0.Bus-650", "DSS-0.Load-671"}
+
+    def test_ignore_names_still_hides_a_listed_type(self, sim):
+        nxg = make_graph({"DSS-0.Bus-650": "Bus", "DSS-0.Bus-611": "Bus"}, [])
+        sim.set_etypes(ONLY_BUSES)
+        sim.set_config(ignore_names=["DSS-0.Bus-611"])
+        sim._clean_nx_graph(nxg)
+
+        assert set(nxg.nodes) == {"DSS-0.Bus-650"}
+
+
 class TestD3Topology:
     def test_links_reference_nodes_by_index(self, sim):
         sim.start_date = to_iso_local("2025-01-01 00:00:00")
