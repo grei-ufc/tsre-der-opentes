@@ -149,6 +149,31 @@ class TestTransformers:
         assert nx.number_connected_components(graph) > 1
 
 
+class TestRegulators:
+    """O regulador é um elemento série: fica entre as barras do seu transformador."""
+
+    def test_regulators_sit_between_their_transformer_buses(self, children):
+        by_eid = {c["eid"].lower(): c for c in children}
+        regs = [c for c in children if c["type"] == "RegControl"]
+        assert regs, "no RegControl entities in the fixture"
+
+        for reg in regs:
+            trafo = by_eid[f"transformer-{reg['extra_info']['trafo'].lower()}"]
+            assert len(reg["rel"]) == 2
+            assert set(reg["rel"]) == set(trafo["rel"])
+
+    def test_ieee13_bank_sits_between_650_and_rg60(self, children):
+        regs = [c for c in children if c["type"] == "RegControl"]
+
+        assert {frozenset(c["rel"]) for c in regs} == {frozenset({"Bus-650", "Bus-rg60"})}
+
+    def test_the_regulated_bus_is_still_reported(self, children):
+        """O ``rel`` aponta o trecho; a barra regulada continua em ``extra_info``."""
+        regs = [c for c in children if c["type"] == "RegControl"]
+
+        assert all(c["extra_info"]["bus"] == c["extra_info"]["target_bus"] for c in regs)
+
+
 class TestExtraInfo:
     def test_every_child_has_extra_info(self, children):
         assert all(c["extra_info"] for c in children)

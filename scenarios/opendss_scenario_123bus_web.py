@@ -3,6 +3,7 @@
 O maior dos alimentadores do projeto na visualização web: 132 barras, 91 cargas
 e 7 reguladores de tensão. Cada barra é desenhada nas coordenadas reais do
 alimentador, dividida em três setores — um por fase — e colorida pela tensão.
+Os reguladores atuam em malha fechada, mas não são desenhados.
 
 Os botões no canto superior direito trocam o que colore o mapa: ``3φ`` mostra as
 três fases ao mesmo tempo, ``A``/``B``/``C`` isolam uma, e ``mín``/``máx``/
@@ -13,8 +14,8 @@ Duas barras (``300_open`` e ``94_open``) não constam do ``BusCoords.dat`` do
 IEEE123 — são artefatos das chaves abertas do circuito. Elas caem no layout de
 forças, e é normal vê-las flutuando fora do traçado do alimentador.
 
-O circuito é denso: para um desenho mais limpo, acrescente ``"Load"`` a
-``ignore_types`` e as 91 cargas somem, ficando só as barras e os reguladores.
+O circuito é denso: para um desenho mais limpo, tire ``"Load"`` de :data:`SHOW`
+e as 91 cargas somem, ficando só as barras.
 """
 
 import sys
@@ -22,7 +23,8 @@ import warnings
 from pathlib import Path
 
 import mosaik
-from mosaik.util import connect_many_to_one
+
+from simulators.opendss.visualization import PRESETS, attach_webvis
 
 # Ver o comentário em opendss_scenario_34bus_web.py: o aviso de "simulation too
 # slow" dispara com qualquer atraso positivo, por menor que seja, e não indica
@@ -63,41 +65,11 @@ SIM_CONFIG = {
     },
 }
 
-ETYPES = {
-    "Bus": {
-        "cls": "pqbus",
-        "attrs": ["V1_pu", "V2_pu", "V3_pu"],
-        "series": ["A", "B", "C"],
-        # A fase mais baixa é a que decide se a barra está em conformidade.
-        "aggregate": "min",
-        "unit": "V [pu]",
-        "default": 1.0,
-        "min": 0.90,
-        "max": 1.10,
-        # Escala do botão "desb": 5% de amplitude entre fases já é muito.
-        "spread_max": 0.05,
-    },
-    "Load": {
-        "cls": "load",
-        "attrs": ["P_out_mw"],
-        "unit": "P [MW]",
-        "default": 0,
-        "min": 0,
-        # As cargas pontuais do IEEE123 vão até 40 kW.
-        "max": 0.05,
-        # Menor que as barras: a carga é o que se pendura na rede, não um ponto
-        # dela.
-        "radius": 5,
-    },
-    "RegControl": {
-        "cls": "special",
-        "attrs": ["tap"],
-        "unit": "tap",
-        "default": 0,
-        "min": -16,
-        "max": 16,
-        "radius": 6,
-    },
+SHOW = {
+    "Bus": PRESETS["Bus"],
+    # 47 das 91 cargas são de 40 kW nominais, e a escala é calibrada nelas; as
+    # poucas maiores (até 210 kW) saturam em vermelho.
+    "Load": {**PRESETS["Load"], "max": 0.05},
 }
 
 
@@ -121,7 +93,7 @@ def run_scenario():
         children = list(grid.children)
 
         connect_regulators(world, dss_sim, reg_sim, children)
-        connect_visualization(world, dss_sim, webvis, children)
+        attach_webvis(world, dss_sim, grid, webvis, show=SHOW)
 
         print(f"\nAbra o navegador em http://{WEB_HOST}:{WEB_PORT}/ e aguarde o primeiro passo.")
         world.run(until=END_TIME, rt_factor=RT_FACTOR, print_progress=False)
@@ -182,33 +154,6 @@ def connect_regulators(world, dss_sim, reg_sim, children):
         world.connect(ctrl_entity, dss_entity, ("tap_cmd", "tap"))
 
         print(f"  -> {info['name']} @ {info['target_bus']}.{info['target_phase']}")
-
-
-def connect_visualization(world, dss_sim, webvis, children):
-    """Liga as entidades do circuito à topologia desenhada no navegador."""
-    webvis.set_config(
-        # O Grid é só o contêiner das entidades, e o RegController é o
-        # controlador Python: nenhum dos dois é parte da rede desenhada.
-        ignore_types=["Grid", "Topology", "RegController"],
-        # Linha e transformador são ligações entre barras, não nós do desenho.
-        merge_types=["Line", "Transformer"],
-        timeline_hours=24,
-    )
-    webvis.set_etypes(ETYPES)
-
-    vis_topo = webvis.Topology()
-
-    for model_type, conf in ETYPES.items():
-        entities = [e for e in children if e.type == model_type]
-        if not entities:
-            continue
-        connect_many_to_one(world, entities, vis_topo, *conf["attrs"])
-        print(f"{len(entities):>3} {model_type} conectadas à visualização")
-
-    positions = dss_sim.get_bus_positions()
-    known = {e.full_id: positions[e.eid] for e in children if e.eid in positions}
-    webvis.set_node_positions(known)
-    print(f"{len(known):>3} barras com coordenada real (as demais ficam no layout de forças)")
 
 
 if __name__ == "__main__":

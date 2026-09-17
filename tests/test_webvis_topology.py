@@ -312,6 +312,154 @@ class TestNormalizePositions:
         assert normalize_positions({}) == {}
 
 
+ONLY_BUSES = {"Bus": {"attrs": ["V1_pu"]}}
+
+
+class TestAllowList:
+    """Com ``etypes`` configurado, só o que ele lista é desenhado."""
+
+    def test_types_outside_etypes_are_not_drawn(self, sim):
+        """Controladores e o próprio Topology saem sem ninguém listá-los."""
+        nxg = make_graph(
+            {
+                "DSS-0.Bus-650": "Bus",
+                "DSS-0.Load-671": "Load",
+                "Ctrl-0.RegController-0": "RegController",
+                "Web-0.topo": "Topology",
+            },
+            [("DSS-0.Load-671", "DSS-0.Bus-650")],
+        )
+        sim.set_etypes(ONLY_BUSES)
+        sim._clean_nx_graph(nxg)
+
+        assert set(nxg.nodes) == {"DSS-0.Bus-650"}
+
+    def test_merge_types_survive_the_allow_list(self, sim):
+        nxg = make_graph(
+            {"DSS-0.Bus-650": "Bus", "DSS-0.Line-650632": "Line", "DSS-0.Bus-632": "Bus"},
+            [("DSS-0.Bus-650", "DSS-0.Line-650632"), ("DSS-0.Line-650632", "DSS-0.Bus-632")],
+        )
+        sim.set_config(merge_types=["Line"])
+        sim.set_etypes(ONLY_BUSES)
+        sim._clean_nx_graph(nxg)
+
+        assert nxg.has_edge("DSS-0.Bus-650", "DSS-0.Bus-632")
+
+    def test_an_unlisted_collector_does_not_block_a_merge(self, sim):
+        """A linha monitorada tem três vizinhos até o coletor sair do grafo."""
+        nxg = make_graph(
+            {
+                "DSS-0.Bus-650": "Bus",
+                "DSS-0.Line-650632": "Line",
+                "DSS-0.Bus-632": "Bus",
+                "Collector-0.Monitor-0": "Monitor",
+            },
+            [
+                ("DSS-0.Bus-650", "DSS-0.Line-650632"),
+                ("DSS-0.Line-650632", "DSS-0.Bus-632"),
+                ("DSS-0.Line-650632", "Collector-0.Monitor-0"),
+            ],
+        )
+        sim.set_config(merge_types=["Line"])
+        sim.set_etypes(ONLY_BUSES)
+        sim._clean_nx_graph(nxg)
+
+        assert nxg.has_edge("DSS-0.Bus-650", "DSS-0.Bus-632")
+
+    def test_without_etypes_everything_is_kept(self, sim):
+        """Sem ``etypes`` vale o comportamento do upstream."""
+        nxg = make_graph({"DSS-0.Bus-650": "Bus", "DSS-0.Load-671": "Load"}, [])
+        sim._clean_nx_graph(nxg)
+
+        assert set(nxg.nodes) == {"DSS-0.Bus-650", "DSS-0.Load-671"}
+
+    def test_ignore_names_still_hides_a_listed_type(self, sim):
+        nxg = make_graph({"DSS-0.Bus-650": "Bus", "DSS-0.Bus-611": "Bus"}, [])
+        sim.set_etypes(ONLY_BUSES)
+        sim.set_config(ignore_names=["DSS-0.Bus-611"])
+        sim._clean_nx_graph(nxg)
+
+        assert set(nxg.nodes) == {"DSS-0.Bus-650"}
+
+
+# IEEE13: três reguladores monofásicos no trecho 650 -> rg60, listados fora de
+# ordem de propósito.
+BANK_REGS = ("DSS-0.RegControl-creg2", "DSS-0.RegControl-creg1", "DSS-0.RegControl-creg3")
+BANK = {"DSS-0.Bus-650": "Bus", "DSS-0.Bus-rg60": "Bus", **dict.fromkeys(BANK_REGS, "RegControl")}
+BANK_EDGES = [("DSS-0.Bus-650", "DSS-0.Bus-rg60")] + [
+    (reg, bus) for reg in BANK_REGS for bus in ("DSS-0.Bus-650", "DSS-0.Bus-rg60")
+]
+
+
+def series_topology(sim, nodes, edges):
+    """Topologia D3 com ``RegControl`` configurado como elemento série."""
+    sim.start_date = to_iso_local("2025-01-01 00:00:00")
+    sim.step_size = 600
+    sim.set_etypes(
+        {"Bus": {"attrs": ["V1_pu"]}, "RegControl": {"attrs": ["tap"], "layout": "series"}}
+    )
+    topology = sim._make_d3js_topology(make_graph(nodes, edges))
+    names = [node["name"] for node in topology["nodes"]]
+    by_name = {node["name"]: node for node in topology["nodes"]}
+    return topology, by_name, names
+
+
+class TestSeriesLayout:
+    """Um elemento série fica sobre o trecho entre duas barras, não pendurado."""
+
+    def test_series_node_is_anchored_to_both_buses(self, sim):
+        _, by_name, names = series_topology(sim, BANK, BANK_EDGES)
+
+        anchors = by_name["DSS-0.RegControl-creg1"]["anchors"]
+
+        assert {names[i] for i in anchors} == {"DSS-0.Bus-650", "DSS-0.Bus-rg60"}
+
+    def test_series_node_has_no_links_of_its_own(self, sim):
+        topology, _, names = series_topology(sim, BANK, BANK_EDGES)
+
+        linked = {names[i] for link in topology["links"] for i in (link["source"], link["target"])}
+
+        assert not any("RegControl" in name for name in linked)
+        # O trecho continua desenhado, pela aresta entre as duas barras.
+        assert len(topology["links"]) == 1
+
+    def test_a_bank_is_laid_side_by_side_in_stable_order(self, sim):
+        _, by_name, _ = series_topology(sim, BANK, BANK_EDGES)
+
+        slots = {
+            reg: by_name[f"DSS-0.RegControl-{reg}"]["slot"] for reg in ("creg1", "creg2", "creg3")
+        }
+
+        assert slots == {"creg1": 0, "creg2": 1, "creg3": 2}
+        assert {by_name[reg]["slots"] for reg in BANK_REGS} == {3}
+
+    def test_the_whole_bank_shares_one_orientation(self, sim):
+        """Âncoras na mesma ordem, senão o deslocamento de um iria para o outro lado."""
+        _, by_name, _ = series_topology(sim, BANK, BANK_EDGES)
+
+        assert len({tuple(by_name[reg]["anchors"]) for reg in BANK_REGS}) == 1
+
+    def test_without_two_neighbors_it_is_drawn_as_a_plain_node(self, sim, capsys):
+        _, by_name, _ = series_topology(
+            sim,
+            {"DSS-0.Bus-650": "Bus", "DSS-0.RegControl-creg1": "RegControl"},
+            [("DSS-0.RegControl-creg1", "DSS-0.Bus-650")],
+        )
+
+        assert "anchors" not in by_name["DSS-0.RegControl-creg1"]
+        assert "elemento serie" in capsys.readouterr().out
+
+    def test_types_without_layout_are_untouched(self, sim):
+        topology, _, _ = series_topology(
+            sim,
+            {"DSS-0.Bus-650": "Bus", "DSS-0.Bus-632": "Bus"},
+            [("DSS-0.Bus-650", "DSS-0.Bus-632")],
+        )
+
+        assert all("anchors" not in node for node in topology["nodes"])
+        assert len(topology["links"]) == 1
+
+
 class TestD3Topology:
     def test_links_reference_nodes_by_index(self, sim):
         sim.start_date = to_iso_local("2025-01-01 00:00:00")

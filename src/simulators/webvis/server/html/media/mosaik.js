@@ -392,6 +392,46 @@ function seed_free_nodes(nodes, links) {
     });
 }
 
+/**
+ * [OpenTES] Põe cada elemento série sobre o trecho entre suas duas âncoras.
+ *
+ * O backend manda as âncoras e a posição do nó entre os que dividem o mesmo
+ * trecho (`slot` de `slots`). O nó vai para o ponto médio, deslocado na
+ * perpendicular da linha, para que os reguladores de um banco fiquem lado a
+ * lado em vez de empilhados. É fixado com `fx`/`fy`, como as barras com
+ * coordenada: a simulação de forças não o move, e ele acompanha as âncoras
+ * quando elas se movem.
+ *
+ * Args:
+ *     nodes: Nós da topologia, com `anchors` já resolvidos em objetos.
+ */
+function place_series_nodes(nodes) {
+    nodes.forEach(function(node) {
+        if (!node.anchors) {
+            return;
+        }
+        var a = node.anchors[0];
+        var b = node.anchors[1];
+        if (typeof a.x !== 'number' || typeof b.x !== 'number') {
+            return;  // âncora ainda sem posição: o próximo tick resolve
+        }
+        var dx = b.x - a.x;
+        var dy = b.y - a.y;
+        var length = Math.sqrt(dx * dx + dy * dy) || 1;
+        var spacing = 2 * node_radius(node) + 2;
+        var shift = (node.slot - (node.slots - 1) / 2) * spacing;
+        node.x = node.fx = (a.x + b.x) / 2 - dy / length * shift;
+        node.y = node.fy = (a.y + b.y) / 2 + dx / length * shift;
+    });
+}
+
+/**
+ * [OpenTES] Losango de um elemento série, com a mesma área de um nó de raio `r`.
+ */
+function diamond_path(r) {
+    return d3.symbol().type(d3.symbolDiamond).size(Math.PI * r * r)();
+}
+
 function node_value(node) {
     var values = node.values || [];
 
@@ -561,8 +601,17 @@ function Topology(conf) {
             }
         });
 
+        // [OpenTES] As âncoras dos elementos série chegam como índices, como as
+        // arestas; aqui viram os próprios nós.
+        data.nodes.forEach(function(node) {
+            if (node.anchors) {
+                node.anchors = node.anchors.map(function(i) { return data.nodes[i]; });
+            }
+        });
+
         place_pinned_nodes(data.nodes);
         seed_free_nodes(data.nodes, data.links);
+        place_series_nodes(data.nodes);
 
         var anchored = data.nodes.some(function(node) { return node.pinned; });
 
@@ -661,14 +710,22 @@ function Topology(conf) {
             return node.name;
         });
 
-        nodes.append('circle')
+        nodes.filter(function(node) { return !node.anchors; })
+            .append('circle')
             .attr('class', 'disc')
             .attr('r', node_radius);
 
+        // [OpenTES] Elemento série: losango sobre a linha, e não um círculo
+        // pendurado numa barra. A classe `disc` é o que a recoloração procura.
+        nodes.filter(function(node) { return node.anchors; })
+            .append('path')
+            .attr('class', 'disc')
+            .attr('d', function(node) { return diamond_path(node_radius(node)); });
+
         nodes.each(function(node) {
             var attrs = etype_attrs(etypes[node.type]);
-            if (attrs.length < 2) {
-                return;  // uma grandeza só: o disco já a representa inteira
+            if (attrs.length < 2 || node.anchors) {
+                return;  // uma grandeza só, ou elemento série: o disco basta
             }
 
             var arc = d3.arc().innerRadius(0).outerRadius(node_radius(node));
@@ -720,6 +777,9 @@ function Topology(conf) {
         }
     
         function updatePositions() {
+            // [OpenTES] Antes de desenhar: o elemento série segue as âncoras.
+            place_series_nodes(data.nodes);
+
             links.attr('x1', function(d) { return d.source.x; })
                 .attr('y1', function(d) { return d.source.y; })
                 .attr('x2', function(d) { return d.target.x; })
@@ -779,12 +839,19 @@ function Topology(conf) {
                         return 'translate(0, ' + (i * node_r * 4) + ')';
                     });
                     
-        li.append('circle')
+        // [OpenTES] O mesmo raio que o tipo tem no desenho, para a legenda
+        // também mostrar a diferença de tamanho entre barras e cargas, e o
+        // mesmo formato: losango para elemento série.
+        li.filter(function(d) { return d[1].layout !== 'series'; })
+            .append('circle')
             .attr('cx', 0)
             .attr('cy', 0)
-            // [OpenTES] O mesmo raio que o tipo tem no desenho, para a legenda
-            // também mostrar a diferença de tamanho entre barras e cargas.
             .attr('r', function(d) { return d[1].radius || node_r; })
+            .attr('class', function(d) { return 'node ' + d[1].cls; });
+
+        li.filter(function(d) { return d[1].layout === 'series'; })
+            .append('path')
+            .attr('d', function(d) { return diamond_path(d[1].radius || node_r); })
             .attr('class', function(d) { return 'node ' + d[1].cls; });
             
         li.append('text')

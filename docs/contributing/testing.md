@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O projeto usa **pytest**, com 15 arquivos e 426 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 425 passed, 1 skipped).
+O projeto usa **pytest**, com 16 arquivos e 454 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 453 passed, 1 skipped).
 
 Duas categorias, misturadas entre os arquivos:
 
@@ -36,11 +36,12 @@ uv run --no-sync python -m pytest tests/ -v --tb=long
 | `test_regulator.py` | 10 | Não | `controller.regulator_control.VR_Model` |
 | `test_phase_mapping.py` | 21 | Não | `opendss._utils`: posição por fase, ausência como `NaN` e totais |
 | `test_smart_inverter.py` | 81 | Não² | `inverter.config`, `inverter.opender_factory`, `inverter.smart_inverter.SmartInverterModel`, `inverter.smart_inverter_simulator.SmartInverterSim` |
-| `test_webvis_topology.py` | 35 | Não | Limpeza do grafo de entidades e dados enviados ao navegador (`webvis.webvis_sim`) |
+| `test_webvis_topology.py` | 46 | Não | Limpeza do grafo de entidades, allow-list, elementos série e dados enviados ao navegador (`webvis.webvis_sim`) |
 | `test_webvis_server.py` | 12 | Não³ | Arquivos estáticos e ciclo de vida do servidor da visualização |
+| `test_opendss_visualization.py` | 14 | Não | Presets e `attach_webvis`, com dublês no lugar do webvis e do OpenDSS |
 | `test_element_specs.py` | 42 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
 | `test_error_handling.py` | 18 | Sim | Propagação de erro no wrapper e no adaptador OpenDSS |
-| `test_opendss_entities.py` | 28 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
+| `test_opendss_entities.py` | 31 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
 | `test_opendss_phase_reads.py` | 9 | Sim | Leitura por fase do wrapper (`opendss_wrapper.py`) |
 | `test_opendss_snapshot.py` | 18 | Sim | Cache de leituras do wrapper |
 | `test_topology_builder.py` | 31 | Sim | `opendss.topology_builder.build_graph` |
@@ -161,6 +162,8 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 |---|---|---|
 | `TestParseBus` | 3 | Parsing de `"671.1.2.3"` em barra + nós; nós implícitos resolvidos a partir das fases |
 | `TestRelIsWellFormed` | 6 | Nenhuma referência (`rel`) solta; toda referência aponta para um `Bus-`; linha conecta duas barras |
+| `TestTransformers` | 5 | Transformadores ligam duas barras, os regulados são marcados, e as barras batem com o motor; sem eles o alimentador se parte em ilhas |
+| `TestRegulators` | 3 | O regulador fica entre as duas barras do transformador que comanda, como elemento série; a barra regulada continua em `extra_info` |
 | `TestExtraInfo` | 6 | Todo filho tem `extra_info`; é serializável em JSON (necessário para o modo Docker); PV monofásico reporta o nó real |
 | `TestCreateGuards` | 2 | `Grid` não pode ser criado duas vezes; outros modelos são rejeitados em `create()` |
 | `TestExtraInfoMatchesTheEngine` | 2 | Barra/nós/segundo terminal em `extra_info` batem com o que o `cktelement` do engine reporta |
@@ -220,6 +223,8 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | `TestAggregateValues` | 6 | Fase ausente sai da agregação; o zero medido fica, para a geração aparecer desde o início do dia |
 | `TestNodeData` | 6 | Cada fase segue junto do agregado; a ausência vira `null`, porque `NaN` não é JSON válido e o navegador rejeitaria a mensagem inteira |
 | `TestNormalizePositions` | 5 | Coordenadas no quadrado unitário, sem distorcer a forma do alimentador; Y invertido para a tela |
+| `TestAllowList` | 5 | Com `etypes`, só o que ele lista é desenhado: controladores, `Topology` e coletor saem sem ser listados, e a linha monitorada ainda funde; sem `etypes`, vale o comportamento do upstream |
+| `TestSeriesLayout` | 6 | Elemento série ancorado nas duas barras e sem arestas próprias; um banco fica lado a lado, em ordem estável e com orientação comum; vizinhança diferente de dois cai em nó comum |
 | `TestD3Topology` | 4 | Formato consumido pelo D3: arestas por índice de nó, coordenadas só nas barras que as têm |
 
 #### `test_webvis_server.py`
@@ -229,6 +234,14 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | `TestContentType` | 2 | Um único `Content-Type` por resposta, com o tipo certo; dois cabeçalhos fazem o navegador recusar o CSS, e o desenho perde os estilos sem nenhum erro |
 | `TestStaticFiles` | 4 | Index e mídia servidos; 404 para arquivo ausente; `..` não escapa do diretório |
 | `TestShutdown` | 6 | O encerramento termina de verdade, inclusive com navegador conectado: thread morta e nenhuma tarefa pendente |
+
+#### `test_opendss_visualization.py`
+
+| Classe | Testes | O que valida |
+|---|---|---|
+| `TestResolveEtypes` | 4 | Nomes resolvem para presets; nome desconhecido levanta erro listando os disponíveis; dicionário passa direto, sem alterar os presets |
+| `TestPresets` | 5 | Todo atributo de preset é publicado pelo adaptador; PV em pu da placa; regulador como elemento série; cargas e reguladores fora do padrão |
+| `TestAttachWebvis` | 5 | Linhas e transformadores viram arestas, sem `ignore_types`; só os tipos pedidos são conectados; coordenadas indexadas pelo `full_id` |
 
 ## Escrever novos testes
 

@@ -411,6 +411,12 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         if self.dss_wrapper.dss.regcontrols.count == 0:
             return
 
+        # Os transformadores já existem (_create_grid os cria antes). Nomes em
+        # minúsculas porque o motor não garante a mesma caixa nos dois lados.
+        transformers = {
+            self.entity_map[eid].lower(): eid for eid in self._eids_by_type.get("Transformer", [])
+        }
+
         for info in self.dss_wrapper.get_all_regulators_info():
             name = info["name"]
             eid = f"RegControl-{name}"
@@ -422,13 +428,43 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 eid,
                 "RegControl",
                 name,
-                rel=self._bus_rel(info["target_bus"], eid),
+                rel=self._regulator_rel(info, eid, transformers),
                 extra_info=info,
             )
             print(
                 f"[OpenTES] Regulador detectado: {name} @ "
                 f"{info['target_bus']}.{info['target_phase']}"
             )
+
+    def _regulator_rel(self, info, eid, transformers):
+        """Barras entre as quais o regulador fica: as do transformador que comanda.
+
+        O regulador é um elemento série, então o ``rel`` declara o par de barras
+        do trecho que ele ocupa, como faz uma linha. Não aponta para o próprio
+        ``Transformer``: ele ganharia um terceiro vizinho no grafo de entidades
+        e deixaria de poder ser desenhado como aresta.
+
+        Args:
+            info: Dados do regulador, de ``get_all_regulators_info``.
+            eid: Identificador da entidade, para as mensagens.
+            transformers: Mapa nome do transformador (minúsculas) -> eid.
+
+        Returns:
+            Lista de eids de barra. Se o transformador não for encontrado, só a
+            barra regulada, com aviso.
+        """
+        trafo_eid = transformers.get(str(info.get("trafo", "")).lower())
+        if trafo_eid is None:
+            print(
+                f"[OpenTES][AVISO] {eid}: transformador '{info.get('trafo')}' nao "
+                "encontrado; o regulador fica ligado so a barra que regula."
+            )
+            return self._bus_rel(info["target_bus"], eid)
+
+        rel = []
+        for bus in self._extra_info[trafo_eid].get("bus_names", [])[:2]:
+            rel += self._bus_rel(bus, eid)
+        return rel or self._bus_rel(info["target_bus"], eid)
 
     def _add_storages(self):
         for name, info in self.dss_wrapper.get_all_storages_info().items():

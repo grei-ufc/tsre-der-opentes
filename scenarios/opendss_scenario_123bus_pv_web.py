@@ -14,18 +14,16 @@ Os sete reguladores entram na malha fechada porque o ``.dss`` desliga a atuaçã
 nativa deles (``Batchedit RegControl..* maxtapchange=0``); sem os controladores
 Python os taps ficariam congelados enquanto o PV empurra a tensão para cima.
 
-O que cada cor significa está em :data:`ETYPES`. Os botões no canto superior
-direito trocam a fase mostrada, e valem para todos os tipos ao mesmo tempo: em
-``A``, as barras mostram a tensão da fase A e o PV mostra a potência que injeta
-nessa mesma fase.
+O que é desenhado está em :data:`SHOW`: tensão por fase nas barras, geração em
+pu da placa no PV e estado de carga nas baterias. Os botões no canto superior
+direito trocam a fase mostrada e valem para todos os tipos ao mesmo tempo: em
+``A``, as barras mostram a tensão da fase A e o PV mostra a geração nessa mesma
+fase.
 
-As 91 cargas ficam fora do desenho. O IEEE123 é denso: ajustado à janela, o vão
-mediano entre barras vizinhas é de ~48 px, menor que o anel de ~34-50 px em que
-cada carga sem coordenada é semeada em volta da sua barra — ou seja, cada carga
-cai dentro do território da barra do lado. Sem elas restam as 132 barras, o PV e
-os 7 reguladores, e o traçado do alimentador fica legível. Para voltar a
-desenhá-las, tire ``"Load"`` de ``ignore_types`` e devolva a entrada ao
-:data:`ETYPES` (o cenário ``opendss_scenario_123bus_web.py`` tem uma pronta).
+Os reguladores continuam em malha fechada, só não aparecem no desenho. As 91
+cargas também ficam de fora. O IEEE123 é denso: ajustado à janela, o vão
+mediano entre barras vizinhas é de ~48 px, menor que o anel de 34 a 50 px em
+que cada carga sem coordenada é semeada em volta da sua barra.
 
 Ao contrário de ``opendss_scenario_123bus_pv.py``, este cenário não grava CSV —
 é para olhar, não para medir. Use o outro quando quiser os dados em disco.
@@ -36,7 +34,8 @@ import warnings
 from pathlib import Path
 
 import mosaik
-from mosaik.util import connect_many_to_one
+
+from simulators.opendss.visualization import PRESETS, attach_webvis
 
 # Ver o comentário em opendss_scenario_34bus_web.py: o aviso de "simulation too
 # slow" dispara com qualquer atraso positivo, por menor que seja, e não indica
@@ -86,77 +85,15 @@ SIM_CONFIG = {
     },
 }
 
-# Cada entrada diz o que o tipo publica para o desenho e como aquilo vira cor.
-# A chave tem de casar com o `type` que o adaptador registra (os nomes de
-# MODEL_SPECS em element_specs.py), e as escalas `min`/`max` sao deste circuito:
-# recalibre-as ao trocar de alimentador.
-ETYPES = {
-    "Bus": {
-        "cls": "pqbus",
-        "attrs": ["V1_pu", "V2_pu", "V3_pu"],
-        "series": ["A", "B", "C"],
-        # A fase mais baixa é a que decide se a barra está em conformidade.
-        "aggregate": "min",
-        "unit": "V [pu]",
-        "default": 1.0,
-        "min": 0.90,
-        "max": 1.10,
-        # Escala do botão "desb": 5% de amplitude entre fases já é muito.
-        "spread_max": 0.05,
-    },
-    # "Load" nao entra aqui de proposito: as cargas sao removidas do desenho
-    # por `ignore_types` (ver connect_visualization). Manter a entrada faria o
-    # laco abaixo conectar 91 dataflows por passo que ninguem desenha, e poria
-    # na legenda um tipo que nao aparece na tela — a legenda e montada a partir
-    # deste dicionario, nao dos nos.
-    "PVSystem": {
-        # Verde no CSS, para o gerador se distinguir da carga a olho.
-        "cls": "gen",
-        # Em pu da placa do proprio inversor, e nao em kW: uma escala de cor e
-        # compartilhada por todos os PVs do alimentador, entao em kW um PV
-        # pequeno ficaria verde o dia inteiro ao lado de um grande. Em pu,
-        # qualquer inversor a plena geracao marca 1.0. Por fase, para o PV
-        # responder aos mesmos botoes de fase que as barras.
-        "attrs": ["P1_pu", "P2_pu", "P3_pu"],
-        "series": ["A", "B", "C"],
-        "aggregate": "mean",
-        "unit": "P [pu da placa]",
-        "default": 0,
-        # Fixo, e nao calibrado neste circuito: em pu a faixa vale para
-        # qualquer alimentador.
-        "min": 0,
-        "max": 1.0,
-        # Injetar e positivo (PV_SIGN no element_specs). A noite a geracao e
-        # zero e o no fica cinza (`ignore_zero` vale por padrao quando ha mais
-        # de um atributo), o que se le como "nao esta gerando".
-        "radius": 7,
-    },
-    "Storage": {
-        # Roxo no CSS. Este circuito nao tem bateria, entao o tipo fica sem
-        # entidade nenhuma e e ignorado pelo laco de conexao; esta aqui para
-        # quando o alimentador tiver uma.
-        "cls": "storage",
-        # O estado de carga e o que se quer olhar numa bateria, e ja vem em pu.
-        # Atencao a direcao da cor: com `min=0` o frontend pinta o fundo da
-        # escala de verde e o topo de vermelho, ou seja, bateria cheia aparece
-        # vermelha. Para ver carga/descarga em vez do estado, troque por
-        # `["P_act"]` com min=-max (kW, positivo = descarregando).
-        "attrs": ["SoC"],
-        "unit": "SoC [pu]",
-        "default": 0,
-        "min": 0,
-        "max": 1.0,
-        "radius": 7,
-    },
-    "RegControl": {
-        "cls": "special",
-        "attrs": ["tap"],
-        "unit": "tap",
-        "default": 0,
-        "min": -16,
-        "max": 16,
-        "radius": 6,
-    },
+# O que aparece no navegador e como cada tipo é colorido. Só os tipos listados
+# são desenhados. Para recalibrar um tipo, sobrescreva as chaves do preset:
+# {**PRESETS["Bus"], "min": 0.93}.
+SHOW = {
+    "Bus": PRESETS["Bus"],
+    "PVSystem": PRESETS["PVSystem"],
+    # Este circuito não tem bateria: o tipo fica sem entidade e não aparece,
+    # mas já está pronto para um alimentador que tenha.
+    # "Storage": PRESETS["Storage"],
 }
 
 
@@ -186,10 +123,10 @@ def run_scenario():
 
         connect_pv_chain(world, dss_sim, pv_sim, inv_sim, csv_irr, csv_temp, children)
         connect_regulators(world, dss_sim, reg_sim, children)
-        connect_visualization(world, dss_sim, webvis, children)
+        attach_webvis(world, dss_sim, grid, webvis, show=SHOW)
 
         print(f"\nAbra o navegador em http://{WEB_HOST}:{WEB_PORT}/ e aguarde o primeiro passo.")
-        world.run(until=END_TIME, rt_factor=RT_FACTOR, print_progress=False)
+        world.run(until=END_TIME, rt_factor=RT_FACTOR, print_progress=True)
         print("Simulação concluída.")
 
 
@@ -300,48 +237,6 @@ def connect_regulators(world, dss_sim, reg_sim, children):
         world.connect(ctrl_entity, dss_entity, ("tap_cmd", "tap"))
 
         print(f"  -> {info['name']} @ {info['target_bus']}.{info['target_phase']}")
-
-
-def connect_visualization(world, dss_sim, webvis, children):
-    """Liga as entidades do circuito à topologia desenhada no navegador."""
-    webvis.set_config(
-        # O webvis desenha *todas* as entidades da simulação, não só as do
-        # circuito: sem esta lista, o painel, o inversor, os CSVs e os
-        # controladores virariam nós pendurados no alimentador.
-        #
-        # É aqui, e não no ETYPES, que um tipo some do desenho: a topologia vem
-        # de `get_related_entities`, então uma carga fora do ETYPES continuaria
-        # desenhada, só que como um círculo cinza sem dado nenhum.
-        ignore_types=[
-            "Grid",
-            "Topology",
-            "RegController",
-            "PVPanel",
-            "Inverter",
-            "Data",
-            # As 91 cargas encobrem o traçado neste alimentador; ver o
-            # docstring do módulo.
-            "Load",
-        ],
-        # Linha e transformador são ligações entre barras, não nós do desenho.
-        merge_types=["Line", "Transformer"],
-        timeline_hours=24,
-    )
-    webvis.set_etypes(ETYPES)
-
-    vis_topo = webvis.Topology()
-
-    for model_type, conf in ETYPES.items():
-        entities = [e for e in children if e.type == model_type]
-        if not entities:
-            continue
-        connect_many_to_one(world, entities, vis_topo, *conf["attrs"])
-        print(f"{len(entities):>3} {model_type} conectadas à visualização")
-
-    positions = dss_sim.get_bus_positions()
-    known = {e.full_id: positions[e.eid] for e in children if e.eid in positions}
-    webvis.set_node_positions(known)
-    print(f"{len(known):>3} barras com coordenada real (as demais ficam no layout de forças)")
 
 
 if __name__ == "__main__":

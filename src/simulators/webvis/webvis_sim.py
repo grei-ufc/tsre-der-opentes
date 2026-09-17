@@ -395,15 +395,29 @@ class Simulator(mosaik_api_v3.Simulator):
         logger.info("Topology created")
 
     def _clean_nx_graph(self, nxg):
-        """Remove and merge nodes and edges according to ``self.ignore_types``
-        and ``self.merge_types``."""
+        """Remove e funde nós conforme a configuração.
+
+        [OpenTES] Com ``etypes`` configurado, só é desenhado o que ele lista,
+        mais os ``merge_types``, que viram arestas. O upstream desenhava tudo o
+        que não estivesse em ``ignore_types``, o que obrigava o cenário a manter
+        duas listas em acordo: um tipo esquecido ali virava um círculo cinza sem
+        dado, e um simulador auxiliar (controlador, inversor, coletor) aparecia
+        pendurado no alimentador. ``ignore_types`` e ``ignore_names`` continuam
+        valendo, para compatibilidade e para esconder uma entidade específica.
+
+        A remoção vem antes da fusão: uma linha ligada ao coletor tem três
+        vizinhos até o coletor sair do grafo.
+        """
         self._merge_nodes(nxg, [n for n in nxg.nodes if n in self.config["merge_nodes"]])
 
+        drawable = self._drawable_types()
         nxg.remove_nodes_from(
             [
                 n
                 for n, d in nxg.nodes.items()
-                if d["type"] in self.config["ignore_types"] or n in self.config["ignore_names"]
+                if d["type"] in self.config["ignore_types"]
+                or n in self.config["ignore_names"]
+                or (drawable is not None and d["type"] not in drawable)
             ]
         )
 
@@ -411,6 +425,17 @@ class Simulator(mosaik_api_v3.Simulator):
             nxg,
             [n for n, d in nxg.nodes.items() if d["type"] in self.config["merge_types"]],
         )
+
+    def _drawable_types(self):
+        """Tipos que podem aparecer no desenho, ou ``None`` para todos.
+
+        Sem ``etypes`` vale o comportamento do upstream: desenha-se tudo o que
+        não foi ignorado.
+        """
+        etypes = self.config["etypes"]
+        if not etypes:
+            return None
+        return set(etypes) | set(self.config["merge_types"])
 
     def _merge_nodes(self, nxg, nodes):
         """Substitui cada nó por uma aresta ligando seus dois vizinhos.
@@ -476,7 +501,16 @@ class Simulator(mosaik_api_v3.Simulator):
                 entry["x"], entry["y"] = positions[node]
             topology["nodes"].append(entry)
 
+        # [OpenTES] Elementos série ficam sobre o trecho entre seus dois
+        # vizinhos, e não pendurados num deles.
+        series = self._series_anchors(nxg)
+        self._place_series(topology["nodes"], node_idx, series)
+
         for source, target in nxg.edges():
+            # O nó série é posicionado pelas âncoras. Suas arestas repetiriam o
+            # trecho que o transformador já desenha e puxariam o layout de forças.
+            if source in series or target in series:
+                continue
             topology["links"].append(
                 {
                     "source": node_idx[source],
@@ -486,6 +520,54 @@ class Simulator(mosaik_api_v3.Simulator):
             )
 
         return topology
+
+    def _series_anchors(self, nxg):
+        """Par de vizinhos de cada nó cujo tipo tem ``layout: "series"``.
+
+        [OpenTES] Um elemento série, como um regulador de tensão, fica entre
+        duas barras. Com vizinhança diferente de dois não há trecho onde pô-lo,
+        e o nó é desenhado como um nó comum, com aviso: a mesma tolerância de
+        :meth:`_merge_nodes`.
+
+        Returns:
+            Mapa nó -> ``(vizinho_a, vizinho_b)``, com o par em ordem alfabética
+            para que os nós do mesmo trecho compartilhem a orientação.
+        """
+        series_types = {
+            name for name, conf in self.config["etypes"].items() if conf.get("layout") == "series"
+        }
+        anchors = {}
+        for node, attrs in nxg.nodes.items():
+            if attrs["type"] not in series_types:
+                continue
+            neighbors = sorted(nxg.neighbors(node))
+            if len(neighbors) != 2:
+                print(
+                    f"[OpenTES][AVISO] '{node}' e um elemento serie mas tem "
+                    f"{len(neighbors)} vizinho(s), e nao 2. Sera desenhado como no comum."
+                )
+                continue
+            anchors[node] = tuple(neighbors)
+        return anchors
+
+    @staticmethod
+    def _place_series(entries, node_idx, anchors):
+        """Anota as âncoras e a posição lado a lado de cada nó série.
+
+        Nós série no mesmo trecho (os reguladores monofásicos de um banco,
+        tipicamente) recebem ``slot`` de ``0`` a ``slots - 1``, em ordem de nome
+        para o desenho não trocar de lugar entre execuções.
+        """
+        by_span = {}
+        for node in sorted(anchors):
+            by_span.setdefault(anchors[node], []).append(node)
+
+        for span, group in by_span.items():
+            for slot, node in enumerate(group):
+                entry = entries[node_idx[node]]
+                entry["anchors"] = [node_idx[span[0]], node_idx[span[1]]]
+                entry["slot"] = slot
+                entry["slots"] = len(group)
 
 
 def main():
