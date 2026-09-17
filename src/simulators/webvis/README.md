@@ -84,10 +84,6 @@ Todas marcadas com `[OpenTES]` no código.
   lista, mais os `merge_types`. O upstream desenhava tudo o que não estivesse em
   `ignore_types`, e um tipo esquecido ali virava um círculo cinza sem dado.
   `ignore_types` e `ignore_names` continuam aceitos.
-- **Elementos série** (`"layout": "series"` no etype). O nó fica sobre o trecho
-  entre seus dois vizinhos, e não pendurado num deles; vários no mesmo trecho
-  ficam lado a lado. O backend manda `anchors`, `slot` e `slots` e omite as
-  arestas do nó série.
 - **`set_node_positions`.** Coordenadas reais das barras, normalizadas para o
   quadrado unitário **sem distorcer a proporção** — normalizar cada eixo pela
   sua própria extensão esticaria um alimentador longo e estreito até virar um

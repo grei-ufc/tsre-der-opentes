@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O projeto usa **pytest**, com 16 arquivos e 454 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 453 passed, 1 skipped).
+O projeto usa **pytest**, com 16 arquivos e 447 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 446 passed, 1 skipped).
 
 Duas categorias, misturadas entre os arquivos:
 
@@ -36,9 +36,9 @@ uv run --no-sync python -m pytest tests/ -v --tb=long
 | `test_regulator.py` | 10 | Não | `controller.regulator_control.VR_Model` |
 | `test_phase_mapping.py` | 21 | Não | `opendss._utils`: posição por fase, ausência como `NaN` e totais |
 | `test_smart_inverter.py` | 81 | Não² | `inverter.config`, `inverter.opender_factory`, `inverter.smart_inverter.SmartInverterModel`, `inverter.smart_inverter_simulator.SmartInverterSim` |
-| `test_webvis_topology.py` | 46 | Não | Limpeza do grafo de entidades, allow-list, elementos série e dados enviados ao navegador (`webvis.webvis_sim`) |
+| `test_webvis_topology.py` | 40 | Não | Limpeza do grafo de entidades, allow-list e dados enviados ao navegador (`webvis.webvis_sim`) |
 | `test_webvis_server.py` | 12 | Não³ | Arquivos estáticos e ciclo de vida do servidor da visualização |
-| `test_opendss_visualization.py` | 14 | Não | Presets e `attach_webvis`, com dublês no lugar do webvis e do OpenDSS |
+| `test_opendss_visualization.py` | 13 | Não | Presets e `attach_webvis`, com dublês no lugar do webvis e do OpenDSS |
 | `test_element_specs.py` | 42 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
 | `test_error_handling.py` | 18 | Sim | Propagação de erro no wrapper e no adaptador OpenDSS |
 | `test_opendss_entities.py` | 31 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
@@ -224,7 +224,6 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | `TestNodeData` | 6 | Cada fase segue junto do agregado; a ausência vira `null`, porque `NaN` não é JSON válido e o navegador rejeitaria a mensagem inteira |
 | `TestNormalizePositions` | 5 | Coordenadas no quadrado unitário, sem distorcer a forma do alimentador; Y invertido para a tela |
 | `TestAllowList` | 5 | Com `etypes`, só o que ele lista é desenhado: controladores, `Topology` e coletor saem sem ser listados, e a linha monitorada ainda funde; sem `etypes`, vale o comportamento do upstream |
-| `TestSeriesLayout` | 6 | Elemento série ancorado nas duas barras e sem arestas próprias; um banco fica lado a lado, em ordem estável e com orientação comum; vizinhança diferente de dois cai em nó comum |
 | `TestD3Topology` | 4 | Formato consumido pelo D3: arestas por índice de nó, coordenadas só nas barras que as têm |
 
 #### `test_webvis_server.py`
@@ -240,7 +239,7 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | Classe | Testes | O que valida |
 |---|---|---|
 | `TestResolveEtypes` | 4 | Nomes resolvem para presets; nome desconhecido levanta erro listando os disponíveis; dicionário passa direto, sem alterar os presets |
-| `TestPresets` | 5 | Todo atributo de preset é publicado pelo adaptador; PV em pu da placa; regulador como elemento série; cargas e reguladores fora do padrão |
+| `TestPresets` | 4 | Todo atributo de preset é publicado pelo adaptador; PV em pu da placa; cargas e reguladores fora do padrão |
 | `TestAttachWebvis` | 5 | Linhas e transformadores viram arestas, sem `ignore_types`; só os tipos pedidos são conectados; coordenadas indexadas pelo `full_id` |
 
 ## Escrever novos testes

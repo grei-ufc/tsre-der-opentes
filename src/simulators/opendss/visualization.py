@@ -71,18 +71,6 @@ PRESETS = {
         "max": 1.0,
         "radius": 7,
     },
-    "RegControl": {
-        "cls": "special",
-        "attrs": ["tap"],
-        "unit": "tap",
-        "default": 0,
-        "min": -16,
-        "max": 16,
-        "radius": 6,
-        # Elemento série: desenhado sobre o trecho entre as duas barras do
-        # transformador que comanda.
-        "layout": "series",
-    },
 }
 
 # Sem as cargas: num alimentador grande elas encobrem o traçado. No IEEE123 são

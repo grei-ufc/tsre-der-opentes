@@ -23,9 +23,9 @@ from simulators.opendss.visualization import (
 
 class TestResolveEtypes:
     def test_names_resolve_to_presets(self):
-        resolved = resolve_etypes(["Bus", "RegControl"])
+        resolved = resolve_etypes(["Bus", "PVSystem"])
 
-        assert resolved == {"Bus": PRESETS["Bus"], "RegControl": PRESETS["RegControl"]}
+        assert resolved == {"Bus": PRESETS["Bus"], "PVSystem": PRESETS["PVSystem"]}
 
     def test_unknown_name_lists_the_available_presets(self):
         with pytest.raises(ValueError, match="PVSystem"):
@@ -55,9 +55,6 @@ class TestPresets:
 
         assert pv["attrs"] == ["P1_pu", "P2_pu", "P3_pu"]
         assert (pv["min"], pv["max"]) == (0, 1.0)
-
-    def test_regulator_is_drawn_as_a_series_element(self):
-        assert PRESETS["RegControl"]["layout"] == "series"
 
     def test_default_hides_the_loads(self):
         assert "Load" not in DEFAULT_SHOW

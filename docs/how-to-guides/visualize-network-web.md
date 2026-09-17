@@ -101,7 +101,6 @@ attach_webvis(world, dss_sim, grid, webvis, show={
 | `Load` | Potência ativa total (`P_out_mw`) | 0 a 0.1 MW; quase sempre vale recalibrar |
 | `PVSystem` | Geração por fase em pu da placa (`P1_pu`..`P3_pu`) | 0 a 1, fixa em qualquer circuito |
 | `Storage` | Estado de carga (`SoC`) | 0 a 1 |
-| `RegControl` | Posição do tap (`tap`), desenhado como elemento série | −16 a 16 |
 
 Os presets ficam em `simulators/opendss/visualization.py`, e não dentro de
 `webvis/`, porque dependem dos nomes de atributo do adaptador OpenDSS. O webvis
@@ -123,18 +122,6 @@ Linhas e transformadores entram como `merge_types`: viram **arestas** entre as
 barras, em vez de nós. `ignore_names` ainda serve para esconder uma entidade
 específica pelo `full_id`, e `ignore_types` continua aceito.
 
-### Elementos série
-
-Um regulador de tensão fica **entre** duas barras, e é desenhado assim: um
-losango sobre o trecho do transformador que ele comanda. Os reguladores de um
-mesmo banco (três monofásicos, tipicamente) ficam lado a lado, cada um com o
-seu tap e a sua linha do tempo.
-
-Quem habilita isso é a chave `"layout": "series"` do tipo, que já vem no preset
-do `RegControl`. Ela é genérica: qualquer tipo cujas entidades tenham
-exatamente dois vizinhos no grafo pode usá-la. Com vizinhança diferente de
-dois, o nó é desenhado como um nó comum e um aviso é impresso.
-
 ### O que cada tipo mostra
 
 As chaves de configuração de um tipo, para quem montar o seu próprio:
@@ -150,7 +137,6 @@ As chaves de configuração de um tipo, para quem montar o seu próprio:
 | `default` | Valor exibido enquanto o nó não recebe dado |
 | `cls` | Classe CSS do nó (`pqbus`, `refbus`, `load`, `gen`, `storage`, `special`) |
 | `radius` | Raio do nó em pixels; por padrão 9. É como as cargas ficam menores que as barras |
-| `layout` | `"series"` para desenhar o nó sobre o trecho entre seus dois vizinhos |
 
 !!! info "Fase ausente e zero medido são coisas diferentes"
     A fase que o elemento não tem chega como `NaN` e é pintada de cinza. O zero
@@ -252,6 +238,4 @@ ports:
 | A rede aparece em pedaços separados | Faltam entidades ligando as barras. Confira se `merge_types` inclui `"Transformer"`: bancos de reguladores e elevadoras de subestação não são linhas |
 | Um tipo pedido não aparece | O nome em `show` não bate com o tipo mosaik (`PVSystem`, não `PV`). Com lista, um nome sem preset levanta erro; com dicionário, o tipo simplesmente não casa com nenhuma entidade |
 | Todos os nós de um tipo cinza | Os nomes em `attrs` não são atributos que o simulador publica |
-| Aviso "Nao foi possivel fundir ... numa aresta" | Um elemento de `merge_types` não tem exatamente duas barras, como uma linha com barra ausente. O nó é desenhado como está |
-| Aviso "... e um elemento serie mas tem N vizinho(s)" | Um tipo com `layout: "series"` não está entre exatamente duas barras. O nó é desenhado como um nó comum |
-| A página não abre | A porta 8000 já está em uso; passe outra em `port=` |
+| Aviso "Nao foi possivel fundir ... numa aresta" | Um elemento de `merge_types` não tem exatamente duas barras, como uma linha com barra ausente. O nó é desenhado como está || A página não abre | A porta 8000 já está em uso; passe outra em `port=` |
