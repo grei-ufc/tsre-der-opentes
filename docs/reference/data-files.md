@@ -40,10 +40,10 @@ data/
 
 | Arquivo | Descrição |
 |---|---|
-| `IEEE123Master.dss` | Definição principal: fonte 4.16kV, reguladores, 118+ linhas, capacitores |
+| `IEEE123Master.dss` | Definição principal: fonte 4.16kV, reguladores, 118 linhas, 8 chaves, capacitores |
 | `IEEE123Loads.DSS` | 91 cargas definidas |
 | `IEEE123Regulators.DSS` | Controles de regulador |
-| `IEEE123Switches.dss` | Chaves |
+| `IEEE123Switches.dss` | Master alternativo do IEEE, do qual veio o bloco de chaves adotado (ver abaixo); não é usado pelos runners |
 | `IEEELineCodes.DSS` | Códigos de impedância |
 | `run_ieee123_cosim_5min.dss` | Runner base (sem PV) |
 | `run_ieee123_cosim_pv_5min.dss` | Runner com PV + monitor |
@@ -53,6 +53,27 @@ data/
 | `ieee123_shape_load_5min.dss` | 25 LoadShapes de carga em 5 min |
 | `ieee123_temperature_5min.csv` | Temperatura em 5 min |
 | `edit_load.dss` | Mapeamento das 91 cargas para suas LoadShapes |
+
+!!! note "As chaves do IEEE123 e uma edição no master"
+    O IEEE123 original define as oito chaves (`Sw1`–`Sw8`) como linhas curtas
+    quaisquer, e o próprio arquivo observa que "could also be defined by setting
+    the Switch=Yes property". Sem essa propriedade não há como distinguir uma
+    chave de um trecho curto de linha.
+
+    O bloco de chaves do `IEEE123Switches.dss` — que as declara com
+    `switch=yes` — foi adotado no `IEEE123Master.dss`, em vez de repontar os 12
+    runners que o compilam. O circuito é numericamente o mesmo: a maior
+    divergência de tensão entre as duas versões é 3e-11 pu.
+
+    **A ordem importa**: `switch=yes` sobrescreve a impedância da linha por um
+    padrão do OpenDSS, então `r1`/`x1`/`c1`/`Length` vêm depois dele na mesma
+    linha, repondo os valores originais. Inverter a ordem muda o circuito sem
+    que nada acuse.
+
+    Efeito colateral bem-vindo: as normalmente abertas (`Sw7`, `Sw8`) passaram a
+    ligar as barras reais `300` e `94.1`, abertas com `terminal=2`, em vez das
+    fictícias `300_OPEN`/`94_OPEN`. Como `300` e `94` constam do
+    `BusCoords.dat`, o alimentador deixou de ter barras sem coordenada.
 
 ## InfoPV — Dados reais de estações solares
 

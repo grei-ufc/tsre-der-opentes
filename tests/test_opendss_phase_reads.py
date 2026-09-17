@@ -205,6 +205,65 @@ class TestElementLosses:
             dss_13bus.set_element = original
 
 
+class TestSwitchState:
+    """Uma chave tem um estado; o OpenDSS tem um por terminal.
+
+    ``Line.671692`` é a única chave do IEEE13. Os testes restauram o estado
+    fechado no fim, porque a fixture é de módulo.
+    """
+
+    SWITCH = "671692"
+
+    @pytest.fixture(autouse=True)
+    def fechada(self, dss_13bus):
+        yield
+        dss_13bus.set_is_open(self.SWITCH, open=False, element="Line")
+        dss_13bus.run_dss()
+
+    def test_is_terminal_open_answers_for_the_terminal_it_is_given(self, dss_13bus):
+        """A docstring do py-dss-interface diz "any terminal"; não é o caso.
+
+        É essa a razão de `get_is_open` percorrer os terminais em vez de confiar
+        num só: aberta pelo 2, a chave continua "fechada" pelo 1.
+        """
+        dss_13bus.set_is_open(self.SWITCH, open=True, element="Line", term=2)
+        dss_13bus.set_element(self.SWITCH, "Line")
+
+        assert not dss_13bus.dss.cktelement.is_terminal_open(1)
+        assert dss_13bus.dss.cktelement.is_terminal_open(2)
+
+    def test_open_on_any_terminal_reads_as_open(self, dss_13bus):
+        for term in (1, 2):
+            dss_13bus.set_is_open(self.SWITCH, open=False, element="Line")
+            dss_13bus.set_is_open(self.SWITCH, open=True, element="Line", term=term)
+
+            assert dss_13bus.get_is_open(self.SWITCH, element="Line"), (
+                f"aberta pelo terminal {term} e lida como fechada"
+            )
+
+    def test_opening_uses_terminal_2(self, dss_13bus):
+        """A convenção do próprio IEEE123 (``open Line.Sw7 terminal=2``).
+
+        Adotá-la faz o estado produzido aqui ficar indistinguível do que vem
+        declarado no circuito.
+        """
+        dss_13bus.set_is_open(self.SWITCH, open=True, element="Line")
+
+        assert dss_13bus.get_is_open(self.SWITCH, element="Line", term=2)
+        assert not dss_13bus.get_is_open(self.SWITCH, element="Line", term=1)
+
+    def test_closing_clears_both_terminals(self, dss_13bus):
+        dss_13bus.set_is_open(self.SWITCH, open=True, element="Line", term=1)
+        dss_13bus.set_is_open(self.SWITCH, open=True, element="Line", term=2)
+
+        dss_13bus.set_is_open(self.SWITCH, open=False, element="Line")
+
+        assert not dss_13bus.get_is_open(self.SWITCH, element="Line")
+
+    def test_a_line_is_closed_by_default(self, dss_13bus):
+        assert not dss_13bus.get_is_open("650632", element="Line")
+
+
 class TestAmpacity:
     """O limite de corrente da linha — o denominador do carregamento."""
 

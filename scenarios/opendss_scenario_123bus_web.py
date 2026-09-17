@@ -1,6 +1,6 @@
 """IEEE123 com regulação de tensão em malha fechada e visualização no navegador.
 
-O maior dos alimentadores do projeto na visualização web: 132 barras, 91 cargas
+O maior dos alimentadores do projeto na visualização web: 130 barras, 91 cargas
 e 7 reguladores de tensão. Cada barra é desenhada nas coordenadas reais do
 alimentador, dividida em três setores — um por fase — e colorida pela tensão.
 Os reguladores atuam em malha fechada, mas não são desenhados.
@@ -10,9 +10,10 @@ três fases ao mesmo tempo, ``A``/``B``/``C`` isolam uma, e ``mín``/``máx``/
 ``méd``/``desb`` mostram agregações. Clicar num nó abre a linha do tempo com uma
 curva por fase.
 
-Duas barras (``300_open`` e ``94_open``) não constam do ``BusCoords.dat`` do
-IEEE123 — são artefatos das chaves abertas do circuito. Elas caem no layout de
-forças, e é normal vê-las flutuando fora do traçado do alimentador.
+Todas as barras têm coordenada real. As duas que flutuavam no layout de forças
+(``300_open`` e ``94_open``) deixaram de existir quando as chaves normalmente
+abertas passaram a ser declaradas com ``switch=yes``, ligando as barras reais
+``300`` e ``94`` — que constam do ``BusCoords.dat``.
 
 O circuito é denso: para um desenho mais limpo, tire ``"Load"`` de :data:`SHOW`
 e as 91 cargas somem, ficando só as barras.

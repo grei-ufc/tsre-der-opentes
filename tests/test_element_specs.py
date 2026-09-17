@@ -391,6 +391,116 @@ class TestGenerationInPerUnit:
         assert sim.pv_nameplate("nao-existe") == (0.0, 0)
 
 
+class TestSwitchCommanding:
+    """Abrir e fechar a chave do IEEE13 pelo caminho do mosaik.
+
+    ``Line.671692`` liga 671 a 692; abri-la isola a barra 692 e as cargas
+    penduradas nela. É a manobra que prova que o comando chega ao motor e
+    sobrevive ao ``Solve`` do passo seguinte.
+    """
+
+    SWITCH = "Switch-671692"
+    JUSANTE = "Bus-692"
+
+    # A corrente de um terminal aberto não zera exatamente: sobra o resíduo
+    # numérico da solução (da ordem de 1e-9 A).
+    ABERTA_A = 1e-6
+
+    @pytest.fixture
+    def fechada(self, sim):
+        """Garante o estado fechado antes e depois de cada teste da classe.
+
+        A fixture ``sim`` é de módulo, então uma chave deixada aberta viajaria
+        para os testes seguintes — e o IEEE13 sem a 692 dá outros resultados.
+        """
+        sim.step(0, {self.SWITCH: {"is_open": {"c": False}}}, 300)
+        yield
+        sim.step(0, {self.SWITCH: {"is_open": {"c": False}}}, 300)
+
+    def test_it_starts_closed(self, sim, fechada):
+        assert sim.get_data({self.SWITCH: ["is_open"]})[self.SWITCH]["is_open"] is False
+
+    def test_opening_is_read_back(self, sim, fechada):
+        sim.step(300, {self.SWITCH: {"is_open": {"ctrl": True}}}, 300)
+
+        assert sim.get_data({self.SWITCH: ["is_open"]})[self.SWITCH]["is_open"] is True
+
+    def test_opening_stops_the_current(self, sim, fechada):
+        antes = sim.get_data({self.SWITCH: ["I1_A"]})[self.SWITCH]["I1_A"]
+        assert antes > 1.0
+
+        sim.step(300, {self.SWITCH: {"is_open": {"ctrl": True}}}, 300)
+
+        assert sim.get_data({self.SWITCH: ["I1_A"]})[self.SWITCH]["I1_A"] < self.ABERTA_A
+
+    def test_opening_moves_the_bus_downstream(self, sim, fechada):
+        """O que prova que a manobra é elétrica, e não só um flag.
+
+        A barra 692 **não** vai a zero: há um PVSystem nela, e a ilha que a
+        abertura cria continua energizada pelo inversor — em torno de 0.83 pu,
+        fora da faixa que o alimentador sustentava. É o desvio que importa aqui,
+        não o valor: num ramal sem geração própria a mesma manobra zeraria a
+        tensão, como faz a ``Bus-152`` do IEEE123.
+        """
+        antes = sim.get_data({self.JUSANTE: ["V1_pu"]})[self.JUSANTE]["V1_pu"]
+        assert antes > 0.9
+
+        sim.step(300, {self.SWITCH: {"is_open": {"ctrl": True}}}, 300)
+        aberta = sim.get_data({self.JUSANTE: ["V1_pu"]})[self.JUSANTE]["V1_pu"]
+
+        sim.step(600, {self.SWITCH: {"is_open": {"ctrl": False}}}, 300)
+        fechada_de_novo = sim.get_data({self.JUSANTE: ["V1_pu"]})[self.JUSANTE]["V1_pu"]
+
+        assert antes - aberta > 0.1, "a abertura não mudou a tensão da barra isolada"
+        # Tolerância folgada: as cargas seguem a LoadShape, e cada passo avança
+        # o tempo — a tensão volta ao patamar, não ao valor idêntico.
+        assert fechada_de_novo == pytest.approx(antes, abs=1e-2)
+
+    def test_closing_undoes_an_opening_made_on_the_other_terminal(self, sim, fechada):
+        """A armadilha: o circuito pode ter aberto a chave pelo terminal 1.
+
+        É o caso das chaves normalmente abertas do IEEE123, que o ``.dss`` abre
+        com ``terminal=2``. Se fechar mexesse num terminal só, o comando falharia
+        em silêncio — com a corrente seguindo em zero.
+        """
+        sim.dss_wrapper.set_is_open("671692", open=True, element="Line", term=1)
+        sim.step(300, {}, 300)
+        assert sim.get_data({self.SWITCH: ["is_open"]})[self.SWITCH]["is_open"] is True
+
+        sim.step(600, {self.SWITCH: {"is_open": {"ctrl": False}}}, 300)
+
+        data = sim.get_data({self.SWITCH: ["is_open", "I1_A"]})[self.SWITCH]
+        assert data["is_open"] is False
+        assert data["I1_A"] > 1.0
+
+    def test_an_open_switch_is_still_read(self, sim, fechada):
+        """Aberta, ela continua na coleta — com zero, que é uma medição."""
+        sim.step(300, {self.SWITCH: {"is_open": {"ctrl": True}}}, 300)
+
+        data = sim.get_data({self.SWITCH: ["I1_A", "Loading1_pct", "Ploss_kw"]})[self.SWITCH]
+
+        assert data["I1_A"] < self.ABERTA_A
+        assert data["Loading1_pct"] == pytest.approx(0.0, abs=1e-6)
+
+    def test_concurrent_commands_warn(self, sim, fechada, capsys):
+        """Somar comandos de chave não faz sentido; o conflito não some."""
+        sim.step(300, {self.SWITCH: {"is_open": {"a": True, "b": False}}}, 300)
+
+        assert "concorrentes" in capsys.readouterr().out
+
+    def test_the_model_declares_is_open_once(self):
+        """Entrada e saída, como o `tap` do RegControl — listado uma só vez."""
+        attrs = build_meta()["models"]["Switch"]["attrs"]
+
+        assert attrs.count("is_open") == 1
+        assert "is_open" in MODEL_SPECS["Switch"].inputs
+
+    def test_a_line_takes_no_commands(self):
+        """Só a chave manobra: a linha continua somente de leitura."""
+        assert MODEL_SPECS["Line"].writer is None
+        assert MODEL_SPECS["Line"].inputs == {}
+
+
 class TestLineLoading:
     """Carregamento por fase: a corrente em % da ampacidade da linha.
 

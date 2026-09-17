@@ -197,6 +197,39 @@ Mesmos parâmetros de `get_power()`, com adição de:
 |---|---|---|
 | `winding` | `int` | Para transformadores: índice do winding (default: 1) |
 
+#### `get_is_open(name, element="Line", term=None)`
+
+Se o elemento está aberto. Com `term=None` (padrão) responde pelo **elemento**:
+aberto se qualquer terminal estiver aberto.
+
+```python
+dss.get_is_open("671692")          # o elemento
+dss.get_is_open("671692", term=2)  # um terminal específico
+```
+
+**Retorno**: `bool`.
+
+!!! warning "Não confie na docstring do py-dss-interface"
+    Ela diz que `is_terminal_open` responde *"if any terminal is open"*, mas ele
+    responde pelo terminal que recebe — verificado. Ler só o terminal 1 daria
+    por fechadas as chaves normalmente abertas do IEEE123, que o `.dss` abre com
+    `terminal=2`.
+
+#### `set_is_open(name, open=True, element="Line", term=None)`
+
+Abre ou fecha. Com `term=None` (padrão) trata o elemento como uma chave de um
+estado só:
+
+- **abrir** usa o **terminal 2**, a convenção do próprio IEEE123
+  (`open Line.Sw7 terminal=2`). Assim o estado produzido aqui fica
+  indistinguível do que vem declarado no circuito;
+- **fechar** fecha os **dois** terminais — fechar só o terminal 2 deixaria
+  aberta a chave que alguém tivesse aberto pelo terminal 1, e o comando falharia
+  em silêncio, com a corrente seguindo em zero.
+
+Passe `term` para comandar um terminal específico. Não é preciso invalidar o
+cache: `run_command` já o faz.
+
 #### `get_ampacity(name, element="Line")`
 
 Retorna os limites de corrente do elemento — o denominador do carregamento.

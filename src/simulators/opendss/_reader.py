@@ -453,10 +453,34 @@ class ReaderMixin:
         except (ValueError, TypeError):
             return value
 
-    def get_is_open(self, name: str, element: str = "Load", term: int = 1) -> bool:
-        """Checks if the element terminal is open."""
+    def get_is_open(self, name: str, element: str = "Line", term: int | None = None) -> bool:
+        """Whether the element is open — by default, at any of its terminals.
+
+        Uma chave tem **um** estado, mas o OpenDSS tem um por terminal, e
+        ``is_terminal_open`` responde pelo terminal que recebe (ao contrário do
+        que diz a docstring do ``py-dss-interface``, que fala em "any
+        terminal"). Olhar só o terminal 1 faria passar por fechada a chave que o
+        circuito abriu pelo outro lado — é o caso das duas chaves normalmente
+        abertas do IEEE123, que o ``.dss`` abre com ``terminal=2``.
+
+        Args:
+            name: Element name.
+            element: Element class.
+            term: Terminal a consultar. ``None`` (padrão) responde pelo
+                elemento: aberto se **qualquer** terminal estiver aberto.
+
+        Returns:
+            ``True`` se aberto.
+        """
         self.set_element(name, element)
-        return bool(self.dss.cktelement.is_terminal_open(term))
+
+        if term is not None:
+            return bool(self.dss.cktelement.is_terminal_open(term))
+
+        return any(
+            bool(self.dss.cktelement.is_terminal_open(t))
+            for t in range(1, self.dss.cktelement.num_terminals + 1)
+        )
 
     def get_tap(self, name: str) -> int:
         """Gets the current tap of a RegControl."""

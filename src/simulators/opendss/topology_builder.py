@@ -373,6 +373,18 @@ def add_nodes(graph, dss, attachments, elements=()):
 # =====================================================
 
 
+def _is_open(dss) -> bool:
+    """Se o elemento ativo está aberto em algum terminal.
+
+    Espelha :meth:`~._reader.ReaderMixin.get_is_open`, que não pode ser usado
+    aqui: este módulo fala direto com o motor, sem o wrapper.
+    """
+    return any(
+        bool(dss.cktelement.is_terminal_open(terminal))
+        for terminal in range(1, dss.cktelement.num_terminals + 1)
+    )
+
+
 def _add_element_edges(graph, dss, iterator, edge_type, prefix):
     """Adiciona uma aresta por elemento habilitado de uma classe.
 
@@ -416,7 +428,12 @@ def _add_element_edges(graph, dss, iterator, edge_type, prefix):
                             # Uma chave aberta continua existindo fisicamente,
                             # mas não conduz: o consumidor pode desenhá-la
                             # tracejada em vez de a aresta sumir do grafo.
-                            "open": bool(dss.cktelement.is_terminal_open(1)),
+                            #
+                            # Os dois terminais entram na conta. Olhar só o
+                            # primeiro dava as chaves normalmente abertas do
+                            # IEEE123 como fechadas, porque o circuito as abre
+                            # pelo terminal 2 (`open Line.Sw7 terminal=2`).
+                            "open": _is_open(dss),
                         },
                     )
                 )

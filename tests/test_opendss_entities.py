@@ -75,16 +75,17 @@ class TestRelIsWellFormed:
         assert offenders == []
 
     @pytest.mark.parametrize(
-        "model_type", ["Load", "Line", "PVSystem", "RegControl", "Transformer"]
+        "model_type", ["Load", "Line", "Switch", "PVSystem", "RegControl", "Transformer"]
     )
     def test_elements_are_connected(self, children, model_type):
         entities = [c for c in children if c["type"] == model_type]
         assert entities, f"no {model_type} entities in the fixture"
         assert all(c["rel"] for c in entities)
 
-    def test_lines_connect_two_buses(self, children):
-        lines = [c for c in children if c["type"] == "Line"]
-        assert all(len(c["rel"]) == 2 for c in lines)
+    @pytest.mark.parametrize("model_type", ["Line", "Switch"])
+    def test_series_elements_connect_two_buses(self, children, model_type):
+        entities = [c for c in children if c["type"] == model_type]
+        assert all(len(c["rel"]) == 2 for c in entities)
 
     def test_buses_are_anchors(self, children):
         buses = [c for c in children if c["type"] == "Bus"]
@@ -212,6 +213,54 @@ class TestExtraInfo:
     def test_load_carries_ratings(self, children):
         loads = [c["extra_info"] for c in children if c["type"] == "Load"]
         assert all(le["kw"] > 0 and le["kv"] > 0 for le in loads)
+
+
+class TestSwitches:
+    """A chave é uma ``Line`` no motor e um modelo próprio no mosaik.
+
+    Separá-las é o que impede um trecho de impedância desprezível, que existe
+    para manobrar a rede, de entrar nas estatísticas de carregamento, perdas e
+    comprimento das linhas que transportam potência de fato.
+    """
+
+    # Única chave do IEEE13: `New Line.671692 ... Switch=y`.
+    SWITCH = "Switch-671692"
+
+    def test_the_switch_is_not_a_line(self, children):
+        by_eid = {c["eid"]: c for c in children}
+
+        assert self.SWITCH in by_eid
+        assert "Line-671692" not in by_eid
+
+    def test_no_other_line_is_taken_for_a_switch(self, children):
+        switches = {c["eid"] for c in children if c["type"] == "Switch"}
+        assert switches == {self.SWITCH}
+
+    def test_the_declared_form_does_not_matter(self, grid):
+        """O IEEE13 declara ``Switch=y``, o IEEE123 ``switch=yes``.
+
+        O motor normaliza a propriedade lida para ``True``/``False``, e é dela
+        que a detecção parte — não da forma escrita no ``.dss``.
+        """
+        sim, _ = grid
+        assert sim.dss_wrapper.get_property("671692", "switch", "Line") == "True"
+
+    def test_extra_info_carries_the_flag(self, children):
+        by_eid = {c["eid"]: c["extra_info"] for c in children}
+
+        assert by_eid[self.SWITCH]["is_switch"] is True
+        assert by_eid["Line-650632"]["is_switch"] is False
+
+    def test_it_is_still_a_series_element(self, children):
+        """Continua ligando duas barras: no grafo é uma aresta, como a linha."""
+        by_eid = {c["eid"]: c for c in children}
+        info = by_eid[self.SWITCH]["extra_info"]
+
+        assert by_eid[self.SWITCH]["rel"] == [f"Bus-{info['bus1']}", f"Bus-{info['bus2']}"]
+
+    def test_detected_switches_lists_them(self, grid):
+        sim, _ = grid
+        assert [info["name"] for info in sim.get_detected_switches()] == ["671692"]
 
 
 class TestCreateGuards:

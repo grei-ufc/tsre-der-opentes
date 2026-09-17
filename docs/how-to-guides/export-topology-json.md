@@ -127,7 +127,13 @@ elemento**, não do par de barras: os três reguladores de fase do IEEE 13 ligam
 
 Uma chave aberta continua no grafo, com `metadata.open = true` — ela existe
 fisicamente ainda que não conduza, e o consumidor pode desenhá-la tracejada em
-vez de fazê-la sumir.
+vez de fazê-la sumir. O estado é do elemento: basta um terminal aberto. (Até
+esta versão só o terminal 1 era consultado, e as chaves normalmente abertas do
+IEEE123, que o circuito abre com `terminal=2`, saíam como fechadas.)
+
+As chaves têm `edge_type: "line"` — no OpenDSS elas são `Line` com
+`switch=yes`. Quem precisa distingui-las usa as entidades do adaptador mosaik,
+onde são um modelo `Switch` à parte.
 
 ## Elementos conectados
 

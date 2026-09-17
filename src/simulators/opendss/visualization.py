@@ -79,7 +79,11 @@ PRESETS = {
 DEFAULT_SHOW = ("Bus", "PVSystem", "Storage")
 
 # Viram arestas entre as barras, em vez de nós.
-MERGE_TYPES = ["Line", "Transformer"]
+#
+# A chave precisa estar aqui. Um tipo que não esteja nem em `merge_types` nem
+# nos `etypes` é removido do grafo, e como a chave é a ponte entre duas barras,
+# todo o trecho a jusante dela viraria uma componente solta no layout de forças.
+MERGE_TYPES = ["Line", "Transformer", "Switch"]
 
 
 def resolve_etypes(show):

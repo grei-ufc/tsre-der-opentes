@@ -14,6 +14,10 @@ from . import opendss_pv
 # Tolerância relativa ao conferir um valor numérico relido do motor.
 _VALUE_TOLERANCE = 1e-6
 
+# Terminal pelo qual uma chave é aberta. É o que o próprio IEEE123 usa para as
+# suas chaves normalmente abertas; ver `set_is_open`.
+SWITCH_TERMINAL = 2
+
 
 def _values_match(read_back: Any, written: Any) -> bool:
     """Compara o valor relido com o escrito, sem falsos negativos de formatação.
@@ -125,12 +129,40 @@ class WriterMixin:
         self.set_property(name, "yearly", "constant", element)
 
     def set_is_open(
-        self, name: str, open: bool = True, element: str = "Load", term: int = 1
+        self, name: str, open: bool = True, element: str = "Line", term: int | None = None
     ) -> None:
-        """Opens or closes the terminal of an element."""
-        action = "Open" if open else "Close"
+        """Opens or closes an element — by default, as a switch with one state.
+
+        Abrir usa o **terminal 2**, que é a convenção do próprio circuito: é
+        assim que o IEEE123 abre as suas chaves normalmente abertas
+        (``open Line.Sw7 terminal=2``). Adotá-la faz o estado produzido aqui
+        ficar indistinguível do que vem declarado no ``.dss``.
+
+        Fechar fecha **os dois** terminais. Fechar só o terminal 2 deixaria
+        aberta a chave que alguém tivesse aberto pelo terminal 1, e o comando
+        falharia em silêncio — com a corrente seguindo em zero.
+
+        Não é preciso invalidar o cache aqui: ``run_command`` já o faz.
+
+        Args:
+            name: Element name.
+            open: ``True`` abre, ``False`` fecha.
+            element: Element class.
+            term: Terminal a comandar. ``None`` (padrão) aplica a convenção de
+                chave descrita acima.
+        """
         full_name = f"{element}.{name}"
-        self.run_command(f"{action} {full_name} term={term}")
+
+        if term is not None:
+            self.run_command(f"{'Open' if open else 'Close'} {full_name} term={term}")
+            return
+
+        if open:
+            self.run_command(f"Open {full_name} term={SWITCH_TERMINAL}")
+            return
+
+        for terminal in (1, 2):
+            self.run_command(f"Close {full_name} term={terminal}")
 
     def set_tap(self, name: str, tap: int, max_tap: int = 16) -> None:
         """Sets the tap of a RegControl, clamping it to the max value."""

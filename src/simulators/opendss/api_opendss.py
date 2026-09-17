@@ -30,6 +30,16 @@ def _as_int(value, default=0):
         return default
 
 
+# O motor normaliza a propriedade lida para "True"/"False", mas o circuito pode
+# tê-la declarado como `switch=y` (IEEE13) ou `switch=yes` (IEEE123).
+_TRUTHY = frozenset({"true", "yes", "y", "1"})
+
+
+def _as_bool(value):
+    """Converte uma propriedade DSS (sempre string) para bool."""
+    return str(value).strip().lower() in _TRUTHY
+
+
 # A META e derivada do registry em element_specs.py, nao escrita a mao:
 # assim ela nao pode declarar um atributo que o simulador nao implementa.
 META = build_meta()
@@ -89,6 +99,10 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
     @property
     def detected_transformers(self):
         return self._info_by_type("Transformer")
+
+    @property
+    def detected_switches(self):
+        return self._info_by_type("Switch")
 
     @property
     def regulator_map(self):
@@ -362,13 +376,26 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             self._check_load_profile(eid, name)
 
     def _add_lines(self):
+        """Cria as linhas do circuito, separando as chaves num modelo próprio.
+
+        No OpenDSS os dois são a mesma classe ``Line``; o que os distingue é a
+        propriedade ``switch``. Separá-los aqui é o que impede uma chave — trecho
+        de impedância desprezível, que existe para manobrar — de entrar nas
+        estatísticas de carregamento e perdas das linhas que transportam
+        potência de fato.
+        """
         lines_df = self.dss_wrapper.get_all_elements("Line")
         if lines_df.empty:
             return
 
         for full_name, row in lines_df.iterrows():
             name = full_name.split(".")[1]
-            eid = f"Line-{name}"
+            # A propriedade vem no DataFrame de propriedades que já foi lido, e
+            # o motor a normaliza para "True"/"False" seja qual for a forma
+            # declarada no .dss (`switch=y`, `switch=yes`).
+            is_switch = _as_bool(row.get("Switch", row.get("switch", "False")))
+            model_type = "Switch" if is_switch else "Line"
+            eid = f"{model_type}-{name}"
             bus1, nodes1 = _parse_bus(row.get("bus1", ""))
             bus2, nodes2 = _parse_bus(row.get("bus2", ""))
             phases = _as_int(row.get("phases"), len(nodes1) or 3)
@@ -381,7 +408,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
 
             self._add_child(
                 eid,
-                "Line",
+                model_type,
                 name,
                 rel=(
                     self._bus_rel(row.get("bus1", ""), eid)
@@ -401,6 +428,10 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                     # padrão do OpenDSS, e não um dado do alimentador.
                     "norm_amps": norm_amps,
                     "emerg_amps": emerg_amps,
+                    # Redundante com o tipo da entidade, mas quem recebe só o
+                    # extra_info (o exportador de topologia, um relatório) não
+                    # enxerga o tipo.
+                    "is_switch": is_switch,
                 },
             )
 
@@ -742,6 +773,10 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
 
     def get_detected_transformers(self):
         return self.detected_transformers
+
+    def get_detected_switches(self):
+        """Metadados das chaves do circuito — as linhas com ``switch=yes``."""
+        return self.detected_switches
 
     def get_bus_positions(self):
         """Coordenadas das barras que as têm, indexadas por eid.

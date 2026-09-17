@@ -163,6 +163,33 @@ o `pmpp` do elemento é reescrito a cada passo pelo setpoint, e reler o motor
 daria a geração comandada no lugar da capacidade. A ampacidade ninguém reescreve
 — o cache ali é por custo, não por correção.
 
+## Chave: uma `Line` no motor, um modelo próprio no mosaik
+
+O OpenDSS não tem classe de chave: é uma `Line` com `switch=yes`, de impedância
+desprezível e comprimento quase nulo. Misturada às demais, ela distorce qualquer
+estatística de linha — entra na média de carregamento com um valor que não
+significa nada, e no total de comprimento com um milésimo de quilômetro.
+
+Por isso `_add_lines` lê a propriedade e roteia entre dois modelos, `Line` e
+`Switch`, ambos com `dss_class="Line"`: a separação é do mosaik, não do motor. As
+duas specs compartilham o `LINE_ATTR_MAP`, porque eletricamente a chave é uma
+linha e lê as mesmas grandezas.
+
+O `topology_builder` não participa dessa separação — fala direto com `dss.lines`,
+e para o grafo a chave é uma aresta como qualquer elemento série, marcada com
+`metadata["open"]`.
+
+### O estado é do elemento, não do terminal
+
+Uma chave está aberta ou fechada; o OpenDSS guarda um estado por terminal. A
+diferença não é acadêmica: o IEEE123 abre as suas chaves normalmente abertas com
+`open Line.Sw7 terminal=2`, e uma leitura do terminal 1 as daria por fechadas —
+com a corrente em zero, o que pareceria uma chave fechada sem carga.
+
+`get_is_open` percorre os terminais; `set_is_open` abre pelo terminal 2 e fecha
+os dois. Fechar um só deixaria aberta a chave que outro caminho tivesse aberto
+pelo outro lado, e o comando falharia sem nada acusando.
+
 ## Controle de PVSystem
 
 O adaptador aceita `P_des` e `Q_des` de entidades externas (inversores) e aplica ao OpenDSS:

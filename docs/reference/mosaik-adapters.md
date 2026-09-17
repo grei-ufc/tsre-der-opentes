@@ -32,6 +32,18 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
         "Line": {
             "public": False,
             "params": [],
+            "attrs": ["I1_A", "I1_ang", "I2_A", "I2_ang", "I3_A", "I3_ang",
+                       "P1_w", "Q1_var", "P2_w", "Q2_var", "P3_w", "Q3_var",
+                       "Ploss1_kw", "Ploss2_kw", "Ploss3_kw",
+                       "Qloss1_kvar", "Qloss2_kvar", "Qloss3_kvar",
+                       "Ploss_kw", "Qloss_kvar",
+                       "Loading1_pct", "Loading2_pct", "Loading3_pct"],
+        },
+        "Switch": {
+            "public": False,
+            "params": [],
+            # As mesmas grandezas da Line — no motor é a mesma classe — mais o
+            # estado, que é entrada e saída.
             "attrs": ["is_open", "I1_A", "I1_ang", "I2_A", "I2_ang", "I3_A", "I3_ang",
                        "P1_w", "Q1_var", "P2_w", "Q2_var", "P3_w", "Q3_var",
                        "Ploss1_kw", "Ploss2_kw", "Ploss3_kw",
@@ -76,7 +88,8 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
     },
     "extra_methods": ["get_dss_wrapper", "get_extra_info", "get_detected_regulators",
                        "get_detected_pvsystems", "get_detected_storages",
-                       "get_detected_transformers", "get_bus_positions"],
+                       "get_detected_transformers", "get_detected_switches",
+                       "get_bus_positions"],
 }
 ```
 
@@ -111,6 +124,7 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Storage | `SoC_set` | `float` | SoC alvo (%) |
 | PVSystem | `P_des` | `float` | Potência ativa desejada (kW) |
 | PVSystem | `Q_des` | `float` | Potência reativa desejada (kvar) |
+| Switch | `is_open` | `bool` | `True` abre a chave, `False` fecha |
 
 ### Atributos de saída (get_data)
 
@@ -146,6 +160,31 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Storage | `P_act` | `float` | Potência ativa atual (kW) |
 | Storage | `Q_act` | `float` | Potência reativa atual (kvar) |
 | Storage | `SoC` | `float` | Estado de carga (%) |
+| Switch | `is_open` | `bool` | Estado efetivo lido do circuito |
+| Switch | (demais) | `float` | As mesmas da `Line`: correntes, potências, perdas e carregamento |
+
+!!! info "Chaves"
+    No OpenDSS a chave é uma `Line` com `switch=yes` — trecho de impedância
+    desprezível que existe para manobrar a rede, não para transportar potência.
+    O adaptador as separa num modelo próprio para que não entrem nas
+    estatísticas de carregamento, perdas e comprimento das linhas de fato. O eid
+    é `Switch-<nome>`, e `extra_info` traz `is_switch`.
+
+    Eletricamente continua sendo uma linha: fechada, conduz a corrente inteira
+    do trecho e reporta as mesmas grandezas. Aberta, continua na coleta — com
+    zero, que é uma medição, não uma ausência.
+
+    **Uma chave tem um estado, mas o OpenDSS tem um por terminal.** `is_open` lê
+    o elemento: aberta se **qualquer** terminal estiver aberto. Abrir usa o
+    terminal 2, que é a convenção do próprio IEEE123
+    (`open Line.Sw7 terminal=2`); fechar fecha os dois, senão uma chave aberta
+    pelo terminal 1 continuaria aberta e o comando falharia em silêncio.
+
+    Como `tap` do `RegControl`, `is_open` é entrada e saída, agregado por
+    `single_value`: dois controladores concorrentes geram aviso, em vez de um
+    descarte silencioso.
+
+    Inventário do circuito: `get_detected_switches()`.
 
 !!! warning "Carregamento: o denominador quase nunca é dado do alimentador"
     `Loading1_pct..Loading3_pct` é a corrente da fase em porcentagem de

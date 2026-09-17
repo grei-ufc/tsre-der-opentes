@@ -41,6 +41,15 @@ class Circuit:
         self.n_transformers = dss.transformers.count
         self.n_pvsystems = dss.pvsystems.count
         self.buses = {b.split(".")[0].lower() for b in dss.circuit.buses_names}
+        self.switches = {
+            name.lower(): {
+                "r1": wrapper.get_property(name, "r1", "Line"),
+                "length": wrapper.get_property(name, "length", "Line"),
+            }
+            for name in dss.lines.names
+            if wrapper.get_property(name, "switch", "Line") == "True"
+        }
+        self.edges_by_name = {e.metadata["name"].lower(): e for e in self.graph.edges.values()}
 
 
 def _open(path):
@@ -69,6 +78,29 @@ def ieee13_pv():
 @pytest.fixture(scope="module")
 def ieee123():
     return _open(IEEE123)
+
+
+# Uma barra fora do arquivo de coordenadas. Antes o IEEE123 fornecia duas de
+# graça (`300_open` e `94_open`, artefatos de como as chaves normalmente abertas
+# eram modeladas), mas ao adotar o bloco de chaves com `switch=yes` elas deixaram
+# de existir: agora as chaves ligam as barras reais 300 e 94, que constam do
+# BusCoords.dat. O caso continua valendo, então o circuito passa a criá-lo.
+UNLOCATED_BUS_CIRCUIT = """\
+Redirect "{master}"
+New Line.ramal_novo phases=3 bus1=675 bus2=barra_sem_coordenada linecode=mtx601 length=0.1 units=mi
+Calcvoltagebases
+Solve
+"""
+
+
+@pytest.fixture(scope="module")
+def sem_coordenada(tmp_path_factory):
+    if not IEEE13.exists():
+        pytest.skip(f"fixture not found: {IEEE13}")
+
+    path = tmp_path_factory.mktemp("coords") / "sem_coord.dss"
+    path.write_text(UNLOCATED_BUS_CIRCUIT.format(master=IEEE13.as_posix()))
+    return _open(path)
 
 
 class TestSourceBus:
@@ -139,6 +171,51 @@ class TestNodeClassification:
         assert set(ieee123.graph.nodes) == ieee123.buses
 
 
+class TestSwitchesInTheFeeder:
+    """As oito chaves do IEEE123, declaradas com ``switch=yes``.
+
+    O alimentador original as define como linhas curtas quaisquer, e o próprio
+    arquivo observa que poderiam ser declaradas com a propriedade. Sem ela não há
+    como distinguir uma chave de um trecho curto de linha. O bloco de chaves do
+    ``IEEE123Switches.dss`` foi adotado no master por isso.
+    """
+
+    SWITCHES = frozenset({"sw1", "sw2", "sw3", "sw4", "sw5", "sw6", "sw7", "sw8"})
+    # Normalmente abertas, pelo terminal 2.
+    ABERTAS = frozenset({"sw7", "sw8"})
+
+    def test_all_eight_are_declared_as_switches(self, ieee123):
+        assert set(ieee123.switches) == self.SWITCHES
+
+    def test_the_normally_open_ones_are_open(self, ieee123):
+        """Abertas pelo terminal 2 — o caso que uma leitura do terminal 1 perde."""
+        abertas = {n for n in self.SWITCHES if ieee123.edges_by_name[n].metadata["open"]}
+        assert abertas == self.ABERTAS
+
+    def test_they_connect_real_buses(self, ieee123):
+        """Ligam 300 e 94, e não as fictícias 300_open/94_open de antes.
+
+        É o que devolve a coordenada às duas últimas barras sem posição do
+        alimentador; ver ``test_every_ieee123_bus_is_located``.
+        """
+        sw7 = ieee123.edges_by_name["sw7"]
+        sw8 = ieee123.edges_by_name["sw8"]
+
+        assert {sw7.source, sw7.target} == {"151", "300"}
+        assert {sw8.source, sw8.target} == {"54", "94"}
+
+    def test_the_impedance_survived_the_declaration(self, ieee123):
+        """``switch=yes`` sobrescreve a impedância por um padrão do OpenDSS.
+
+        O ``.dss`` a repõe logo depois, na mesma linha. Se a ordem se inverter,
+        o circuito muda sem que nada acuse — as chaves ficariam com a impedância
+        default em vez dos 1e-3 ohm do alimentador.
+        """
+        for name in self.SWITCHES:
+            assert ieee123.switches[name]["r1"] == pytest.approx(1e-3), name
+            assert ieee123.switches[name]["length"] == pytest.approx(0.001), name
+
+
 class TestNodeMetadata:
     def test_buses_carry_coordinates_and_base(self, ieee13):
         node = ieee13.graph.nodes["634"]
@@ -156,25 +233,33 @@ class TestNodeMetadata:
             assert isinstance(node.metadata["x"], float)
             assert isinstance(node.metadata["y"], float)
 
-    def test_missing_coordinates_are_null_not_origin(self, ieee123):
-        """Barra fora do BusCoords: o OpenDSS diz (0, 0), que não é uma posição.
-
-        No IEEE123, ``300_open`` e ``94_open`` são artefatos das chaves abertas e
-        não constam do ``BusCoords.dat``.
-        """
-        unlocated = [n for n in ieee123.graph.nodes.values() if not n.metadata["coord_defined"]]
-        assert unlocated, "o IEEE123 deveria ter barras sem coordenada"
+    def test_missing_coordinates_are_null_not_origin(self, sem_coordenada):
+        """Barra fora do BusCoords: o OpenDSS diz (0, 0), que não é uma posição."""
+        unlocated = [
+            n for n in sem_coordenada.graph.nodes.values() if not n.metadata["coord_defined"]
+        ]
+        assert unlocated, "a fixture deveria ter uma barra sem coordenada"
 
         for node in unlocated:
             assert node.metadata["x"] is None
             assert node.metadata["y"] is None
 
-    def test_missing_coordinates_serialize_as_json_null(self, ieee123):
-        payload = json.loads(json.dumps(serialize_graph(ieee123.graph), allow_nan=False))
+    def test_missing_coordinates_serialize_as_json_null(self, sem_coordenada):
+        payload = json.loads(json.dumps(serialize_graph(sem_coordenada.graph), allow_nan=False))
         unlocated = [n for n in payload["nodes"] if not n["metadata"]["coord_defined"]]
 
         assert unlocated
         assert all(n["metadata"]["x"] is None and n["metadata"]["y"] is None for n in unlocated)
+
+    def test_every_ieee123_bus_is_located(self, ieee123):
+        """O alimentador inteiro tem coordenada real, desde a adoção das chaves.
+
+        As duas barras que faltavam eram as fictícias ``300_open``/``94_open``;
+        com as chaves normalmente abertas ligando as barras reais ``300`` e
+        ``94``, não sobra nenhuma fora do ``BusCoords.dat``.
+        """
+        unlocated = [n.id for n in ieee123.graph.nodes.values() if not n.metadata["coord_defined"]]
+        assert unlocated == []
 
     def test_edges_carry_phase_count(self, ieee13):
         for edge in ieee13.graph.edges.values():

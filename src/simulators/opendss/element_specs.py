@@ -326,6 +326,22 @@ def read_regulator(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dic
 
 LINE_LOADING_OUTPUTS = ("Loading1_pct", "Loading2_pct", "Loading3_pct")
 
+# Compartilhado por `Line` e `Switch`: no motor as duas são a mesma classe, e a
+# chave lê as mesmas grandezas elétricas que a linha.
+#
+# As perdas saem em kW/kvar, e o nome diz isso: o sufixo `_w` das potências é
+# herdado e não corresponde à unidade que o motor entrega.
+LINE_ATTR_MAP = phase_attr_map(
+    p=("P1_w", "P2_w", "P3_w"),
+    q=("Q1_var", "Q2_var", "Q3_var"),
+    i_mag=("I1_A", "I2_A", "I3_A"),
+    i_ang=("I1_ang", "I2_ang", "I3_ang"),
+    p_loss=("Ploss1_kw", "Ploss2_kw", "Ploss3_kw"),
+    q_loss=("Qloss1_kvar", "Qloss2_kvar", "Qloss3_kvar"),
+    p_loss_total=("Ploss_kw",),
+    q_loss_total=("Qloss_kvar",),
+)
+
 
 def read_line(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[str, Any]:
     """Lê grandezas por fase mais o carregamento em % da ampacidade da linha.
@@ -369,6 +385,19 @@ def read_line(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[str
         if attr in wanted:
             result[attr] = normalize_zero(100.0 * mags[index] / norm_amps)
 
+    return result
+
+
+def read_switch(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[str, Any]:
+    """Lê as mesmas grandezas de uma linha, mais o estado da chave.
+
+    ``is_open`` é do elemento, não de um terminal: ver
+    :meth:`~._reader.ReaderMixin.get_is_open`. Uma chave aberta continua sendo
+    lida — com corrente zero —, e não some da coleta.
+    """
+    result = read_line(sim, name, attrs, spec)
+    if "is_open" in attrs:
+        result["is_open"] = sim.dss_wrapper.get_is_open(name, element=spec.dss_class)
     return result
 
 
@@ -441,6 +470,16 @@ def read_pvsystem(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict
 # ----------------------------------------------------------------------
 
 
+def write_switch(sim, name: str, values: dict[str, Any]) -> None:
+    """Abre ou fecha a chave.
+
+    A convenção de terminais — abrir pelo 2, fechar os dois — vive no wrapper,
+    em :meth:`~._writer.WriterMixin.set_is_open`.
+    """
+    if "is_open" in values:
+        sim.dss_wrapper.set_is_open(name, open=bool(values["is_open"]), element="Line")
+
+
 def write_tap(sim, name: str, values: dict[str, Any]) -> None:
     if "tap" in values:
         sim.dss_wrapper.set_tap(name=name, tap=int(values["tap"]))
@@ -503,20 +542,22 @@ MODEL_SPECS: dict[str, ModelSpec] = {
     "Line": ModelSpec(
         dss_class="Line",
         reader=read_line,
-        # As perdas saem em kW/kvar, e o nome diz isso: o sufixo `_w` das
-        # potências é herdado e não corresponde à unidade que o motor entrega.
-        attr_map=phase_attr_map(
-            p=("P1_w", "P2_w", "P3_w"),
-            q=("Q1_var", "Q2_var", "Q3_var"),
-            i_mag=("I1_A", "I2_A", "I3_A"),
-            i_ang=("I1_ang", "I2_ang", "I3_ang"),
-            p_loss=("Ploss1_kw", "Ploss2_kw", "Ploss3_kw"),
-            q_loss=("Qloss1_kvar", "Qloss2_kvar", "Qloss3_kvar"),
-            p_loss_total=("Ploss_kw",),
-            q_loss_total=("Qloss_kvar",),
-        ),
+        attr_map=LINE_ATTR_MAP,
         # Corrente em % da ampacidade da linha. Ver read_line.
         extra_outputs=LINE_LOADING_OUTPUTS,
+    ),
+    "Switch": ModelSpec(
+        # No motor a chave continua sendo uma Line: é o mesmo elemento, com a
+        # propriedade `switch=yes`. Só o mosaik as separa.
+        dss_class="Line",
+        reader=read_switch,
+        writer=write_switch,
+        inputs={"is_open": InputSpec(aggregator=single_value)},
+        # Eletricamente é uma linha, e lê as mesmas grandezas: fechada, conduz a
+        # corrente inteira do trecho, e o carregamento dela contra a ampacidade
+        # continua valendo.
+        attr_map=LINE_ATTR_MAP,
+        extra_outputs=("is_open", *LINE_LOADING_OUTPUTS),
     ),
     "Transformer": ModelSpec(
         dss_class="Transformer",
@@ -621,6 +662,7 @@ def build_meta() -> dict[str, Any]:
             "get_detected_pvsystems",
             "get_detected_storages",
             "get_detected_transformers",
+            "get_detected_switches",
             "get_bus_positions",
         ],
     }
