@@ -91,6 +91,9 @@ def run_scenario():
                 "Q2_var",
                 "P3_w",
                 "Q3_var",
+                "Loading1_pct",
+                "Loading2_pct",
+                "Loading3_pct",
             )
             print(f"Monitorando Linha: {target_eid}")
 
