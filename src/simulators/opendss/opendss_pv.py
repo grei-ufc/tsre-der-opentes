@@ -47,6 +47,10 @@ def get_all_pvsystems_info(dss: Any) -> dict[str, dict[str, Any]]:
         # inversor, entao precisa acompanhar o PVSystem e nao a barra.
         kv = _as_float(dss.text(f"? PVSystem.{name}.kV"))
 
+        # Base da reativa quando o PV e movido por multiplicador: com
+        # P = mult x pmpp, a reativa vale P x tan(acos(pf)). Ver write_pvsystem.
+        pf = _as_float(dss.text(f"? PVSystem.{name}.pf"), 1.0)
+
         pt_curve_name = dss.text(f"? PVSystem.{name}.P-TCurve")
         eff_curve_name = dss.text(f"? PVSystem.{name}.EffCurve")
 
@@ -57,6 +61,7 @@ def get_all_pvsystems_info(dss: Any) -> dict[str, dict[str, Any]]:
             "pmpp": pmpp,
             "kva": kva,
             "kv": kv,
+            "pf": pf,
             "irradiance": irradiance,
             "daily": daily,
             "pct_cutin": cutin,

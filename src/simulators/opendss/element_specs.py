@@ -11,6 +11,7 @@ Adding a model means adding one :class:`ModelSpec` here — not editing META,
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
@@ -70,9 +71,41 @@ def single_value(attr: str, eid: str, values: Iterable[Any]) -> Any:
 
 @dataclass(frozen=True)
 class InputSpec:
-    """Como um atributo de entrada do mosaik é reduzido a um único valor."""
+    """Como um atributo de entrada do mosaik é reduzido a um único valor.
+
+    Attributes:
+        aggregator: Como reduzir as contribuições de vários simuladores a um
+            valor só.
+        bounds: Faixa ``(mínimo, máximo)`` aceita, ou ``None`` para não
+            restringir. Declarada aqui, ao lado do atributo e no mesmo registro
+            de onde a META é derivada, em vez de enterrada no escritor.
+    """
 
     aggregator: Callable[[str, str, Iterable[Any]], Any] = sum_values
+    bounds: tuple[float, float] | None = None
+
+    def check(self, attr: str, eid: str, value: Any) -> Any:
+        """Devolve *value*, ou interrompe se ele estiver fora da faixa.
+
+        A faixa é o contrato da curva. Um multiplicador fora dela significa que
+        o arquivo não é o que o cenário pensa — unidade errada, coluna trocada,
+        normalização esquecida — e seguir produziria um estudo inteiro de dados
+        errados a partir de uma entrada que ninguém pretendeu.
+
+        Raises:
+            ValueError: Se houver ``bounds`` e *value* cair fora deles.
+        """
+        if self.bounds is None:
+            return value
+
+        low, high = self.bounds
+        if not low <= value <= high:
+            raise ValueError(
+                f"{eid}.{attr} recebeu {value!r}, fora da faixa [{low}, {high}]. "
+                "O valor é um multiplicador da placa do elemento, não uma "
+                "potência: confira a unidade e a coluna da curva."
+            )
+        return value
 
 
 @dataclass(frozen=True)
@@ -539,13 +572,75 @@ def write_tap(sim, name: str, values: dict[str, Any]) -> None:
         sim.dss_wrapper.set_tap(name=name, tap=int(values["tap"]))
 
 
+def reactive_from_pf(p: float, pf: float) -> float:
+    """Reativa que acompanha uma ativa *p* sob o fator de potência *pf*.
+
+    ``Q = P · tan(acos(pf))``. A reativa de um inversor não sai da potência
+    disponível no painel: sai da folga de kVA do próprio inversor — é por isso
+    que se sobredimensiona o inversor em relação ao ``pmpp``. Toda a potência do
+    painel vira ativa, e esta função diz o que a acompanha.
+
+    O sinal segue o de *p*, de modo que uma bateria carregando (ativa negativa)
+    também absorva reativa.
+
+    Args:
+        p: Potência ativa, em kW.
+        pf: Fator de potência declarado, em ``(0, 1]``.
+
+    Returns:
+        Potência reativa, em kvar. Zero para ``pf`` unitário ou fora da faixa
+        válida — um ``pf`` que o circuito não declarou não inventa reativa.
+    """
+    if not 0.0 < pf < 1.0:
+        return 0.0
+    return p * math.tan(math.acos(pf))
+
+
+def _single_source(values: dict[str, Any], multiplier: str, absolutes: tuple[str, ...]) -> None:
+    """Recusa o elemento comandado ao mesmo tempo por multiplicador e por potência.
+
+    Os dois caminhos declaram a mesma grandeza de formas diferentes, e aplicar
+    um significa descartar o outro. Num estudo longo, o que sobra é uma potência
+    que ninguém pediu.
+
+    Raises:
+        ValueError: Se *multiplier* chegar junto de qualquer um de *absolutes*.
+    """
+    if multiplier not in values:
+        return
+
+    conflitos = [attr for attr in absolutes if attr in values]
+    if conflitos:
+        raise ValueError(
+            f"{multiplier} chegou junto de {', '.join(conflitos)}. O multiplicador "
+            "deriva a potência da placa do elemento, e os dois caminhos comandam a "
+            "mesma grandeza: conecte só um deles a este elemento."
+        )
+
+
 def write_storage(sim, name: str, values: dict[str, Any]) -> None:
     """Aplica setpoints de potência e, se enviado, força o estado de carga.
+
+    Aceita dois caminhos, nunca os dois juntos: ``P_set``/``Q_set`` em kW e
+    kvar absolutos, ou ``P_mult``, um multiplicador de -1 a 1 sobre a potência
+    nominal — negativo carrega, positivo descarrega. A reativa que acompanha o
+    multiplicador vem do ``pf`` declarado.
 
     ``SoC_set`` existe para o padrão em que um modelo de bateria externo é dono
     da física e o elemento do OpenDSS apenas espelha o estado dele.
     """
-    if "P_set" in values or "Q_set" in values:
+    _single_source(values, "P_mult", ("P_set", "Q_set"))
+
+    if "P_mult" in values:
+        info = sim.storage_map.get(f"Storage-{name}", {})
+        p = values["P_mult"] * info.get("kw_rated", 0.0)
+        sim.dss_wrapper.set_power(
+            name,
+            p=p,
+            q=reactive_from_pf(p, sim.power_factor("Storage", name)),
+            element="Storage",
+        )
+    elif "P_set" in values or "Q_set" in values:
         sim.dss_wrapper.set_power(
             name,
             p=values.get("P_set"),
@@ -558,11 +653,47 @@ def write_storage(sim, name: str, values: dict[str, Any]) -> None:
 
 
 def write_pvsystem(sim, name: str, values: dict[str, Any]) -> None:
+    """Aplica a geração comandada, por potência absoluta ou por multiplicador.
+
+    ``P_des``/``Q_des`` chegam em kW e kvar — o caminho de um simulador de
+    inversor. ``P_mult`` é um multiplicador de 0 a 1 sobre o ``pmpp`` da placa:
+    toda a potência do painel vira ativa, e a reativa sai do ``pf`` declarado.
+    Os dois caminhos são exclusivos.
+    """
+    _single_source(values, "P_mult", ("P_des", "Q_des"))
+
+    if "P_mult" in values:
+        rated, _ = sim.pv_nameplate(name)
+        p = values["P_mult"] * rated
+        pf = sim.power_factor("PVSystem", name)
+        sim.dss_wrapper.set_pvsystem_pq(name, p, reactive_from_pf(p, pf))
+        return
+
     sim.dss_wrapper.set_pvsystem_pq(
         name,
         values.get("P_des", 0.0),
         values.get("Q_des", 0.0),
     )
+
+
+def write_load(sim, name: str, values: dict[str, Any]) -> None:
+    """Move a carga por um multiplicador de 0 a 1 sobre a potência nominal.
+
+    Ativa e reativa são escaladas pelo mesmo fator, o que **preserva o fator de
+    potência** da carga: escalar a potência aparente a ``pf`` constante é essa
+    mesma conta. Por isso o ``pf`` não precisa ser lido — ele está implícito na
+    razão entre o ``kW`` e o ``kvar`` nominais.
+
+    A placa vem de :meth:`~.api_opendss.OpenDSSSimulator.load_nameplate`, e não
+    do motor: o laço de ``LoadShape`` reescreve a potência da carga a cada
+    passo, então o valor corrente é o do perfil.
+    """
+    if "S_mult" not in values:
+        return
+
+    kw, kvar = sim.load_nameplate(name)
+    mult = values["S_mult"]
+    sim.dss_wrapper.set_power(name, p=mult * kw, q=mult * kvar, element="Load")
 
 
 # ----------------------------------------------------------------------
@@ -592,6 +723,10 @@ MODEL_SPECS: dict[str, ModelSpec] = {
     "Load": ModelSpec(
         dss_class="Load",
         reader=read_phases,
+        writer=write_load,
+        # Multiplicador da placa, de 0 a 1. Uma carga que recebe S_mult num
+        # passo não é tocada pelo laço de LoadShape naquele passo; ver step().
+        inputs={"S_mult": InputSpec(aggregator=single_value, bounds=(0.0, 1.0))},
         # Convenção do OpenDSS: carga consome com sinal positivo.
         attr_map=phase_attr_map(
             p_total=("P_out_mw",),
@@ -658,6 +793,8 @@ MODEL_SPECS: dict[str, ModelSpec] = {
             "P_set": InputSpec(),
             "Q_set": InputSpec(),
             "SoC_set": InputSpec(aggregator=single_value),
+            # O único dos três que carrega e descarrega, daí a faixa negativa.
+            "P_mult": InputSpec(aggregator=single_value, bounds=(-1.0, 1.0)),
         },
         # sign=-1: injeção na rede é positiva para o cenário.
         attr_map=phase_attr_map(
@@ -675,7 +812,11 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         reader=read_pvsystem,
         writer=write_pvsystem,
         public=True,
-        inputs={"P_des": InputSpec(), "Q_des": InputSpec()},
+        inputs={
+            "P_des": InputSpec(),
+            "Q_des": InputSpec(),
+            "P_mult": InputSpec(aggregator=single_value, bounds=(0.0, 1.0)),
+        },
         attr_map=phase_attr_map(
             p=("P1", "P2", "P3"),
             q=("Q1", "Q2", "Q3"),

@@ -22,9 +22,11 @@ from simulators.opendss.element_specs import (
     build_meta,
     bus_aggregates,
     phase_attr_map,
+    reactive_from_pf,
     single_value,
     sum_values,
 )
+from simulators.opendss.opendss_wrapper import OpenDSSException
 
 DATA_DIR = (pathlib.Path(__file__).parent.parent / "data" / "13Bus").resolve()
 MASTER = DATA_DIR / "run_ieee13_cosim_pv_5min.dss"
@@ -454,6 +456,205 @@ class TestLineLoading:
         assert calls == [], "o elemento foi reativado só para calcular o carregamento"
 
 
+class TestLoadMultiplier:
+    """A carga movida por uma curva de multiplicadores, e não por kW absolutos.
+
+    ``S_mult`` escala a potência aparente sobre a placa. Como ativa e reativa
+    são escaladas pelo mesmo fator, o fator de potência da carga se preserva —
+    escalar S a ``pf`` constante é exatamente essa conta, e é por isso que o
+    ``pf`` não precisa ser lido.
+    """
+
+    LOAD = "Load-671"
+
+    def _potencia(self, sim):
+        data = sim.get_data({self.LOAD: ["P_out_mw", "Q_out_mvar"]})[self.LOAD]
+        return data["P_out_mw"] * 1000.0, data["Q_out_mvar"] * 1000.0
+
+    def test_the_nameplate_survives_the_loadshape(self, sim):
+        """O laço reescreve o kW da carga a cada passo; a placa é a da criação."""
+        kw, kvar = sim.load_nameplate("671")
+
+        assert kw > 0
+        assert kvar > 0
+
+    @pytest.mark.parametrize("mult", [1.0, 0.5, 0.25])
+    def test_the_power_follows_the_multiplier(self, sim, mult):
+        kw, kvar = sim.load_nameplate("671")
+        sim.step(300, {self.LOAD: {"S_mult": {"csv": mult}}}, 300)
+
+        p, q = self._potencia(sim)
+        assert p == pytest.approx(mult * kw, rel=1e-3)
+        assert q == pytest.approx(mult * kvar, rel=1e-3)
+
+    def test_the_power_factor_is_preserved(self, sim):
+        """A razão entre ativa e reativa não muda com o multiplicador."""
+        kw, kvar = sim.load_nameplate("671")
+        nominal = kw / math.hypot(kw, kvar)
+
+        sim.step(300, {self.LOAD: {"S_mult": {"csv": 0.3}}}, 300)
+        p, q = self._potencia(sim)
+
+        assert p / math.hypot(p, q) == pytest.approx(nominal, rel=1e-4)
+
+    def test_zero_shuts_the_load_down(self, sim):
+        sim.step(300, {self.LOAD: {"S_mult": {"csv": 0.0}}}, 300)
+
+        p, q = self._potencia(sim)
+        assert p == pytest.approx(0.0, abs=1e-6)
+        assert q == pytest.approx(0.0, abs=1e-6)
+
+    def test_the_external_curve_beats_the_internal_loadshape(self, sim):
+        """O teste central: sem isso o laço apagaria o multiplicador em silêncio.
+
+        A ``Load.671`` do circuito de teste tem perfil declarado no ``.dss``, e
+        o laço de ``LoadShape`` roda depois de aplicar as entradas.
+        """
+        assert self.LOAD in sim.loads_with_profiles, "a fixture perdeu o perfil da carga"
+
+        kw, _ = sim.load_nameplate("671")
+        sim.step(300, {self.LOAD: {"S_mult": {"csv": 0.42}}}, 300)
+
+        p, _ = self._potencia(sim)
+        assert p == pytest.approx(0.42 * kw, rel=1e-3)
+
+    def test_a_load_without_input_still_follows_its_shape(self, sim):
+        """As duas fontes convivem no mesmo passo, cada carga com a sua."""
+        outra = next(eid for eid in sim.loads_with_profiles if eid != self.LOAD)
+        sim.step(300, {self.LOAD: {"S_mult": {"csv": 0.0}}}, 300)
+
+        data = sim.get_data({outra: ["P_out_mw"]})[outra]
+        assert data["P_out_mw"] * 1000.0 > 0, f"{outra} parou junto com a carga comandada"
+        # E a comandada de fato foi a zero, no mesmo passo.
+        assert self._potencia(sim)[0] == pytest.approx(0.0, abs=1e-6)
+
+    def test_the_model_declares_the_input(self):
+        assert "S_mult" in MODEL_SPECS["Load"].inputs
+        assert MODEL_SPECS["Load"].writer is not None
+        assert "S_mult" in build_meta()["models"]["Load"]["attrs"]
+
+
+class TestPvMultiplier:
+    """``P = mult * pmpp``: toda a potência do painel vira ativa."""
+
+    PV = "PVSystem-pv"
+
+    def test_full_generation_delivers_the_nameplate(self, sim):
+        rated, _ = sim.pv_nameplate("pv")
+        sim.step(300, {self.PV: {"P_mult": {"csv": 1.0}}}, 300)
+
+        data = sim.get_data({self.PV: ["P_meas"]})[self.PV]
+        assert data["P_meas"] == pytest.approx(rated, rel=1e-3)
+
+    @pytest.mark.parametrize("mult", [0.75, 0.3, 0.0])
+    def test_the_generation_follows_the_curve(self, sim, mult):
+        rated, _ = sim.pv_nameplate("pv")
+        sim.step(300, {self.PV: {"P_mult": {"csv": mult}}}, 300)
+
+        data = sim.get_data({self.PV: ["P_meas"]})[self.PV]
+        assert data["P_meas"] == pytest.approx(mult * rated, abs=0.5)
+
+    def test_unity_power_factor_injects_no_reactive(self, sim):
+        """Os PVs desta fixture têm pf=1; a reativa tem de ficar em zero."""
+        assert sim.pvsystem_map[self.PV]["pf"] == pytest.approx(1.0)
+
+        sim.step(300, {self.PV: {"P_mult": {"csv": 0.8}}}, 300)
+
+        data = sim.get_data({self.PV: ["Q_meas"]})[self.PV]
+        assert data["Q_meas"] == pytest.approx(0.0, abs=0.5)
+
+
+class TestReactiveFromPowerFactor:
+    """A conta que deriva a reativa, isolada do motor."""
+
+    def test_unity_gives_no_reactive(self):
+        assert reactive_from_pf(100.0, 1.0) == 0.0
+
+    def test_it_follows_the_tangent(self):
+        # pf = 0.8 -> tan(acos(0.8)) = 0.75
+        assert reactive_from_pf(100.0, 0.8) == pytest.approx(75.0)
+
+    def test_the_sign_follows_the_active_power(self):
+        """Bateria carregando (ativa negativa) também absorve reativa."""
+        assert reactive_from_pf(-100.0, 0.8) == pytest.approx(-75.0)
+
+    @pytest.mark.parametrize("pf", [0.0, -0.5, 1.5])
+    def test_an_impossible_power_factor_invents_no_reactive(self, pf):
+        assert reactive_from_pf(100.0, pf) == 0.0
+
+
+class TestMultiplierBounds:
+    """A faixa é o contrato da curva, declarado no `InputSpec`."""
+
+    def test_the_spec_declares_the_ranges(self):
+        assert MODEL_SPECS["Load"].inputs["S_mult"].bounds == (0.0, 1.0)
+        assert MODEL_SPECS["PVSystem"].inputs["P_mult"].bounds == (0.0, 1.0)
+        # O único que carrega e descarrega.
+        assert MODEL_SPECS["Storage"].inputs["P_mult"].bounds == (-1.0, 1.0)
+
+    @pytest.mark.parametrize(
+        ("eid", "attr", "valor"),
+        [
+            ("Load-671", "S_mult", 1.5),
+            ("Load-671", "S_mult", -0.1),
+            ("PVSystem-pv", "P_mult", 1.01),
+            ("PVSystem-pv", "P_mult", -0.5),
+        ],
+    )
+    def test_out_of_range_stops_the_simulation(self, sim, eid, attr, valor):
+        with pytest.raises(ValueError, match="fora da faixa"):
+            sim.step(300, {eid: {attr: {"csv": valor}}}, 300)
+
+    def test_the_message_names_the_attribute_and_the_range(self, sim):
+        with pytest.raises(ValueError) as erro:
+            sim.step(300, {"Load-671": {"S_mult": {"csv": 2.0}}}, 300)
+
+        assert "Load-671.S_mult" in str(erro.value)
+        assert "[0.0, 1.0]" in str(erro.value)
+
+    def test_the_limits_themselves_are_accepted(self, sim):
+        sim.step(300, {"Load-671": {"S_mult": {"csv": 1.0}}}, 300)
+        sim.step(600, {"Load-671": {"S_mult": {"csv": 0.0}}}, 300)
+
+    def test_an_attribute_without_bounds_is_not_restricted(self, sim):
+        """`P_des` continua aceitando kW de qualquer magnitude."""
+        assert MODEL_SPECS["PVSystem"].inputs["P_des"].bounds is None
+
+
+class TestMultiplierConflictsWithAbsolutePower:
+    """Dois caminhos comandando a mesma grandeza: aplicar um descarta o outro."""
+
+    def test_pv_refuses_both(self, sim):
+        with pytest.raises(OpenDSSException, match="P_mult chegou junto de"):
+            sim.step(
+                300,
+                {"PVSystem-pv": {"P_mult": {"a": 0.5}, "P_des": {"b": 100.0}}},
+                300,
+            )
+
+    def test_the_message_names_both_paths(self, sim):
+        with pytest.raises(OpenDSSException) as erro:
+            sim.step(
+                300,
+                {"PVSystem-pv": {"P_mult": {"a": 0.5}, "Q_des": {"b": 10.0}}},
+                300,
+            )
+
+        assert "P_mult" in str(erro.value)
+        assert "Q_des" in str(erro.value)
+
+    def test_each_path_alone_still_works(self, sim):
+        rated, _ = sim.pv_nameplate("pv")
+
+        sim.step(300, {"PVSystem-pv": {"P_mult": {"a": 0.5}}}, 300)
+        por_mult = sim.get_data({"PVSystem-pv": ["P_meas"]})["PVSystem-pv"]
+
+        sim.step(600, {"PVSystem-pv": {"P_des": {"b": 0.5 * rated}}}, 300)
+        por_kw = sim.get_data({"PVSystem-pv": ["P_meas"]})["PVSystem-pv"]
+
+        assert por_mult["P_meas"] == pytest.approx(por_kw["P_meas"], rel=1e-3)
+
+
 DECLARED_AMPACITY_CIRCUIT = """\
 Redirect "{master}"
 New LineCode.limitada nphases=3 baseFreq=60 rmatrix=[0.1|0.03 0.1|0.03 0.03 0.1] \
@@ -766,6 +967,196 @@ class TestIslandWithoutReference:
             pv_sim.dss_wrapper.fail_on_error = True
 
         assert data["converged"] is False
+
+
+# Um PV e uma bateria com fator de potência declarado. Os elementos que
+# acompanham o projeto têm todos pf unitário, então é aqui que a derivação da
+# reativa a partir do pf é exercitada contra o motor de verdade.
+#
+# Dois elementos são deliberadamente subdimensionados, cada um do seu jeito:
+#   - o PV pede pmpp/pf = 100/0.8 = 125 kVA contra os 110 declarados;
+#   - a `bat_capped` omite o kvarMax, cujo padrão do OpenDSS é 25 kvar e não
+#     acompanha o tamanho da bateria — a 200 kW com pf=0.9 ela pediria 96.9.
+# São os dois casos de aviso na criação.
+POWER_FACTOR_CIRCUIT = """\
+Redirect "{master}"
+New PVSystem.pv_pf phases=3 bus1=675 kV=4.16 kVA=110 Pmpp=100 pf=0.8 irradiance=1.0
+New Storage.bat_pf phases=3 bus1=675 kV=4.16 kWrated=200 kWhrated=400 %stored=50 pf=0.9 kvarMax=150 State=IDLING
+New Storage.bat_capped phases=3 bus1=675 kV=4.16 kWrated=200 kWhrated=400 %stored=50 pf=0.9 State=IDLING
+"""
+
+
+@pytest.fixture(scope="module")
+def pf_sim(tmp_path_factory):
+    master = DATA_DIR / "IEEE13Nodeckt.dss"
+    if not master.exists():
+        pytest.skip(f"IEEE13 fixture not found at {master}")
+
+    path = tmp_path_factory.mktemp("pf") / "pf.dss"
+    path.write_text(POWER_FACTOR_CIRCUIT.format(master=master.as_posix()))
+
+    simulator = OpenDSSSimulator()
+    simulator.init("DSS-0", 1.0, topofile=str(path), step_size=300)
+    if simulator.dss_wrapper.dss.circuit.num_buses == 0:
+        pytest.skip("IEEE13 failed to compile (check the OpenDSS DataPath)")
+
+    simulator.create(1, "Grid")
+    simulator.step(0, {}, 300)
+    return simulator
+
+
+class TestPowerFactorIsRead:
+    def test_the_pv_carries_its_power_factor(self, pf_sim):
+        assert pf_sim.pvsystem_map["PVSystem-pv_pf"]["pf"] == pytest.approx(0.8)
+
+    def test_the_storage_carries_its_power_factor(self, pf_sim):
+        assert pf_sim.storage_map["Storage-bat_pf"]["pf"] == pytest.approx(0.9)
+
+    def test_the_load_carries_its_power_factor(self, pf_sim):
+        info = pf_sim.get_extra_info()["Load-671"]
+        kw, kvar = info["kw"], info["kvar"]
+
+        assert info["pf"] == pytest.approx(kw / math.hypot(kw, kvar), rel=1e-3)
+
+
+class TestStorageMultiplier:
+    """O único dos três que carrega e descarrega."""
+
+    BAT = "Storage-bat_pf"
+
+    def _potencia(self, sim):
+        data = sim.get_data({self.BAT: ["P_act", "Q_act"]})[self.BAT]
+        return data["P_act"], data["Q_act"]
+
+    def test_a_positive_multiplier_discharges(self, pf_sim):
+        rated = pf_sim.storage_map[self.BAT]["kw_rated"]
+        pf_sim.step(300, {self.BAT: {"P_mult": {"csv": 0.5}}}, 300)
+
+        p, _ = self._potencia(pf_sim)
+        assert p == pytest.approx(0.5 * rated, rel=1e-2)
+
+    def test_a_negative_multiplier_charges(self, pf_sim):
+        rated = pf_sim.storage_map[self.BAT]["kw_rated"]
+        pf_sim.step(600, {self.BAT: {"P_mult": {"csv": -0.4}}}, 300)
+
+        p, _ = self._potencia(pf_sim)
+        assert p == pytest.approx(-0.4 * rated, rel=1e-2)
+
+    def test_the_reactive_follows_the_power_factor(self, pf_sim):
+        """`pf=0.9` -> tan(acos(0.9)) = 0.4843."""
+        rated = pf_sim.storage_map[self.BAT]["kw_rated"]
+        pf_sim.step(900, {self.BAT: {"P_mult": {"csv": 0.5}}}, 300)
+
+        p, q = self._potencia(pf_sim)
+        assert q == pytest.approx(reactive_from_pf(0.5 * rated, 0.9), rel=5e-2)
+        assert p / math.hypot(p, q) == pytest.approx(0.9, rel=1e-2)
+
+    def test_it_conflicts_with_the_absolute_setpoint(self, pf_sim):
+        with pytest.raises(OpenDSSException, match="P_mult chegou junto de"):
+            pf_sim.step(1200, {self.BAT: {"P_mult": {"a": 0.5}, "P_set": {"b": 10.0}}}, 300)
+
+    @pytest.mark.parametrize("valor", [1.5, -1.5])
+    def test_out_of_range_stops_the_simulation(self, pf_sim, valor):
+        with pytest.raises(ValueError, match="fora da faixa"):
+            pf_sim.step(1500, {self.BAT: {"P_mult": {"csv": valor}}}, 300)
+
+    @pytest.mark.parametrize("valor", [1.0, -1.0])
+    def test_the_limits_themselves_are_accepted(self, pf_sim, valor):
+        pf_sim.step(1800, {self.BAT: {"P_mult": {"csv": valor}}}, 300)
+
+
+class TestPvReactiveFromPowerFactor:
+    PV = "PVSystem-pv_pf"
+
+    def test_the_active_power_still_comes_from_the_panel(self, pf_sim):
+        """Toda a potência do painel vira ativa, mesmo com pf < 1."""
+        rated, _ = pf_sim.pv_nameplate("pv_pf")
+        pf_sim.step(300, {self.PV: {"P_mult": {"csv": 0.5}}}, 300)
+
+        data = pf_sim.get_data({self.PV: ["P_meas"]})[self.PV]
+        assert data["P_meas"] == pytest.approx(0.5 * rated, rel=1e-2)
+
+    def test_the_reactive_follows_the_power_factor(self, pf_sim):
+        rated, _ = pf_sim.pv_nameplate("pv_pf")
+        pf_sim.step(600, {self.PV: {"P_mult": {"csv": 0.5}}}, 300)
+
+        data = pf_sim.get_data({self.PV: ["P_meas", "Q_meas"]})[self.PV]
+        esperado = reactive_from_pf(0.5 * rated, 0.8)
+
+        assert data["Q_meas"] == pytest.approx(esperado, rel=5e-2)
+
+
+class TestReactiveIsCappedByKvarMax:
+    """O `kvarMax` do OpenDSS corta a reativa, e o padrão dele engana.
+
+    O padrão **não acompanha o tamanho da bateria**: uma de 200 kW sai com teto
+    de 25 kvar. Movida por multiplicador com `pf=0.9`, ela pediria 96.9 kvar a
+    plena potência, e o que passa do teto é cortado sem nada dizendo — o fator
+    de potência efetivo fica acima do declarado.
+
+    Mesmo princípio do `normamps` das linhas: o dado pertence ao `.dss`.
+    """
+
+    def test_the_default_cap_does_not_follow_the_battery(self, pf_sim):
+        info = pf_sim.storage_map["Storage-bat_capped"]
+
+        assert info["kvar_max"] == pytest.approx(25.0)
+        assert info["kw_rated"] == pytest.approx(200.0)
+
+    def test_the_cap_is_reported_on_creation(self, tmp_path_factory, capsys):
+        master = DATA_DIR / "IEEE13Nodeckt.dss"
+        if not master.exists():
+            pytest.skip(f"IEEE13 fixture not found at {master}")
+
+        path = tmp_path_factory.mktemp("cap") / "cap.dss"
+        path.write_text(POWER_FACTOR_CIRCUIT.format(master=master.as_posix()))
+
+        simulator = OpenDSSSimulator()
+        simulator.init("DSS-0", 1.0, topofile=str(path), step_size=300)
+        simulator.create(1, "Grid")
+
+        saida = capsys.readouterr().out
+        assert "bat_capped" in saida
+        assert "kvarMax" in saida
+        # A que declara kvarMax=150 cobre os 96.9 pedidos e não é reportada.
+        assert "bat_pf:" not in saida
+
+    def test_a_declared_cap_lets_the_power_factor_through(self, pf_sim):
+        """O contraponto: com o teto declarado, a reativa é a do `pf`."""
+        rated = pf_sim.storage_map["Storage-bat_pf"]["kw_rated"]
+        pf_sim.step(2100, {"Storage-bat_pf": {"P_mult": {"csv": 0.5}}}, 300)
+
+        data = pf_sim.get_data({"Storage-bat_pf": ["P_act", "Q_act"]})["Storage-bat_pf"]
+        assert data["Q_act"] == pytest.approx(reactive_from_pf(0.5 * rated, 0.9), rel=5e-2)
+
+
+class TestInverterFeasibility:
+    """`S = pmpp/pf` é máxima em mult=1: dá para conferir uma vez, na criação."""
+
+    def test_an_undersized_inverter_is_reported(self, tmp_path_factory, capsys):
+        master = DATA_DIR / "IEEE13Nodeckt.dss"
+        if not master.exists():
+            pytest.skip(f"IEEE13 fixture not found at {master}")
+
+        path = tmp_path_factory.mktemp("kva") / "kva.dss"
+        path.write_text(POWER_FACTOR_CIRCUIT.format(master=master.as_posix()))
+
+        simulator = OpenDSSSimulator()
+        simulator.init("DSS-0", 1.0, topofile=str(path), step_size=300)
+        simulator.create(1, "Grid")
+
+        saida = capsys.readouterr().out
+        # pmpp/pf = 100/0.8 = 125 kVA, contra os 110 declarados.
+        assert "pv_pf" in saida
+        assert "125" in saida
+        assert "110" in saida
+
+    def test_a_well_sized_inverter_says_nothing(self, sim, capsys):
+        """Os PVs do circuito padrão têm pf=1 e kVA >= pmpp."""
+        capsys.readouterr()
+        sim.get_data({"PVSystem-pv": ["P_meas"]})
+
+        assert "exige" not in capsys.readouterr().out
 
 
 class TestExtraInfoIsolation:

@@ -34,7 +34,7 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
         "Load": {
             "public": False,
             "params": [],
-            "attrs": ["P_out_mw", "Q_out_mvar"],
+            "attrs": ["S_mult", "P_out_mw", "Q_out_mvar"],
         },
         "Line": {
             "public": False,
@@ -82,13 +82,13 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
         "Storage": {
             "public": True,
             "params": [],
-            "attrs": ["P_set", "Q_set", "SoC_set", "P_act", "Q_act", "SoC",
+            "attrs": ["P_set", "Q_set", "SoC_set", "P_mult", "P_act", "Q_act", "SoC",
                        "P1", "P2", "P3", "Q1", "Q2", "Q3", "I1_A", "I2_A", "I3_A"],
         },
         "PVSystem": {
             "public": True,
             "params": [],
-            "attrs": ["P_des", "Q_des", "P_meas", "Q_meas",
+            "attrs": ["P_des", "Q_des", "P_mult", "P_meas", "Q_meas",
                        "P1", "P2", "P3", "Q1", "Q2", "Q3", "I1_A", "I2_A", "I3_A",
                        "P_pu", "P1_pu", "P2_pu", "P3_pu"],
         },
@@ -148,6 +148,9 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | PVSystem | `P_des` | `float` | Potência ativa desejada (kW) |
 | PVSystem | `Q_des` | `float` | Potência reativa desejada (kvar) |
 | Switch | `is_open` | `bool` | `True` abre a chave, `False` fecha |
+| Load | `S_mult` | `float` | Multiplicador da potência nominal, de 0 a 1 |
+| PVSystem | `P_mult` | `float` | Multiplicador do `Pmpp`, de 0 a 1 |
+| Storage | `P_mult` | `float` | Multiplicador da potência nominal, de −1 (carregando) a 1 (descarregando) |
 
 ### Atributos de saída (get_data)
 
@@ -189,6 +192,58 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Circuit | `Ploss_mw`, `Qloss_mvar` | `float` | Perdas totais do circuito (MW / MVAr) |
 | Switch | `is_open` | `bool` | Estado efetivo lido do circuito |
 | Switch | (demais) | `float` | As mesmas da `Line`: correntes, potências, perdas e carregamento |
+
+!!! info "Curvas de multiplicadores"
+    Os três elementos de potência aceitam uma curva normalizada — um
+    `loadshape`/`pvshape` externo, injetável pelo simulador de CSV — em vez de
+    potências em kW que o cenário precisaria calcular. A potência sai da placa
+    do próprio elemento e do `pf` declarado:
+
+    | Modelo | Atributo | Faixa | Ativa | Reativa |
+    |---|---|---|---|---|
+    | `Load` | `S_mult` | 0..1 | `mult × kW` | `mult × kvar` |
+    | `PVSystem` | `P_mult` | 0..1 | `mult × Pmpp` | `P·tan(acos(pf))` |
+    | `Storage` | `P_mult` | −1..1 | `mult × kWrated` | `P·tan(acos(pf))` |
+
+    Na carga, escalar ativa e reativa pelo mesmo fator **preserva o fator de
+    potência** — escalar a aparente a `pf` constante é essa mesma conta, e é por
+    isso que o `pf` da carga não precisa ser lido.
+
+    No PV e na bateria, toda a potência disponível vira ativa e a reativa vem da
+    folga do inversor: é a convenção do próprio OpenDSS, que com `pf` declarado
+    calcula o `kvar` a partir da ativa.
+
+    **Fora da faixa interrompe.** A faixa é o contrato da curva; um valor fora
+    dela significa que o arquivo não é o que o cenário pensa — unidade errada,
+    coluna trocada, normalização esquecida.
+
+    **O multiplicador e a potência absoluta são exclusivos.** `P_mult` junto de
+    `P_des`/`P_set` no mesmo elemento interrompe: os dois comandam a mesma
+    grandeza, e aplicar um significa descartar o outro.
+
+    **A carga movida de fora ignora a `LoadShape` do `.dss`** naquele passo. As
+    duas fontes convivem no mesmo circuito, cada carga com a sua.
+
+    Ligando pelo CSV, onde o primeiro nome é a coluna do arquivo:
+
+    ```python
+    world.connect(curva, por_eid["Load-671"], ("carga_671", "S_mult"))
+    world.connect(curva, por_eid["PVSystem-pv"], ("pv_634", "P_mult"))
+    ```
+
+!!! warning "Dois tetos do OpenDSS que cortam a reativa em silêncio"
+    Ambos são conferidos **na criação das entidades**, com um aviso por
+    elemento: a pior situação é a plena geração, então a infactibilidade
+    depende só do que o `.dss` declara, não do passo.
+
+    - **`kVA` do inversor.** Com `P = Pmpp` e `pf < 1`, a aparente vale
+      `Pmpp/pf`. Se passar do `kVA`, o OpenDSS limita a saída e a geração fica
+      abaixo da curva.
+    - **`kvarMax` da bateria.** O padrão do OpenDSS **não acompanha o tamanho
+      do elemento** — uma bateria de 200 kW sai com teto de 25 kvar. O excedente
+      é cortado, e o fator de potência efetivo fica acima do declarado.
+
+    Como no `normamps` das linhas, o dado pertence ao `.dss`.
 
 !!! warning "Convergência: o padrão do motor é apertado para co-simulação"
     O OpenDSS resolve com `tolerance=1e-4` e no máximo `15` iterações. Em

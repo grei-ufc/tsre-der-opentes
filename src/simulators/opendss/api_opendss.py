@@ -64,6 +64,8 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self._bus_eids = {}
         self._pv_nameplate = {}
         self._line_ampacity = {}
+        self._load_nameplate = {}
+        self._power_factor = {}
 
     # ------------------------------------------------------------------
     # Metadados das entidades
@@ -128,6 +130,45 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             PVSystem conhecido.
         """
         return self._pv_nameplate.get(name, (0.0, 0))
+
+    def power_factor(self, model_type, name):
+        """Fator de potência declarado de um elemento, por nome no OpenDSS.
+
+        Indexado por ``(modelo, nome)``, e não pelo eid: um escritor que
+        montasse o eid à mão erraria em silêncio se o formato mudasse — o
+        ``pf`` cairia no default e a reativa sairia zerada sem nada acusando.
+        Foi o que aconteceu enquanto o eid do PVSystem carregava a barra.
+
+        Args:
+            model_type: Nome do modelo mosaik (``'PVSystem'``, ``'Storage'``).
+            name: Nome do elemento no OpenDSS.
+
+        Returns:
+            O fator de potência, ou ``1.0`` se o elemento não for conhecido —
+            um ``pf`` que ninguém declarou não inventa reativa.
+        """
+        return self._power_factor.get((model_type, name), 1.0)
+
+    def load_nameplate(self, name):
+        """Potência nominal de uma carga: ``(kW, kvar)``.
+
+        Guardada na criação porque não dá para relê-la do motor depois: o laço
+        de ``LoadShape`` em :meth:`step` reescreve o ``kW`` e o ``kvar`` da
+        carga a cada passo, então o valor corrente é o do perfil, e não a placa.
+        Mesma razão de :meth:`pv_nameplate`.
+
+        É contra ela que o multiplicador ``S_mult`` incide. Escalar os dois pelo
+        mesmo fator preserva o fator de potência declarado — escalar a potência
+        aparente a ``pf`` constante é a mesma conta.
+
+        Args:
+            name: Nome da carga no OpenDSS.
+
+        Returns:
+            Tupla ``(kw, kvar)``, ou ``(0.0, 0.0)`` se o nome não for de uma
+            carga conhecida.
+        """
+        return self._load_nameplate.get(name, (0.0, 0.0))
 
     def line_ampacity(self, name):
         """Limites de corrente de uma linha: ``(normal, emergencial)`` em A.
@@ -393,6 +434,11 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             phases = _as_int(row.get("phases"), len(nodes) or 3)
             nodes = _resolve_nodes(nodes, phases)
 
+            # Base do multiplicador `S_mult`; ver load_nameplate().
+            kw = _as_float(row.get("kW"))
+            kvar = _as_float(row.get("kvar"))
+            self._load_nameplate[name] = (kw, kvar)
+
             self._add_child(
                 eid,
                 "Load",
@@ -404,8 +450,9 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                     "nodes": nodes,
                     "phases": phases,
                     "kv": _as_float(row.get("kV")),
-                    "kw": _as_float(row.get("kW")),
-                    "kvar": _as_float(row.get("kvar")),
+                    "kw": kw,
+                    "kvar": kvar,
+                    "pf": _as_float(row.get("pf"), 1.0),
                     "conn": row.get("conn", ""),
                 },
             )
@@ -569,6 +616,8 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             info["bus"] = bus_name
             info["nodes"] = _resolve_nodes(nodes, phases)
             info["phases"] = phases
+            self._power_factor[("Storage", name)] = _as_float(info.get("pf"), 1.0)
+            self._warn_if_storage_reactive_is_capped(name, info)
 
             self._add_child(
                 eid,
@@ -603,6 +652,8 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             # Antes que a co-simulação comece a reescrever o pmpp do elemento;
             # ver pv_nameplate().
             self._pv_nameplate[name] = (_as_float(info.get("pmpp")), phases)
+            self._power_factor[("PVSystem", name)] = _as_float(info.get("pf"), 1.0)
+            self._warn_if_inverter_cannot_deliver(name, info)
 
             self._add_child(
                 eid,
@@ -614,6 +665,63 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             print(
                 f"[OpenTES] PVSystem detectado: {name} @ {bus_name} | "
                 f"Pmpp: {info['pmpp']} kW | kVA: {info['kva']}"
+            )
+
+    def _warn_if_storage_reactive_is_capped(self, name, info):
+        """Avisa se o ``kvarMax`` da bateria corta a reativa do fator de potência.
+
+        O OpenDSS limita a reativa de um ``Storage`` ao ``kvarMax``, cujo padrão
+        **não acompanha o tamanho da bateria** — uma de 200 kW sai com 25 kvar
+        de teto. Movida por ``P_mult``, a bateria pediria ``P·tan(acos(pf))``, e
+        o que passa do teto é cortado em silêncio: o resultado é um fator de
+        potência diferente do declarado, sem nada dizendo.
+
+        Como no ``normamps`` das linhas, o dado pertence ao ``.dss``: declare
+        ``kvarMax`` junto do ``pf``.
+        """
+        kw_rated = _as_float(info.get("kw_rated"))
+        pf = _as_float(info.get("pf"), 1.0)
+        kvar_max = _as_float(info.get("kvar_max"))
+
+        if not kw_rated or not kvar_max or not 0.0 < pf < 1.0:
+            return
+
+        necessario = abs(kw_rated * math.tan(math.acos(pf)))
+        if necessario > kvar_max * (1 + 1e-9):
+            print(
+                f"[OpenTES][AVISO] Storage.{name}: a plena potencia com pf={pf:g} "
+                f"pede {necessario:.1f} kvar, mas kvarMax e {kvar_max:.1f}. O "
+                "OpenDSS corta o excedente, e o fator de potencia efetivo fica "
+                "acima do declarado. Declare kvarMax no .dss."
+            )
+
+    def _warn_if_inverter_cannot_deliver(self, name, info):
+        """Avisa se o inversor não tem kVA para a plena geração com o ``pf`` dele.
+
+        Movido por ``P_mult``, o PV entrega ``P = mult · pmpp`` de ativa mais
+        ``Q = P·tan(acos(pf))`` de reativa, e a aparente vale ``P / pf`` —
+        máxima em ``mult = 1``. A infactibilidade, portanto, **depende só do que
+        o circuito declara**, não do passo: dá para conferir uma vez aqui, em
+        vez de repetir um aviso por passo no meio do log de um alimentador com
+        dezenas de usinas.
+
+        O OpenDSS não recusa a operação: ele limita a saída ao kVA, e o
+        resultado é uma geração menor do que a curva pediu, sem nada dizendo.
+        """
+        pmpp = _as_float(info.get("pmpp"))
+        kva = _as_float(info.get("kva"))
+        pf = _as_float(info.get("pf"), 1.0)
+
+        if not pmpp or not kva or not 0.0 < pf <= 1.0:
+            return
+
+        necessario = pmpp / pf
+        if necessario > kva * (1 + 1e-9):
+            print(
+                f"[OpenTES][AVISO] PVSystem.{name}: a plena geracao com pf={pf:g} "
+                f"exige {necessario:.1f} kVA, mas o inversor tem {kva:.1f} kVA. "
+                "Movido por P_mult, o OpenDSS limitara a saida ao kVA e a geracao "
+                "ficara abaixo da curva. Aumente o kVA ou aproxime o pf de 1."
             )
 
     def _bypass_native_pv_curves(self, pv_infos):
@@ -719,8 +827,16 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
     def step(self, time, inputs, max_advance):
         self._apply_inputs(inputs)
 
+        # A carga movida de fora não é tocada pela LoadShape do .dss. Sem isto o
+        # laço abaixo reescreveria kW e kvar logo depois de `_apply_inputs`,
+        # apagando o multiplicador em silêncio — e só nas cargas que têm perfil,
+        # de modo que obedecer ou não dependeria do arquivo de dados.
+        movidas_de_fora = {eid for eid, attrs in inputs.items() if attrs.get("S_mult")}
+
         # ATUALIZAÇÃO DAS CARGAS
         for eid, profile in self.loads_with_profiles.items():
+            if eid in movidas_de_fora:
+                continue
             shape_name = profile["shape_name"]
             if shape_name not in self.shape_data_cache:
                 continue
@@ -755,18 +871,23 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         Cada atributo é reduzido a um único valor pelo agregador declarado no
         seu :class:`~.element_specs.InputSpec`, de modo que comandos
         concorrentes sejam somados ou sinalizados — nunca descartados em
-        silêncio.
+        silêncio. O valor agregado é conferido contra os ``bounds`` do mesmo
+        ``InputSpec``, quando declarados.
         """
         for eid, attrs in inputs.items():
             spec = self._spec_of(eid)
             if spec is None or spec.writer is None:
                 continue
 
-            values = {
-                attr: spec.inputs[attr].aggregator(attr, eid, sources.values())
-                for attr, sources in attrs.items()
-                if attr in spec.inputs and sources
-            }
+            values = {}
+            for attr, sources in attrs.items():
+                if attr not in spec.inputs or not sources:
+                    continue
+                entrada = spec.inputs[attr]
+                values[attr] = entrada.check(
+                    attr, eid, entrada.aggregator(attr, eid, sources.values())
+                )
+
             if not values:
                 continue
 

@@ -46,11 +46,20 @@ def get_all_storages_info(dss: Any) -> dict[str, dict[str, Any]]:
         charge_trigger = float(dss.text(f"? Storage.{name}.chargeTrigger"))
         discharge_trigger = float(dss.text(f"? Storage.{name}.dischargeTrigger"))
 
+        # Base da reativa quando a bateria e movida por multiplicador:
+        # com P = mult x kWrated, a reativa vale P x tan(acos(pf)).
+        pf = float(dss.text(f"? Storage.{name}.pf") or 1.0)
+        # Teto da reativa. O padrao do OpenDSS nao acompanha o tamanho da
+        # bateria (uma de 200 kW sai com 25 kvar), e o excedente e cortado.
+        kvar_max = float(dss.text(f"? Storage.{name}.kvarMax") or 0.0)
+
         storage_infos[name] = {
             "name": name,
             "bus": bus,
             "num_phases": num_phases,
             "kw_rated": kw_rated,
+            "pf": pf,
+            "kvar_max": kvar_max,
             "kwh_rated": kwh_rated,
             "kwh_stored": kwh_stored,
             "pct_reserve": pct_reserve,
