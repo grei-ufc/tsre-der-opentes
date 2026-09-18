@@ -1,14 +1,13 @@
 """Fachada única de acesso ao OpenDSS via ``py_dss_interface``.
 
-O comportamento vive em quatro camadas, compostas aqui por herança para que a
+O comportamento vive em três camadas, compostas aqui por herança para que a
 API pública continue plana:
 
-===================================  ==============================================
-:class:`~._engine.EngineMixin`       compilar, resolver, invalidar o cache
-:class:`~._reader.ReaderMixin`       ler barras, elementos, propriedades, totais
-:class:`~._writer.WriterMixin`       escrever potências, propriedades, taps, estado
-:class:`~._legacy.LegacyReadsMixin`  leituras polimórficas superadas
-===================================  ==============================================
+==================================  ==============================================
+:class:`~._engine.EngineMixin`      compilar, resolver, invalidar o cache
+:class:`~._reader.ReaderMixin`      ler barras, elementos, propriedades, totais
+:class:`~._writer.WriterMixin`      escrever potências, propriedades, taps, estado
+==================================  ==============================================
 
 Conforme o ``AGENTS.md``, este wrapper é a única fonte de verdade para
 interações com o OpenDSS: os simuladores não devem chamar ``py_dss_interface``
@@ -25,10 +24,8 @@ import pathlib
 import py_dss_interface
 
 from ._engine import EngineMixin
-from ._legacy import LegacyReadsMixin
 from ._reader import ReaderMixin
 from ._types import (
-    LINE_CLASSES,
     ElementSnapshot,
     OpenDSSException,
     SolutionSnapshot,
@@ -38,7 +35,6 @@ from .graph_model import serialize_graph
 from .topology_builder import build_graph
 
 __all__ = [
-    "LINE_CLASSES",
     "ElementSnapshot",
     "OpenDSS",
     "OpenDSSException",
@@ -46,7 +42,7 @@ __all__ = [
 ]
 
 
-class OpenDSS(EngineMixin, ReaderMixin, WriterMixin, LegacyReadsMixin):
+class OpenDSS(EngineMixin, ReaderMixin, WriterMixin):
     """
     Wrapper class to manage the interface with OpenDSS (via py_dss_interface).
 

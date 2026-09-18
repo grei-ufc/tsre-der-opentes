@@ -40,12 +40,19 @@ OpenDSS: P_gen = -5 kW  →  extract_3phase_pq(sign=-1): P_act = 5 kW  →  Inve
 
 Elementos de carga (Load) não passam por `extract_3phase_pq`. Seus valores são extraídos diretamente:
 
+O atributo `P_out_mw` da carga é declarado no registry, e o fator de escala faz a
+conversão de kW para MW:
+
 ```python
-# Em api_opendss.py → get_data()
-"Load", ent["name"], "P_out_mw": dss_wrapper.get_power(name, "Load", total=True)[0] / 1000
+# Em element_specs.py → MODEL_SPECS["Load"]
+attr_map=phase_attr_map(
+    p_total=("P_out_mw",),
+    q_total=("Q_out_mvar",),
+    scale=1 / 1000.0,
+)
 ```
 
-Loads no OpenDSS já têm sinal positivo (consomem potência), então nenhuma inversão é necessária.
+Loads no OpenDSS já têm sinal positivo (consomem potência), então nenhuma inversão é necessária — o `sign` fica no seu padrão, `1`.
 
 ## Linhas e barras
 

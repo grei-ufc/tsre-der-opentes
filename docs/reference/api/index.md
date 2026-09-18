@@ -13,16 +13,16 @@ estruturado (Google-style, com blocos `Args:`/`Returns:`/`Attributes:`) e
 renderizam de forma limpa como Markdown:
 
 - Modelos de domínio: `OpenDSSBattery`, `PVPanelModel`, `VR_Model`
-- Wrapper OpenDSS: a classe `OpenDSS` e suas quatro camadas internas
-  (`EngineMixin`, `ReaderMixin`, `WriterMixin`, `LegacyReadsMixin`), exibidas
-  como membros de `OpenDSS` porque é assim que o próprio wrapper se descreve —
-  "a API pública continua plana"
+- Wrapper OpenDSS: a classe `OpenDSS` e suas três camadas internas
+  (`EngineMixin`, `ReaderMixin`, `WriterMixin`), exibidas como membros de
+  `OpenDSS` porque é assim que o próprio wrapper se descreve — "a API pública
+  continua plana"
 - Inversor inteligente: as classes de `inverter.config` (`ControlConfig`,
   `VoltVarCurve`, `VoltWattCurve`, ...), `SmartInverterModel`, as funções de
   `inverter.opender_factory`, e o modelo legado `InverterModel`
 
 !!! note "Por que documentar a classe, não o módulo"
-    Algumas docstrings de **módulo** (`opendss_wrapper.py`, `_legacy.py`,
+    Algumas docstrings de **módulo** (`opendss_wrapper.py`,
     `smart_inverter.py`) usam uma tabela em sintaxe reStructuredText (Sphinx)
     como resumo de arquitetura — não renderiza como Markdown. As páginas aqui
     sempre miram a classe ou a função (`::: modulo.Classe`, nunca

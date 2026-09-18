@@ -3,9 +3,6 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-# Classes cujos terminais sao escolhidos por `line_bus` na API legada.
-LINE_CLASSES = ["Line", "Xfmr", "Capacitor"]
-
 
 class OpenDSSException(Exception):
     """Custom exception for OpenDSS interface related errors."""

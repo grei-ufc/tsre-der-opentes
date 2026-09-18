@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O projeto usa **pytest**, com 16 arquivos e 447 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 446 passed, 1 skipped).
+O projeto usa **pytest**, com 16 arquivos e 503 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 502 passed, 1 skipped).
 
 Duas categorias, misturadas entre os arquivos:
 
@@ -39,13 +39,13 @@ uv run --no-sync python -m pytest tests/ -v --tb=long
 | `test_webvis_topology.py` | 40 | Não | Limpeza do grafo de entidades, allow-list e dados enviados ao navegador (`webvis.webvis_sim`) |
 | `test_webvis_server.py` | 12 | Não³ | Arquivos estáticos e ciclo de vida do servidor da visualização |
 | `test_opendss_visualization.py` | 13 | Não | Presets e `attach_webvis`, com dublês no lugar do webvis e do OpenDSS |
-| `test_element_specs.py` | 42 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
+| `test_element_specs.py` | 64 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
 | `test_error_handling.py` | 18 | Sim | Propagação de erro no wrapper e no adaptador OpenDSS |
-| `test_opendss_entities.py` | 31 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
-| `test_opendss_phase_reads.py` | 9 | Sim | Leitura por fase do wrapper (`opendss_wrapper.py`) |
-| `test_opendss_snapshot.py` | 18 | Sim | Cache de leituras do wrapper |
-| `test_topology_builder.py` | 31 | Sim | `opendss.topology_builder.build_graph` |
-| `test_wrapper_layers.py` | 17 | Sim | Composição em mixins do wrapper (`_engine`/`_reader`/`_writer`/`_legacy`) |
+| `test_opendss_entities.py` | 37 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
+| `test_opendss_phase_reads.py` | 23 | Sim | Leitura por fase do wrapper (`opendss_wrapper.py`) |
+| `test_opendss_snapshot.py` | 19 | Sim | Cache de leituras do wrapper |
+| `test_topology_builder.py` | 39 | Sim | `opendss.topology_builder.build_graph` |
+| `test_wrapper_layers.py` | 17 | Sim | Composição em mixins do wrapper (`_engine`/`_reader`/`_writer`) |
 | `test_scenario_smoke.py` | 3 | Sim | Um cenário de ponta a ponta, com CSV de saída |
 
 ¹ Métodos de teste (não casos parametrizados — vários métodos rodam mais de um caso via `@pytest.mark.parametrize`).
@@ -129,7 +129,7 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 
 | Classe | Testes | O que valida |
 |---|---|---|
-| `TestLayerBoundaries` | 4 | Cada mixin (`_engine`/`_reader`/`_writer`/`_legacy`) não está vazio nem duplica um método de outro; o `_writer` só tem mutadores, o `_reader` nenhum |
+| `TestLayerBoundaries` | 4 | Cada mixin (`_engine`/`_reader`/`_writer`) não está vazio nem duplica um método de outro; o `_writer` só tem mutadores, o `_reader` nenhum |
 | `TestPublicApiIsPreserved` | 2 | Todo método usado por cenários/notebooks continua acessível na fachada `OpenDSS` |
 | `TestPowerTotal` | 3 | Total de potência bate com a soma das fases; terminais opostos de uma linha têm sinais opostos |
 | `TestCompileIsRobust` | 4 | Construir o wrapper não muda o diretório de trabalho do processo; caminho relativo resolve contra o diretório do chamador; arquivo ausente levanta erro em vez de compilar um circuito vazio |
@@ -139,7 +139,7 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 
 | Classe | Testes | O que valida |
 |---|---|---|
-| `TestBulkVoltagesMatchPerBusReads` | 3 | Leitura em lote bate exatamente com a leitura por barra que ela substitui |
+| `TestBulkVoltagesMatchPerBusReads` | 4 | Leitura em lote bate exatamente com a leitura por barra do motor, inclusive nas fases que a barra nao tem |
 | `TestCachingIsTransparent` | 3 | Todo valor servido pelo cache é idêntico ao lido "a frio" |
 | `TestLazyReads` | 4 | Magnitude e ângulo são leituras independentes; só busca o que foi pedido |
 | `TestCacheIsPopulatedAndReused` | 2 | Segunda leitura é servida do cache, sem nova chamada ao engine |

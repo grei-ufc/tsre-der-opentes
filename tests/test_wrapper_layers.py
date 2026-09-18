@@ -1,4 +1,4 @@
-"""Tests for the wrapper's layer split (engine / reader / writer / legacy).
+"""Tests for the wrapper's layer split (engine / reader / writer).
 
 The split only pays off if the boundaries hold: readers must not mutate the
 circuit, writers must invalidate the cache, and the public API must stay flat
@@ -14,7 +14,7 @@ import pytest
 
 sys.path.insert(0, "src")
 
-from simulators.opendss import _engine, _legacy, _reader, _writer
+from simulators.opendss import _engine, _reader, _writer
 from simulators.opendss.opendss_wrapper import OpenDSS, OpenDSSException
 
 DATA_DIR = (pathlib.Path(__file__).parent.parent / "data" / "13Bus").resolve()
@@ -49,12 +49,12 @@ def _public_methods(module):
 
 class TestLayerBoundaries:
     def test_every_layer_is_populated(self):
-        for module in (_engine, _reader, _writer, _legacy):
+        for module in (_engine, _reader, _writer):
             assert _public_methods(module), f"{module.__name__} is empty"
 
     def test_no_method_is_defined_twice(self):
         seen = {}
-        for module in (_engine, _reader, _writer, _legacy):
+        for module in (_engine, _reader, _writer):
             for name in _public_methods(module):
                 assert name not in seen, f"{name} defined in {seen.get(name)} and {module}"
                 seen[name] = module.__name__
@@ -92,10 +92,6 @@ class TestPublicApiIsPreserved:
             "get_all_storages_info",
             "get_all_regulators_info",
             "grafo_tsdq",
-            # legadas, ainda chamadas por notebooks de analise
-            "get_power",
-            "get_current",
-            "get_bus_voltage",
         ],
     )
     def test_method_is_reachable_on_the_facade(self, dss, method):

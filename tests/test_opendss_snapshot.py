@@ -5,6 +5,7 @@ superseded solution. These tests pin the invalidation contract.
 """
 
 import datetime as dt
+import math
 import pathlib
 import sys
 
@@ -35,21 +36,73 @@ def dss_13bus():
     return wrapper
 
 
+def _per_bus_reference(dss, bus):
+    """Tensão de uma barra lida do motor, barra a barra, sem passar pelo wrapper.
+
+    O oráculo de :class:`TestBulkVoltagesMatchPerBusReads`. Deliberadamente
+    ingênuo: ativa a barra e desempacota o que o motor devolve, que é o caminho
+    que a leitura em bloco substituiu. Sendo independente do código sob teste,
+    ele acusa um erro no desdobramento de ``buses_vmag_pu`` pelo ``node_index``.
+
+    Args:
+        dss: Instância de ``py_dss_interface.DSS``.
+        bus: Nome da barra.
+
+    Returns:
+        Tupla ``([|V1|, |V2|, |V3|], [ang1, ang2, ang3])`` em pu e graus, com
+        ``None`` nas fases que a barra não tem.
+    """
+    dss.circuit.set_active_bus(bus)
+    values = dss.bus.vmag_angle_pu
+    nodes = list(dss.bus.nodes)
+
+    mags = [None, None, None]
+    angs = [None, None, None]
+    for position, node in enumerate(nodes):
+        if 1 <= node <= 3:
+            mags[node - 1] = values[2 * position]
+            angs[node - 1] = values[2 * position + 1]
+    return mags, angs
+
+
 class TestBulkVoltagesMatchPerBusReads:
     """The bulk read must agree with the per-bus path it replaces."""
 
     def test_every_bus_and_phase_agrees(self, dss_13bus):
         divergences = []
         for bus in dss_13bus.get_all_buses():
-            ref_mag, ref_ang = dss_13bus.get_bus_voltage(bus, pu=True, mag_only=False, polar=True)
+            ref_mag, ref_ang = _per_bus_reference(dss_13bus.dss, bus)
             mags, angs = dss_13bus.get_bus_voltage_pu(bus)
+
             for phase in range(3):
-                if abs(mags[phase] - ref_mag[phase]) > 1e-9:
-                    divergences.append((bus, phase, "mag"))
-                if abs(angs[phase] - ref_ang[phase]) > 1e-6:
-                    divergences.append((bus, phase, "ang"))
+                # A fase ausente é NaN, e `NaN != NaN`: compará-la por diferença
+                # daria sempre "iguais" — era assim que a versão anterior deste
+                # teste deixava as fases ausentes fora da conferência.
+                if ref_mag[phase] is None:
+                    if not math.isnan(mags[phase]):
+                        divergences.append((bus, phase, "mag deveria ser NaN", mags[phase]))
+                    if not math.isnan(angs[phase]):
+                        divergences.append((bus, phase, "ang deveria ser NaN", angs[phase]))
+                    continue
+
+                if math.isnan(mags[phase]) or abs(mags[phase] - ref_mag[phase]) > 1e-9:
+                    divergences.append((bus, phase, "mag", mags[phase], ref_mag[phase]))
+                if math.isnan(angs[phase]) or abs(angs[phase] - ref_ang[phase]) > 1e-6:
+                    divergences.append((bus, phase, "ang", angs[phase], ref_ang[phase]))
 
         assert divergences == []
+
+    def test_the_oracle_actually_sees_both_cases(self, dss_13bus):
+        """Guarda o guarda: um teste que só encontrasse fases ausentes não provaria nada.
+
+        O IEEE13 tem barras trifásicas (``675``) e monofásicas (``611``, só na
+        fase 3), então as duas metades da comparação acima são exercitadas.
+        """
+        presentes = [v for v in _per_bus_reference(dss_13bus.dss, "675")[0] if v is not None]
+        ausentes = [v for v in _per_bus_reference(dss_13bus.dss, "611")[0] if v is None]
+
+        assert len(presentes) == 3
+        assert len(ausentes) == 2
 
     def test_bus_name_with_node_suffix_is_accepted(self, dss_13bus):
         assert dss_13bus.get_bus_voltage_pu("675") == dss_13bus.get_bus_voltage_pu("675.1")

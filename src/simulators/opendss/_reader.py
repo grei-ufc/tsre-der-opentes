@@ -281,9 +281,11 @@ class ReaderMixin:
     ) -> tuple[list[float], list[float]]:
         """Active and reactive power per phase, positioned by the element's nodes.
 
-        Unlike :meth:`get_power`, the return shape does not depend on the number
-        of phases: it is always three values indexed by phase, with
-        :data:`~._utils.ABSENT` (``NaN``) where the element has no conductor.
+        A forma do retorno não depende do número de fases do elemento: são
+        sempre três valores, indexados por fase, com :data:`~._utils.ABSENT`
+        (``NaN``) onde o elemento não tem condutor. É o que permite ler um
+        monofásico e um trifásico pelo mesmo caminho, sem que o chamador precise
+        descobrir o formato antes de interpretar os números.
 
         Args:
             name: Element name.

@@ -132,46 +132,73 @@ Executa fluxo de potência e retorna um dicionário com o resumo completo.
 
 **Retorno**: `list[str]` — lista de nomes de todas as barras.
 
-#### `get_bus_voltage(bus, phase=None, pu=True, polar=True, mag_only=False, average=False, zero_voltage_error=False)`
+#### `get_bus_vmag_pu(bus)`
 
-Obtém tensão de uma barra com opções flexíveis.
+Módulo da tensão por fase, em pu.
 
-| Parâmetro | Tipo | Default | Descrição |
-|---|---|---|---|
-| `bus` | `str` | — | Nome da barra |
-| `phase` | `int \| None` | `None` | Fase específica (1, 2, 3) ou `None` para todas |
-| `pu` | `bool` | `True` | Se `True`, retorna em p.u.; senão em Volts |
-| `polar` | `bool` | `True` | Se `True`, retorna magnitude; senão (real, imaginário) |
-| `mag_only` | `bool` | `False` | Se `True`, retorna apenas a magnitude |
-| `average` | `bool` | `False` | Se `True`, retorna a média das fases |
-| `zero_voltage_error` | `bool` | `False` | Se `True`, retorna 0.0 em caso de erro |
+```python
+dss.get_bus_vmag_pu("675")      # [0.9835, 1.0553, 0.9758]
+dss.get_bus_vmag_pu("611")      # [nan, nan, 0.9738] -- monofásica na fase 3
+```
 
-**Retorno**: `float` (fase única) ou `list[float]` (todas as fases) ou `tuple[float, float]` (polar=False).
+**Retorno**: `list[float]` — sempre três valores, indexados por fase; a fase que
+a barra não tem é `NaN`.
 
-#### `get_all_bus_voltages(**kwargs)`
+Aceita o nome com ou sem sufixo de nó (`"675"` ou `"675.1"`). Servido de uma
+leitura única de todo o circuito (`circuit.buses_vmag_pu`), em cache até a
+próxima solução: monitorar duas barras não custa as 130.
 
-Retorna tensões de todas as barras. Mesmos kwargs de `get_bus_voltage`.
+#### `get_bus_vang(bus)`
 
-**Retorno**: `dict[str, float|list]` — `{nome_barra: tensão}`.
+Ângulo da tensão por fase, em graus. Mesma forma de retorno. Vem de uma chamada
+distinta ao motor, com cache próprio — pedir só o módulo nunca paga o ângulo.
+
+#### `get_bus_voltage_pu(bus)`
+
+Conveniência sobre as duas anteriores; lê os dois vetores.
+
+**Retorno**: `tuple[list[float], list[float]]` — `([|V1|, |V2|, |V3|], [ang1, ang2, ang3])`.
 
 ---
 
 ### Elementos (potência, corrente, propriedades)
 
-#### `get_power(name, element, phase=None, total=False, line_bus=1, raw=False)`
+#### `get_phase_powers(name, element="Load", terminal=1)`
 
-Retorna potência P/Q de um elemento.
+Potência ativa e reativa por fase, posicionadas pelos nós do elemento.
+
+```python
+dss.get_phase_powers("671", element="Load")
+dss.get_phase_powers("650632", element="Line", terminal=2)
+```
 
 | Parâmetro | Tipo | Descrição |
 |---|---|---|
-| `name` | `str` | Nome do elemento (ex: `"Load.L1"`) |
-| `element` | `str` | Classe (`"Load"`, `"PVSystem"`, etc.) |
-| `phase` | `int \| None` | Fase específica ou `None` para total |
-| `total` | `bool` | Se `True`, soma todas as fases |
-| `line_bus` | `int` | Para linhas: 1=bus de envio, 2=bus de recebimento |
-| `raw` | `bool` | Se `True`, retorna valores brutos sem formatação |
+| `name` | `str` | Nome do elemento |
+| `element` | `str` | Classe (`"Load"`, `"PVSystem"`, `"Line"`, ...) |
+| `terminal` | `int` | 1 para elementos shunt; 1 ou 2 para linhas; enrolamento para transformadores |
 
-**Retorno**: `tuple[float, float]` — `(P, Q)` ou `tuple` para raw.
+**Retorno**: `tuple[list[float], list[float]]` — `([P1, P2, P3], [Q1, Q2, Q3])` em
+kW e kvar, na convenção do OpenDSS (carga positiva).
+
+A forma do retorno **não** depende do número de fases: são sempre três valores,
+indexados por fase, com `NaN` onde o elemento não tem condutor. O OpenDSS ordena
+por condutor, não por fase — um elemento monofásico em `bus.3` reporta um valor
+só, e empacotá-lo à esquerda o transformaria na fase 1; o posicionamento usa o
+`node_order` do elemento.
+
+#### `get_phase_currents(name, element="Load", terminal=1)`
+
+Módulo e ângulo da corrente por fase. Mesmos parâmetros e mesma forma de
+retorno: `([|I1|, |I2|, |I3|], [ang1, ang2, ang3])`, em amperes e graus.
+
+#### `get_power_total(name, element="Load", terminal=1)`
+
+O escalar que acompanha `get_phase_powers`.
+
+**Retorno**: `tuple[float, float]` — `(P, Q)` somados **nas fases presentes**.
+Separar os dois métodos é o que dispensa uma bandeira `total` que mudaria o
+formato do retorno.
 
 #### `set_power(name, p, q, element, size=1000)`
 
@@ -186,16 +213,6 @@ Define potência P/Q em um elemento Load, PVSystem ou Storage.
 | `size` | `int` | Fator de escala (default: 1000, converte kW→W) |
 
 Para Storage, determina automaticamente o estado (Charging/Discharging/Idling) com base no sinal de `p`.
-
-#### `get_current(name, element, polar=True, mag_only=False, line_bus=1, phase=None, total=False, raw=False, winding=1)`
-
-Retorna corrente de um elemento.
-
-Mesmos parâmetros de `get_power()`, com adição de:
-
-| Parâmetro | Tipo | Descrição |
-|---|---|---|
-| `winding` | `int` | Para transformadores: índice do winding (default: 1) |
 
 #### `get_is_open(name, element="Line", term=None)`
 
