@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import mosaik
+from mosaik.util import connect_many_to_one
 
 # --- Definição Dinâmica de Caminhos ---
 CURRENT_DIR = Path(__file__).parent.resolve()
@@ -108,6 +109,9 @@ def run_scenario():
         target_names = ["149", "97"]
         # target_name = '149'
         # target_name = '1'
+
+        todas_as_barras = [e for e in grid.children if e.type == 'Bus']
+        connect_many_to_one(world, todas_as_barras, monitor, 'V1_pu', 'V2_pu', 'V3_pu')
 
         for target_name in target_names:
             target_eid = f"Bus-{target_name}"

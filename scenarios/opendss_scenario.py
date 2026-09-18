@@ -20,6 +20,8 @@ CIRCUITO_DSS = DATA_DIR / "IEEE13Nodeckt_w_loadcurve.dss"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)  # Cria a pasta se não existir
 ARQUIVO_RESULTADOS_CSV = OUTPUT_DIR / "result_opendss.csv"
+JSON_OUTPUT = OUTPUT_DIR / "topologia_ieee13.json"
+
 
 # Adiciona a raiz ao Python Path para importar os módulos 'simulators'
 if str(PROJECT_ROOT) not in sys.path:
@@ -58,7 +60,12 @@ def run_scenario():
 
     with mosaik.World(SIM_CONFIG) as world:
         # Note que passamos o caminho como string (str(CIRCUITO_DSS)) para o OpenDSS entender
-        dss_sim = world.start("DSS", topofile=str(CIRCUITO_DSS), step_size=STEP_SIZE)
+        dss_sim = world.start(
+            "DSS",
+            topofile=str(CIRCUITO_DSS),
+            step_size=STEP_SIZE,
+            output_graph_path=str(JSON_OUTPUT)
+            )
 
         collector = world.start(
             "Collector",
