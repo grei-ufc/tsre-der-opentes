@@ -122,6 +122,19 @@ def init(self, sid, time_resolution, topofile, step_size=900, output_graph_path=
 
 Apenas o modelo `Grid` pode ser criado. Ao criar o Grid, todas as entidades Load, Line, Bus, Transformer, RegControl, Storage e PVSystem são criadas automaticamente.
 
+Os eids seguem `<Modelo>-<nome no OpenDSS>`: `Load-671`, `Line-650632`,
+`Switch-sw1`, `PVSystem-pv`. As barras usam o nome da própria barra
+(`Bus-675`), e o circuito inteiro é `Circuit-0`.
+
+!!! warning "O eid do PVSystem mudou"
+    Até esta versão ele carregava a barra — `PVSystem-pv_bus634` —, o que o
+    tornava o único fora do padrão e acoplava qualquer código que o montasse à
+    mão ao formato. Agora é só `PVSystem-pv`.
+
+    Quem monta o eid num cenário, ou lê colunas de um CSV gerado antes
+    (`DSS-0.PVSystem-pv_bus634-P_meas`), precisa acompanhar. A barra continua
+    disponível em `extra_info["bus"]`.
+
 O `Transformer` existe por causa da topologia: bancos de reguladores e elevadoras de subestação ligam duas barras sem que haja linha entre elas. Sem essas entidades, o grafo montado a partir de `rel` se parte em ilhas — no IEEE34, cinco delas.
 
 ### Atributos de entrada (step)

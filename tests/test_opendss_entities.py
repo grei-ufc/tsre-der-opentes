@@ -197,22 +197,22 @@ class TestExtraInfo:
         by_eid = {c["eid"]: c["extra_info"] for c in children}
 
         # pv-4 @ 646.2, pv-5 @ 611.3, pv-6 @ 652.1
-        assert by_eid["PVSystem-pv-4_bus646"]["nodes"] == [2]
-        assert by_eid["PVSystem-pv-5_bus611"]["nodes"] == [3]
-        assert by_eid["PVSystem-pv-6_bus652"]["nodes"] == [1]
+        assert by_eid["PVSystem-pv-4"]["nodes"] == [2]
+        assert by_eid["PVSystem-pv-5"]["nodes"] == [3]
+        assert by_eid["PVSystem-pv-6"]["nodes"] == [1]
 
         # Testar fases de todos (mapeados por tuple)
         pvs = [
-            ("PVSystem-pv-4_bus646", 1),
-            ("PVSystem-pv-5_bus611", 1),
-            ("PVSystem-pv-6_bus652", 1),
+            ("PVSystem-pv-4", 1),
+            ("PVSystem-pv-5", 1),
+            ("PVSystem-pv-6", 1),
         ]
         assert all(by_eid[n]["phases"] == phases for n, phases in pvs)
 
     def test_three_phase_pv_reports_all_nodes(self, children):
         by_eid = {c["eid"]: c["extra_info"] for c in children}
-        assert by_eid["PVSystem-pv_bus634"]["nodes"] == [1, 2, 3]
-        assert by_eid["PVSystem-pv_bus634"]["phases"] == 3
+        assert by_eid["PVSystem-pv"]["nodes"] == [1, 2, 3]
+        assert by_eid["PVSystem-pv"]["phases"] == 3
 
     def test_bus_carries_voltage_base(self, children):
         buses = [c["extra_info"] for c in children if c["type"] == "Bus"]
@@ -346,17 +346,17 @@ class TestBackwardCompatibility:
     def test_maps_are_keyed_by_eid(self, grid):
         sim, _ = grid
         assert set(sim.pvsystem_map) == {
-            "PVSystem-pv_bus634",
-            "PVSystem-pv-2_bus692",
-            "PVSystem-pv-3_bus680",
-            "PVSystem-pv-4_bus646",
-            "PVSystem-pv-5_bus611",
-            "PVSystem-pv-6_bus652",
+            "PVSystem-pv",
+            "PVSystem-pv-2",
+            "PVSystem-pv-3",
+            "PVSystem-pv-4",
+            "PVSystem-pv-5",
+            "PVSystem-pv-6",
         }
 
     def test_legacy_keys_are_preserved(self, grid):
         sim, _ = grid
-        info = sim.pvsystem_map["PVSystem-pv-4_bus646"]
+        info = sim.pvsystem_map["PVSystem-pv-4"]
         for key in ("eid_dss", "name", "pmpp", "kva", "pt_curve_x", "eff_curve_y"):
             assert key in info
 

@@ -255,7 +255,7 @@ class TestMetaMatchesImplementation:
 class TestInputRouting:
     # Single-phase PV on 611.3 — exercises setpoint routing and phase placement
     # in one go.
-    PV = "PVSystem-pv-5_bus611"
+    PV = "PVSystem-pv-5"
 
     def test_every_pv_tracks_its_setpoint(self, sim):
         """Guards the fixture: a wrong kV makes a PV ignore its setpoint.
@@ -318,8 +318,8 @@ class TestGenerationInPerUnit:
     único motor — depois dela, ``PVSystem.pv`` não existe mais no circuito ativo.
     """
 
-    TRIFASICO = "PVSystem-pv_bus634"
-    MONOFASICO = "PVSystem-pv-5_bus611"
+    TRIFASICO = "PVSystem-pv"
+    MONOFASICO = "PVSystem-pv-5"
     DESPACHO = 100.0  # 10% da placa de 1000 kW dos dois
 
     @pytest.fixture
