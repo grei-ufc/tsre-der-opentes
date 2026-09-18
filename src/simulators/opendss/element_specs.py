@@ -309,6 +309,60 @@ def bus_aggregates(vmag_pu: Iterable[float], attrs: Iterable[str]) -> dict[str, 
     return result
 
 
+CIRCUIT_OUTPUTS = (
+    "converged",
+    "iterations",
+    "P_mw",
+    "Q_mvar",
+    "Ploss_mw",
+    "Qloss_mvar",
+)
+
+
+def read_circuit(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[str, Any]:
+    """Estado da solução e totais do alimentador inteiro.
+
+    ``converged`` é a razão de este modelo existir. Um passo que parou no limite
+    de iterações produz tensões com a mesma aparência das de um passo bom, e sem
+    um atributo que o registre não há como o resultado de um estudo de vários
+    dias dizer em quais instantes ele não pode ser levado a sério.
+
+    Com ``fail_on_error`` ligado — o padrão — a simulação nem chega aqui: o
+    :meth:`~._engine.EngineMixin.run_dss` interrompe. Este modelo serve a quem
+    prefere seguir e marcar, o que exige desligar o erro.
+
+    As leituras vêm do motor, não do cache da solução: são escalares de uma
+    chamada só. Os totais por classe de ``get_circuit_info`` ficam de fora de
+    propósito — as chaves são rótulos com espaço e o conjunto varia com o
+    circuito, e a META não pode depender disso.
+    """
+    attrs = list(attrs)
+    result: dict[str, Any] = {}
+    solution = sim.dss_wrapper.dss.solution
+
+    if "converged" in attrs:
+        # O motor devolve int (0/1); o cenário recebe o booleano.
+        result["converged"] = bool(solution.converged)
+    if "iterations" in attrs:
+        result["iterations"] = solution.iterations
+
+    if "P_mw" in attrs or "Q_mvar" in attrs:
+        p_kw, q_kvar = sim.dss_wrapper.get_circuit_power()
+        if "P_mw" in attrs:
+            result["P_mw"] = p_kw / 1000.0
+        if "Q_mvar" in attrs:
+            result["Q_mvar"] = q_kvar / 1000.0
+
+    if "Ploss_mw" in attrs or "Qloss_mvar" in attrs:
+        p_loss_kw, q_loss_kvar = sim.dss_wrapper.get_losses()
+        if "Ploss_mw" in attrs:
+            result["Ploss_mw"] = p_loss_kw / 1000.0
+        if "Qloss_mvar" in attrs:
+            result["Qloss_mvar"] = q_loss_kvar / 1000.0
+
+    return result
+
+
 def read_regulator(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[str, Any]:
     """Lê tensão, corrente e tap de um regulador."""
     wanted = {a for a in attrs if a in ("v_meas", "i_meas", "tap")}
@@ -516,6 +570,12 @@ def write_pvsystem(sim, name: str, values: dict[str, Any]) -> None:
 # ----------------------------------------------------------------------
 
 MODEL_SPECS: dict[str, ModelSpec] = {
+    "Circuit": ModelSpec(
+        # Como o Bus, não é um elemento de circuito: é o circuito inteiro.
+        dss_class=None,
+        reader=read_circuit,
+        extra_outputs=CIRCUIT_OUTPUTS,
+    ),
     "Bus": ModelSpec(
         dss_class=None,
         reader=read_bus,
@@ -640,7 +700,14 @@ def build_meta() -> dict[str, Any]:
     models: dict[str, Any] = {
         "Grid": {
             "public": True,
-            "params": ["topofile", "step_size", "output_graph_path", "buscoords"],
+            "params": [
+                "topofile",
+                "step_size",
+                "output_graph_path",
+                "buscoords",
+                "tolerance",
+                "max_iterations",
+            ],
             "attrs": [],
         }
     }

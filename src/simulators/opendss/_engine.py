@@ -18,7 +18,8 @@ class EngineMixin:
     """Compilacao, execucao e invalidacao de cache.
 
     Espera de quem compoe: ``self.dss``, ``self._snapshot``,
-    ``self._node_index``, ``self.fail_on_error`` e ``self.includes_elements``.
+    ``self._node_index``, ``self.fail_on_error``, ``self.includes_elements``,
+    ``self._tolerance`` e ``self._max_iterations``.
     """
 
     def warn_if_engine_already_in_use(self) -> None:
@@ -90,8 +91,28 @@ class EngineMixin:
                     f'No circuit was compiled from "{path}". The circuit has no '
                     "buses — check the file path and its contents."
                 )
+
+            self.apply_solution_settings()
         finally:
             os.chdir(base_dir)
+
+    def apply_solution_settings(self) -> None:
+        """(Re)aplica ``tolerance`` e ``max_iterations`` ao motor.
+
+        Precisa ser chamada depois de **toda** compilação, e não uma vez no
+        construtor: o ``Compile`` do OpenDSS repõe os dois nos padrões dele —
+        medido, ``tolerance`` volta a 1e-4 e ``max_iterations`` a 15. Um wrapper
+        que recompilasse o circuito perderia o ajuste sem nada avisando, e a
+        próxima solução seria resolvida com uma precisão que ninguém pediu.
+
+        Os valores pedidos ficam guardados na instância justamente para
+        sobreviver a essas reposições. ``None`` significa "não mexer", de modo
+        que quem não pede nada continua com o padrão do motor.
+        """
+        if self._tolerance is not None:
+            self.dss.solution.tolerance = self._tolerance
+        if self._max_iterations is not None:
+            self.dss.solution.max_iterations = self._max_iterations
 
     def invalidate_snapshot(self) -> None:
         """Drop cached solution results.
@@ -129,13 +150,28 @@ class EngineMixin:
         self.print(f"Running file: {filename}")
         self.invalidate_snapshot()
         self.dss.text(f'compile "{filename}"')
+        # O compile repoe os ajustes de solucao; ver apply_solution_settings.
+        self.apply_solution_settings()
 
     def run_dss(self, no_controls: bool = False) -> None:
-        """
-        Executes the OpenDSS solution command (Solve).
+        """Resolve o fluxo de potência e confere se a solução convergiu.
+
+        Um solve que para no limite de iterações devolve tensões com a mesma
+        cara das de um solve convergido, e o motor não reclama: ``converged``
+        precisa ser consultado. Sem isso um passo truncado segue adiante como se
+        estivesse certo, e num estudo de vários dias nada no resultado denuncia.
+
+        A falha respeita ``fail_on_error``: por padrão interrompe, e com o erro
+        desligado apenas registra. Quem precisa tolerar um passo ruim — em vez
+        de perder a execução inteira — desliga o erro e acompanha o estado pelo
+        modelo mosaik ``Circuit``, que expõe ``converged`` e ``iterations``.
 
         Args:
-            no_controls (bool, optional): If True, uses solve_no_control(). Defaults to False.
+            no_controls: Se ``True``, usa ``solve_no_control()``.
+
+        Raises:
+            OpenDSSException: Se a solução não convergir e ``fail_on_error``
+                estiver ligado.
         """
         self.invalidate_snapshot()
         try:
@@ -151,6 +187,17 @@ class EngineMixin:
         except Exception as e:
             self.dss.text("export Eventlog")
             self.fail(f"An error occurred during DSS solution: {e}")
+            return
+
+        if not self.dss.solution.converged:
+            self.fail(
+                f"A solucao nao convergiu em {self.dss.solution.iterations} iteracoes "
+                f"(max_iterations={self.dss.solution.max_iterations}, "
+                f"tolerance={self.dss.solution.tolerance:g}). As tensoes resultantes "
+                "nao resolvem o circuito; aumente max_iterations ao construir o "
+                "wrapper, ou desligue fail_on_error e acompanhe `converged` pelo "
+                "modelo Circuit."
+            )
 
     def set_element(self, name: str, element: str) -> None:
         """

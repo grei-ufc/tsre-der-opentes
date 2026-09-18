@@ -7,7 +7,8 @@
 ### Construtor
 
 ```python
-OpenDSS(topofile, time_step, start_time, fail_on_error=True)
+OpenDSS(topofile, time_step, start_time, fail_on_error=True,
+        tolerance=None, max_iterations=None)
 ```
 
 | Parâmetro | Tipo | Descrição |
@@ -16,6 +17,12 @@ OpenDSS(topofile, time_step, start_time, fail_on_error=True)
 | `time_step` | `int` | Passo de tempo em segundos |
 | `start_time` | `str` | Data/hora de início no formato `"YYYY-MM-DD HH:MM:SS"` |
 | `fail_on_error` | `bool` | Se `True`, erros do DSS lançam exceção (default: `True`) |
+| `tolerance` | `float \| None` | Critério de convergência. `None` mantém o padrão do motor, `1e-4` |
+| `max_iterations` | `int \| None` | Limite de iterações. `None` mantém o padrão do motor, `15` |
+
+Os dois são reaplicados a **cada** compilação: o `Compile` do OpenDSS repõe
+ambos no padrão, e um wrapper que recompilasse o circuito perderia o ajuste sem
+nada avisando.
 
 Um wrapper atende a **um** circuito: o motor OpenDSS é único no processo, então
 compilar um segundo circuito substituiria o primeiro. Passar uma lista de
@@ -47,11 +54,22 @@ Compila um arquivo `.dss` específico.
 
 #### `run_dss(no_controls=False)`
 
-Executa a solução do fluxo de potência.
+Executa a solução do fluxo de potência e **confere se ela convergiu**.
 
 - `no_controls=False` (default): executa `Solve`
 - `no_controls=True`: executa `SolveNoControl`
 - Se existem elementos Storage, chama `UpdateStorage` após a solução
+
+!!! warning "Um solve truncado não se denuncia sozinho"
+    Parar no limite de iterações devolve tensões que **não resolvem o circuito**
+    e têm a mesma aparência das corretas; o motor não reclama, é preciso
+    consultar `converged`. Desde esta versão o método consulta, e a falha
+    respeita `fail_on_error`: por padrão levanta `OpenDSSException`, com o erro
+    desligado apenas registra a mensagem.
+
+    Quem precisa tolerar um passo ruim — em vez de perder a execução inteira —
+    desliga o erro e acompanha o estado pelo modelo mosaik `Circuit`, que expõe
+    `converged` e `iterations`.
 
 ---
 

@@ -21,13 +21,20 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
     "models": {
         "Grid": {
             "public": True,
-            "params": ["topofile"],
+            "params": ["topofile", "step_size", "output_graph_path", "buscoords",
+                        "tolerance", "max_iterations"],
             "attrs": [],
+        },
+        "Circuit": {
+            "public": False,
+            "params": [],
+            "attrs": ["converged", "iterations",
+                       "P_mw", "Q_mvar", "Ploss_mw", "Qloss_mvar"],
         },
         "Load": {
             "public": False,
             "params": [],
-            "attrs": ["P_mw", "Q_mvar", "P_out_mw", "Q_out_mvar"],
+            "attrs": ["P_out_mw", "Q_out_mvar"],
         },
         "Line": {
             "public": False,
@@ -97,7 +104,8 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
 
 ```python
 def init(self, sid, time_resolution, topofile, step_size=900, output_graph_path=None,
-         bypass_native_pv_curves=True, buscoords=None)
+         bypass_native_pv_curves=True, buscoords=None,
+         tolerance=None, max_iterations=None)
 ```
 
 | Parâmetro | Tipo | Default | Descrição |
@@ -107,6 +115,8 @@ def init(self, sid, time_resolution, topofile, step_size=900, output_graph_path=
 | `output_graph_path` | `str \| None` | `None` | Se fornecido, exporta topologia JSON |
 | `bypass_native_pv_curves` | `bool` | `True` | Neutraliza as curvas de eficiência e derating dos PVSystems, quando o inversor é modelado por outro simulador |
 | `buscoords` | `str \| None` | `None` | Arquivo `Buscoords` a carregar após o circuito. Vários alimentadores do IEEE trazem o arquivo mas não o carregam no `.dss` principal |
+| `tolerance` | `float \| None` | `None` | Critério de convergência do fluxo. `None` mantém o padrão do motor, `1e-4` |
+| `max_iterations` | `int \| None` | `None` | Limite de iterações. `None` mantém o padrão do motor, `15` — **leia o aviso sobre convergência abaixo** |
 
 ### create()
 
@@ -139,7 +149,7 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Line | `Qloss1_kvar..Qloss3_kvar` | `float` | Perda reativa por fase (kvar) |
 | Line | `Ploss_kw`, `Qloss_kvar` | `float` | Perda total da linha (kW / kvar) |
 | Line | `Loading1_pct..Loading3_pct` | `float` | Carregamento por fase: corrente em % de `normamps` — **leia o aviso abaixo** |
-| Bus | `V1_pu..V3_pu` | `float` | Tensão por fase (p.u.); `0.0` na fase que a barra não tem |
+| Bus | `V1_pu..V3_pu` | `float` | Tensão por fase (p.u.); `NaN` na fase que a barra não tem |
 | Bus | `V1_ang..V3_ang` | `float` | Ângulo por fase (graus) |
 | Bus | `V_min_pu`, `V_max_pu`, `V_mean_pu` | `float` | Extremos e média entre as **fases presentes** |
 | Bus | `V_unb_pct` | `float` | Desequilíbrio NEMA: maior desvio em relação à média, em % |
@@ -160,8 +170,32 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Storage | `P_act` | `float` | Potência ativa atual (kW) |
 | Storage | `Q_act` | `float` | Potência reativa atual (kvar) |
 | Storage | `SoC` | `float` | Estado de carga (%) |
+| Circuit | `converged` | `bool` | Se o passo convergiu — **leia o aviso abaixo** |
+| Circuit | `iterations` | `int` | Iterações gastas no passo |
+| Circuit | `P_mw`, `Q_mvar` | `float` | Potência total na fonte (MW / MVAr) |
+| Circuit | `Ploss_mw`, `Qloss_mvar` | `float` | Perdas totais do circuito (MW / MVAr) |
 | Switch | `is_open` | `bool` | Estado efetivo lido do circuito |
 | Switch | (demais) | `float` | As mesmas da `Line`: correntes, potências, perdas e carregamento |
+
+!!! warning "Convergência: o padrão do motor é apertado para co-simulação"
+    O OpenDSS resolve com `tolerance=1e-4` e no máximo `15` iterações. Em
+    co-simulação cada passo pode ser um salto grande de ponto de operação — o
+    primeiro depois do setup, ou uma manobra de chave — e 15 iterações podem
+    não bastar. Um solve truncado devolve tensões que **não resolvem o
+    circuito** e têm exatamente a mesma aparência das corretas.
+
+    Desde esta versão o wrapper confere `converged` e **interrompe**. Quem
+    prefere seguir e marcar desliga `fail_on_error` e acompanha o atributo
+    `converged` do modelo `Circuit`, que registra cada passo no CSV.
+
+    Cuidado ao ajustar por fora: o `Compile` do OpenDSS **repõe os dois no
+    padrão**. Por isso eles são parâmetros de `init()`, reaplicados a cada
+    recompilação, em vez de um `run_command("set tolerance=...")` avulso.
+
+    Nem toda divergência se resolve com mais iterações: ilhar geração sem
+    referência de tensão — abrir a chave que isola uma barra cuja única fonte
+    é um `PVSystem` — não tem solução, e o fluxo diverge em vez de convergir
+    devagar.
 
 !!! info "Chaves"
     No OpenDSS a chave é uma `Line` com `switch=yes` — trecho de impedância

@@ -158,6 +158,8 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         output_graph_path=None,
         bypass_native_pv_curves=True,
         buscoords=None,
+        tolerance=None,
+        max_iterations=None,
         **sim_params,
     ):
         """Inicializa o simulador e compila o circuito.
@@ -179,6 +181,13 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 carregar depois do circuito. Vários alimentadores do IEEE trazem
                 o arquivo mas não o carregam no ``.dss`` principal; sem ele as
                 coordenadas em ``extra_info`` ficam todas em zero.
+            tolerance: Critério de convergência do fluxo. ``None`` mantém o
+                padrão do motor (``1e-4``), folgado para co-simulação.
+            max_iterations: Limite de iterações. ``None`` mantém o padrão do
+                motor (``15``), que não basta para um salto grande de ponto de
+                operação — o primeiro passo depois do setup, ou uma manobra de
+                chave. O modelo ``Circuit`` reporta ``converged`` e
+                ``iterations`` de cada passo.
         """
         self.sid = sid
         self.time_resolution = time_resolution
@@ -188,6 +197,8 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             topofile=topofile,
             time_step=datetime.timedelta(seconds=self.step_size),
             start_time=datetime.datetime(2025, 1, 1),
+            tolerance=tolerance,
+            max_iterations=max_iterations,
         )
 
         if buscoords is not None:
@@ -246,6 +257,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
     # ------------------------------------------------------------------
 
     def _create_grid(self):
+        self._add_circuit()
         # As barras vêm primeiro: são as âncoras que todos os demais
         # elementos referenciam em `rel`.
         self._add_buses()
@@ -318,6 +330,30 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             return []
 
         return [eid]
+
+    def _add_circuit(self):
+        """Cria a entidade que representa o circuito inteiro.
+
+        Uma só, sem ``rel``: ela não fica em barra nenhuma. Existe para que o
+        cenário possa registrar se cada passo convergiu — ver
+        :func:`~.element_specs.read_circuit`.
+        """
+        dss = self.dss_wrapper.dss
+        self._add_child(
+            "Circuit-0",
+            "Circuit",
+            dss.circuit.name,
+            rel=[],
+            extra_info={
+                "name": dss.circuit.name,
+                "num_buses": dss.circuit.num_buses,
+                "num_nodes": dss.circuit.num_nodes,
+                # Os ajustes em vigor, para o cenário registrar contra que
+                # critério as tensões do estudo foram resolvidas.
+                "tolerance": dss.solution.tolerance,
+                "max_iterations": dss.solution.max_iterations,
+            },
+        )
 
     def _add_buses(self):
         dss = self.dss_wrapper.dss

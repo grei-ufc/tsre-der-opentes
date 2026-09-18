@@ -65,6 +65,8 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin):
         time_step: dt.timedelta,
         start_time: dt.datetime,
         fail_on_error: bool = True,
+        tolerance: float | None = None,
+        max_iterations: int | None = None,
         **kwargs: object,
     ):
         """
@@ -78,6 +80,14 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin):
             time_step (dt.timedelta): The simulation time step.
             start_time (dt.datetime): The simulation start time (sets hour and angle).
             fail_on_error (bool, optional): If True, raises an exception on DSS errors. Defaults to True.
+            tolerance: Critério de convergência do fluxo de potência. ``None``
+                mantém o padrão do motor, que é ``1e-4`` — folgado para
+                co-simulação, onde as tensões alimentam contas a jusante que
+                herdam esse erro sem nenhum sinal.
+            max_iterations: Limite de iterações. ``None`` mantém o padrão do
+                motor, que é ``15`` — insuficiente para um salto grande de ponto
+                de operação, que em co-simulação é o caso comum: o primeiro
+                passo depois do setup, ou qualquer manobra de chave.
             **kwargs: Additional arguments (currently unused).
 
         Raises:
@@ -100,6 +110,10 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin):
         self.fail_on_error = fail_on_error
         self._snapshot = SolutionSnapshot()
         self._node_index: dict[str, list[tuple[int, int]]] | None = None
+        # Guardados porque o Compile os repoe no padrao a cada recompilacao;
+        # ver apply_solution_settings, chamada de compile_circuit e de redirect.
+        self._tolerance = tolerance
+        self._max_iterations = max_iterations
 
         self.print("Compiling...")
         self.warn_if_engine_already_in_use()

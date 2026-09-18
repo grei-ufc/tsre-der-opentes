@@ -391,116 +391,6 @@ class TestGenerationInPerUnit:
         assert sim.pv_nameplate("nao-existe") == (0.0, 0)
 
 
-class TestSwitchCommanding:
-    """Abrir e fechar a chave do IEEE13 pelo caminho do mosaik.
-
-    ``Line.671692`` liga 671 a 692; abri-la isola a barra 692 e as cargas
-    penduradas nela. É a manobra que prova que o comando chega ao motor e
-    sobrevive ao ``Solve`` do passo seguinte.
-    """
-
-    SWITCH = "Switch-671692"
-    JUSANTE = "Bus-692"
-
-    # A corrente de um terminal aberto não zera exatamente: sobra o resíduo
-    # numérico da solução (da ordem de 1e-9 A).
-    ABERTA_A = 1e-6
-
-    @pytest.fixture
-    def fechada(self, sim):
-        """Garante o estado fechado antes e depois de cada teste da classe.
-
-        A fixture ``sim`` é de módulo, então uma chave deixada aberta viajaria
-        para os testes seguintes — e o IEEE13 sem a 692 dá outros resultados.
-        """
-        sim.step(0, {self.SWITCH: {"is_open": {"c": False}}}, 300)
-        yield
-        sim.step(0, {self.SWITCH: {"is_open": {"c": False}}}, 300)
-
-    def test_it_starts_closed(self, sim, fechada):
-        assert sim.get_data({self.SWITCH: ["is_open"]})[self.SWITCH]["is_open"] is False
-
-    def test_opening_is_read_back(self, sim, fechada):
-        sim.step(300, {self.SWITCH: {"is_open": {"ctrl": True}}}, 300)
-
-        assert sim.get_data({self.SWITCH: ["is_open"]})[self.SWITCH]["is_open"] is True
-
-    def test_opening_stops_the_current(self, sim, fechada):
-        antes = sim.get_data({self.SWITCH: ["I1_A"]})[self.SWITCH]["I1_A"]
-        assert antes > 1.0
-
-        sim.step(300, {self.SWITCH: {"is_open": {"ctrl": True}}}, 300)
-
-        assert sim.get_data({self.SWITCH: ["I1_A"]})[self.SWITCH]["I1_A"] < self.ABERTA_A
-
-    def test_opening_moves_the_bus_downstream(self, sim, fechada):
-        """O que prova que a manobra é elétrica, e não só um flag.
-
-        A barra 692 **não** vai a zero: há um PVSystem nela, e a ilha que a
-        abertura cria continua energizada pelo inversor — em torno de 0.83 pu,
-        fora da faixa que o alimentador sustentava. É o desvio que importa aqui,
-        não o valor: num ramal sem geração própria a mesma manobra zeraria a
-        tensão, como faz a ``Bus-152`` do IEEE123.
-        """
-        antes = sim.get_data({self.JUSANTE: ["V1_pu"]})[self.JUSANTE]["V1_pu"]
-        assert antes > 0.9
-
-        sim.step(300, {self.SWITCH: {"is_open": {"ctrl": True}}}, 300)
-        aberta = sim.get_data({self.JUSANTE: ["V1_pu"]})[self.JUSANTE]["V1_pu"]
-
-        sim.step(600, {self.SWITCH: {"is_open": {"ctrl": False}}}, 300)
-        fechada_de_novo = sim.get_data({self.JUSANTE: ["V1_pu"]})[self.JUSANTE]["V1_pu"]
-
-        assert antes - aberta > 0.1, "a abertura não mudou a tensão da barra isolada"
-        # Tolerância folgada: as cargas seguem a LoadShape, e cada passo avança
-        # o tempo — a tensão volta ao patamar, não ao valor idêntico.
-        assert fechada_de_novo == pytest.approx(antes, abs=1e-2)
-
-    def test_closing_undoes_an_opening_made_on_the_other_terminal(self, sim, fechada):
-        """A armadilha: o circuito pode ter aberto a chave pelo terminal 1.
-
-        É o caso das chaves normalmente abertas do IEEE123, que o ``.dss`` abre
-        com ``terminal=2``. Se fechar mexesse num terminal só, o comando falharia
-        em silêncio — com a corrente seguindo em zero.
-        """
-        sim.dss_wrapper.set_is_open("671692", open=True, element="Line", term=1)
-        sim.step(300, {}, 300)
-        assert sim.get_data({self.SWITCH: ["is_open"]})[self.SWITCH]["is_open"] is True
-
-        sim.step(600, {self.SWITCH: {"is_open": {"ctrl": False}}}, 300)
-
-        data = sim.get_data({self.SWITCH: ["is_open", "I1_A"]})[self.SWITCH]
-        assert data["is_open"] is False
-        assert data["I1_A"] > 1.0
-
-    def test_an_open_switch_is_still_read(self, sim, fechada):
-        """Aberta, ela continua na coleta — com zero, que é uma medição."""
-        sim.step(300, {self.SWITCH: {"is_open": {"ctrl": True}}}, 300)
-
-        data = sim.get_data({self.SWITCH: ["I1_A", "Loading1_pct", "Ploss_kw"]})[self.SWITCH]
-
-        assert data["I1_A"] < self.ABERTA_A
-        assert data["Loading1_pct"] == pytest.approx(0.0, abs=1e-6)
-
-    def test_concurrent_commands_warn(self, sim, fechada, capsys):
-        """Somar comandos de chave não faz sentido; o conflito não some."""
-        sim.step(300, {self.SWITCH: {"is_open": {"a": True, "b": False}}}, 300)
-
-        assert "concorrentes" in capsys.readouterr().out
-
-    def test_the_model_declares_is_open_once(self):
-        """Entrada e saída, como o `tap` do RegControl — listado uma só vez."""
-        attrs = build_meta()["models"]["Switch"]["attrs"]
-
-        assert attrs.count("is_open") == 1
-        assert "is_open" in MODEL_SPECS["Switch"].inputs
-
-    def test_a_line_takes_no_commands(self):
-        """Só a chave manobra: a linha continua somente de leitura."""
-        assert MODEL_SPECS["Line"].writer is None
-        assert MODEL_SPECS["Line"].inputs == {}
-
-
 class TestLineLoading:
     """Carregamento por fase: a corrente em % da ampacidade da linha.
 
@@ -682,6 +572,200 @@ class TestStorage:
         declared = list(MODEL_SPECS["Storage"].outputs)
         produced = storage_sim.get_data({"Storage-bat1": declared})["Storage-bat1"]
         assert [a for a in declared if a not in produced] == []
+
+
+@pytest.fixture(scope="module")
+def switch_sim():
+    """IEEE13 **sem** PV, para a manobra de chave ser um problema bem-posto.
+
+    A fixture ``sim`` não serve aqui. Nela a barra 692 tem um ``PVSystem``, e
+    abrir a ``671692`` deixa uma ilha alimentada só por uma fonte de potência
+    constante, **sem referência de tensão**: o fluxo não tem solução e diverge —
+    ver :class:`TestIslandWithoutReference`. Sem o PV, a barra simplesmente se
+    desenergiza e o circuito continua resolvível.
+
+    Fica no fim do arquivo, com as demais fixtures que compilam outro circuito:
+    todas as instâncias do ``py_dss_interface`` dividem um motor só.
+    """
+    master = DATA_DIR / "IEEE13Nodeckt.dss"
+    if not master.exists():
+        pytest.skip(f"IEEE13 fixture not found at {master}")
+
+    simulator = OpenDSSSimulator()
+    simulator.init("DSS-0", 1.0, topofile=str(master), step_size=300)
+    if simulator.dss_wrapper.dss.circuit.num_buses == 0:
+        pytest.skip("IEEE13 failed to compile (check the OpenDSS DataPath)")
+
+    simulator.create(1, "Grid")
+    simulator.step(0, {}, 300)
+    return simulator
+
+
+class TestSwitchCommanding:
+    """Abrir e fechar a chave do IEEE13 pelo caminho do mosaik.
+
+    ``Line.671692`` liga 671 a 692; abri-la desliga a barra 692 e as cargas
+    penduradas nela. É a manobra que prova que o comando chega ao motor e
+    sobrevive ao ``Solve`` do passo seguinte.
+    """
+
+    SWITCH = "Switch-671692"
+    JUSANTE = "Bus-692"
+
+    # A corrente de um terminal aberto não zera exatamente: sobra o resíduo
+    # numérico da solução (da ordem de 1e-9 A).
+    ABERTA_A = 1e-6
+
+    @pytest.fixture
+    def fechada(self, switch_sim):
+        """Garante o estado fechado antes e depois de cada teste da classe."""
+        switch_sim.step(0, {self.SWITCH: {"is_open": {"c": False}}}, 300)
+        yield
+        switch_sim.step(0, {self.SWITCH: {"is_open": {"c": False}}}, 300)
+
+    def test_it_starts_closed(self, switch_sim, fechada):
+        data = switch_sim.get_data({self.SWITCH: ["is_open"]})[self.SWITCH]
+        assert data["is_open"] is False
+
+    def test_opening_is_read_back(self, switch_sim, fechada):
+        switch_sim.step(300, {self.SWITCH: {"is_open": {"ctrl": True}}}, 300)
+
+        data = switch_sim.get_data({self.SWITCH: ["is_open"]})[self.SWITCH]
+        assert data["is_open"] is True
+
+    def test_opening_stops_the_current(self, switch_sim, fechada):
+        antes = switch_sim.get_data({self.SWITCH: ["I1_A"]})[self.SWITCH]["I1_A"]
+        assert antes > 1.0
+
+        switch_sim.step(300, {self.SWITCH: {"is_open": {"ctrl": True}}}, 300)
+
+        depois = switch_sim.get_data({self.SWITCH: ["I1_A"]})[self.SWITCH]["I1_A"]
+        assert depois < self.ABERTA_A
+
+    def test_opening_de_energizes_the_bus_downstream(self, switch_sim, fechada):
+        """O que prova que a manobra é elétrica, e não só um flag.
+
+        Sem geração própria a jusante, a barra isolada vai a zero — e o circuito
+        continua convergindo, porque o problema segue bem-posto.
+        """
+        antes = switch_sim.get_data({self.JUSANTE: ["V1_pu"]})[self.JUSANTE]["V1_pu"]
+        assert antes > 0.9
+
+        switch_sim.step(300, {self.SWITCH: {"is_open": {"ctrl": True}}}, 300)
+        aberta = switch_sim.get_data({self.JUSANTE: ["V1_pu"]})[self.JUSANTE]["V1_pu"]
+
+        switch_sim.step(600, {self.SWITCH: {"is_open": {"ctrl": False}}}, 300)
+        refechada = switch_sim.get_data({self.JUSANTE: ["V1_pu"]})[self.JUSANTE]["V1_pu"]
+
+        assert aberta == pytest.approx(0.0, abs=1e-9)
+        # Refechar não devolve o bit exato: com a tolerância padrão do motor
+        # (1e-4) a solução pousa em qualquer ponto dentro da banda, e a
+        # diferença medida fica na ordem de 1e-8 pu.
+        assert refechada == pytest.approx(antes, abs=1e-6)
+
+    def test_the_manoeuvre_converges(self, switch_sim, fechada):
+        """A tensão acima só significa alguma coisa se o passo convergiu."""
+        switch_sim.step(300, {self.SWITCH: {"is_open": {"ctrl": True}}}, 300)
+
+        data = switch_sim.get_data({"Circuit-0": ["converged", "iterations"]})["Circuit-0"]
+        assert data["converged"] is True
+        assert data["iterations"] > 0
+
+    def test_closing_undoes_an_opening_made_on_the_other_terminal(self, switch_sim, fechada):
+        """A armadilha: o circuito pode ter aberto a chave pelo terminal 1.
+
+        É o caso das chaves normalmente abertas do IEEE123, que o ``.dss`` abre
+        com ``terminal=2``. Se fechar mexesse num terminal só, o comando falharia
+        em silêncio — com a corrente seguindo em zero.
+        """
+        switch_sim.dss_wrapper.set_is_open("671692", open=True, element="Line", term=1)
+        switch_sim.step(300, {}, 300)
+        assert switch_sim.get_data({self.SWITCH: ["is_open"]})[self.SWITCH]["is_open"] is True
+
+        switch_sim.step(600, {self.SWITCH: {"is_open": {"ctrl": False}}}, 300)
+
+        data = switch_sim.get_data({self.SWITCH: ["is_open", "I1_A"]})[self.SWITCH]
+        assert data["is_open"] is False
+        assert data["I1_A"] > 1.0
+
+    def test_an_open_switch_is_still_read(self, switch_sim, fechada):
+        """Aberta, ela continua na coleta — com zero, que é uma medição."""
+        switch_sim.step(300, {self.SWITCH: {"is_open": {"ctrl": True}}}, 300)
+
+        data = switch_sim.get_data({self.SWITCH: ["I1_A", "Loading1_pct"]})[self.SWITCH]
+
+        assert data["I1_A"] < self.ABERTA_A
+        assert data["Loading1_pct"] == pytest.approx(0.0, abs=1e-6)
+
+    def test_concurrent_commands_warn(self, switch_sim, fechada, capsys):
+        """Somar comandos de chave não faz sentido; o conflito não some."""
+        switch_sim.step(300, {self.SWITCH: {"is_open": {"a": True, "b": False}}}, 300)
+
+        assert "concorrentes" in capsys.readouterr().out
+
+    def test_the_model_declares_is_open_once(self):
+        """Entrada e saída, como o `tap` do RegControl — listado uma só vez."""
+        attrs = build_meta()["models"]["Switch"]["attrs"]
+
+        assert attrs.count("is_open") == 1
+        assert "is_open" in MODEL_SPECS["Switch"].inputs
+
+    def test_a_line_takes_no_commands(self):
+        """Só a chave manobra: a linha continua somente de leitura."""
+        assert MODEL_SPECS["Line"].writer is None
+        assert MODEL_SPECS["Line"].inputs == {}
+
+
+@pytest.fixture(scope="module")
+def pv_sim():
+    """O circuito com PV, recompilado para os testes de ilhamento.
+
+    Não reusa ``sim``: estes testes deixam o circuito sem convergir de propósito,
+    e a fixture de módulo é compartilhada.
+    """
+    if not MASTER.exists():
+        pytest.skip(f"IEEE13 PV fixture not found at {MASTER}")
+
+    simulator = OpenDSSSimulator()
+    simulator.init("DSS-0", 1.0, topofile=str(MASTER), step_size=300)
+    if simulator.dss_wrapper.dss.circuit.num_buses == 0:
+        pytest.skip("IEEE13 failed to compile (check the OpenDSS DataPath)")
+
+    simulator.create(1, "Grid")
+    simulator.step(0, {}, 300)
+    return simulator
+
+
+class TestIslandWithoutReference:
+    """Ilhar geração sem referência de tensão não tem solução — e agora acusa.
+
+    Abrir a ``671692`` no circuito com PV deixa a barra 692 alimentada apenas
+    por um ``PVSystem``, que é fonte de potência constante: não há barra de folga
+    na ilha, e o fluxo diverge em vez de convergir devagar. Medido: 2,1 pu em 15
+    iterações, 1,0 em 100 e **6,4 em 1000** com tolerância de 1e-8.
+
+    Este teste existe porque o caso passou despercebido. Antes de ``run_dss``
+    conferir ``converged``, uma versão anterior desta suíte afirmava sobre a
+    tensão dessa barra como se fosse uma ilha energizada pelo inversor — o
+    número era a iteração 15 de um solve divergente.
+    """
+
+    def test_it_raises_instead_of_reporting_garbage(self, pv_sim):
+        from simulators.opendss.opendss_wrapper import OpenDSSException
+
+        with pytest.raises(OpenDSSException, match="nao convergiu"):
+            pv_sim.step(300, {"Switch-671692": {"is_open": {"c": True}}}, 300)
+
+    def test_with_the_error_off_the_circuit_model_records_it(self, pv_sim):
+        """Quem prefere seguir e marcar desliga o erro e lê `converged`."""
+        pv_sim.dss_wrapper.fail_on_error = False
+        try:
+            pv_sim.step(600, {"Switch-671692": {"is_open": {"c": True}}}, 300)
+            data = pv_sim.get_data({"Circuit-0": ["converged"]})["Circuit-0"]
+        finally:
+            pv_sim.dss_wrapper.fail_on_error = True
+
+        assert data["converged"] is False
 
 
 class TestExtraInfoIsolation:

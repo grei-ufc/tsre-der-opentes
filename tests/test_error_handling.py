@@ -195,3 +195,89 @@ class TestPvCurveBypassIsOptional:
         simulator = self._build(bypass_native_pv_curves=False)
         curve = simulator.dss_wrapper.dss.text("? PVSystem.pv.EffCurve")
         assert curve.lower() != "effideal_cosim"
+
+
+class TestSolutionSettings:
+    """`tolerance` e `max_iterations`, e a convergência que ninguém conferia.
+
+    Os padrões do motor — 1e-4 e 15 iterações — são folgados para co-simulação,
+    onde cada passo pode ser um salto grande de ponto de operação. E, até esta
+    versão, um solve que parava no limite seguia adiante em silêncio, com
+    tensões que não resolvem o circuito e têm a mesma cara das que resolvem.
+    """
+
+    def _build(self, **kwargs):
+        return OpenDSS(
+            topofile=str(IEEE13),
+            time_step=dt.timedelta(seconds=900),
+            start_time=dt.datetime(2025, 1, 1),
+            **kwargs,
+        )
+
+    def test_none_keeps_the_engine_defaults(self):
+        """Quem não pede nada continua com o comportamento anterior."""
+        wrapper = self._build()
+
+        assert wrapper.dss.solution.tolerance == pytest.approx(1e-4)
+        assert wrapper.dss.solution.max_iterations == 15
+
+    def test_the_settings_reach_the_engine(self):
+        wrapper = self._build(tolerance=1e-8, max_iterations=100)
+
+        assert wrapper.dss.solution.tolerance == pytest.approx(1e-8)
+        assert wrapper.dss.solution.max_iterations == 100
+
+    def test_they_survive_a_recompile(self):
+        """O `Compile` do OpenDSS repõe os dois no padrão — medido.
+
+        Sem reaplicá-los, um wrapper que recompilasse o circuito passaria a
+        resolver com uma precisão que ninguém pediu, sem nada avisando.
+        """
+        wrapper = self._build(tolerance=1e-8, max_iterations=100)
+        wrapper.redirect(str(IEEE13))
+
+        assert wrapper.dss.solution.tolerance == pytest.approx(1e-8)
+        assert wrapper.dss.solution.max_iterations == 100
+
+    def test_a_truncated_solve_raises(self):
+        """Um salto grande de ponto de operação com uma iteração só tem de acusar.
+
+        A carga é multiplicada antes do solve de propósito: resolver de novo a
+        partir da solução anterior converge em uma iteração, e é justamente o
+        salto — o primeiro passo depois do setup, uma manobra de chave — que
+        esgota o limite em co-simulação.
+        """
+        wrapper = self._build(fail_on_error=False)
+        wrapper.run_command("edit Load.671 kW=5000")
+        wrapper.dss.solution.max_iterations = 1
+        wrapper.fail_on_error = True
+
+        with pytest.raises(OpenDSSException, match="nao convergiu"):
+            wrapper.run_dss()
+
+    def test_the_constructor_refuses_a_circuit_it_cannot_solve(self):
+        """O construtor também resolve; falhar ali é melhor que na primeira leitura."""
+        with pytest.raises(OpenDSSException, match="nao convergiu"):
+            self._build(max_iterations=1)
+
+    def test_the_message_names_the_limits(self):
+        """A mensagem precisa dizer o que ajustar, não só que falhou."""
+        with pytest.raises(OpenDSSException) as erro:
+            self._build(max_iterations=1)
+
+        assert "max_iterations=1" in str(erro.value)
+        assert "tolerance=" in str(erro.value)
+
+    def test_with_the_error_off_it_only_reports(self, capsys):
+        wrapper = self._build(max_iterations=1, fail_on_error=False)
+        wrapper.run_dss()
+
+        assert "nao convergiu" in capsys.readouterr().out
+        assert wrapper.dss.solution.converged == 0
+
+    def test_a_normal_solve_converges(self):
+        wrapper = self._build()
+        wrapper.run_dss()
+
+        assert wrapper.dss.solution.converged
+        assert 0 < wrapper.dss.solution.iterations <= 15

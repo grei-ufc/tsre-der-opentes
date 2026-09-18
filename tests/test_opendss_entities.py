@@ -129,8 +129,16 @@ class TestTransformers:
             assert child["extra_info"]["buses"] == list(dss.cktelement.bus_names)
 
     def test_graph_is_connected(self, children):
+        """O alimentador é uma peça só: nada de ilhas no grafo de entidades.
+
+        O ``Circuit`` fica de fora da conta. Ele não é elemento de rede — é o
+        circuito inteiro —, então não tem ``rel`` e seria uma ilha de um nó por
+        construção, escondendo a ilha de verdade que este teste procura.
+        """
         graph = nx.Graph()
         for child in children:
+            if child["type"] == "Circuit":
+                continue
             graph.add_node(child["eid"], type=child["type"])
             for rel in child["rel"]:
                 graph.add_edge(child["eid"], rel)
