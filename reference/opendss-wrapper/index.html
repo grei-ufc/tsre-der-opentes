@@ -3448,7 +3448,8 @@
 <p><code>simulators.opendss.opendss_wrapper.py</code> é a interface central com o motor OpenDSS.</p>
 <h2 id="classe-opendss">Classe <code>OpenDSS</code><a class="headerlink" href="#classe-opendss" title="Permanent link">&para;</a></h2>
 <h3 id="construtor">Construtor<a class="headerlink" href="#construtor" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">OpenDSS</span><span class="p">(</span><span class="n">topofile</span><span class="p">,</span> <span class="n">time_step</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">fail_on_error</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">OpenDSS</span><span class="p">(</span><span class="n">topofile</span><span class="p">,</span> <span class="n">time_step</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">fail_on_error</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>        <span class="n">tolerance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_iterations</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -3479,8 +3480,21 @@
 <td><code>bool</code></td>
 <td>Se <code>True</code>, erros do DSS lançam exceção (default: <code>True</code>)</td>
 </tr>
+<tr>
+<td><code>tolerance</code></td>
+<td><code>float \| None</code></td>
+<td>Critério de convergência. <code>None</code> mantém o padrão do motor, <code>1e-4</code></td>
+</tr>
+<tr>
+<td><code>max_iterations</code></td>
+<td><code>int \| None</code></td>
+<td>Limite de iterações. <code>None</code> mantém o padrão do motor, <code>15</code></td>
+</tr>
 </tbody>
 </table>
+<p>Os dois são reaplicados a <strong>cada</strong> compilação: o <code>Compile</code> do OpenDSS repõe
+ambos no padrão, e um wrapper que recompilasse o circuito perderia o ajuste sem
+nada avisando.</p>
 <p>Um wrapper atende a <strong>um</strong> circuito: o motor OpenDSS é único no processo, então
 compilar um segundo circuito substituiria o primeiro. Passar uma lista de
 caminhos levanta <code>TypeError</code>; arquivos auxiliares vão nos <code>Redirect</code> do master.</p>
@@ -3511,12 +3525,23 @@ caminhos levanta <code>TypeError</code>; arquivos auxiliares vão nos <code>Redi
 <h4 id="redirectfilename"><code>redirect(filename)</code><a class="headerlink" href="#redirectfilename" title="Permanent link">&para;</a></h4>
 <p>Compila um arquivo <code>.dss</code> específico.</p>
 <h4 id="run_dssno_controlsfalse"><code>run_dss(no_controls=False)</code><a class="headerlink" href="#run_dssno_controlsfalse" title="Permanent link">&para;</a></h4>
-<p>Executa a solução do fluxo de potência.</p>
+<p>Executa a solução do fluxo de potência e <strong>confere se ela convergiu</strong>.</p>
 <ul>
 <li><code>no_controls=False</code> (default): executa <code>Solve</code></li>
 <li><code>no_controls=True</code>: executa <code>SolveNoControl</code></li>
 <li>Se existem elementos Storage, chama <code>UpdateStorage</code> após a solução</li>
 </ul>
+<div class="admonition warning">
+<p class="admonition-title">Um solve truncado não se denuncia sozinho</p>
+<p>Parar no limite de iterações devolve tensões que <strong>não resolvem o circuito</strong>
+e têm a mesma aparência das corretas; o motor não reclama, é preciso
+consultar <code>converged</code>. Desde esta versão o método consulta, e a falha
+respeita <code>fail_on_error</code>: por padrão levanta <code>OpenDSSException</code>, com o erro
+desligado apenas registra a mensagem.</p>
+<p>Quem precisa tolerar um passo ruim — em vez de perder a execução inteira —
+desliga o erro e acompanha o estado pelo modelo mosaik <code>Circuit</code>, que expõe
+<code>converged</code> e <code>iterations</code>.</p>
+</div>
 <hr />
 <h3 id="consulta-do-circuito">Consulta do circuito<a class="headerlink" href="#consulta-do-circuito" title="Permanent link">&para;</a></h3>
 <h4 id="get_circuit_power"><code>get_circuit_power()</code><a class="headerlink" href="#get_circuit_power" title="Permanent link">&para;</a></h4>
@@ -3809,7 +3834,7 @@ valor que sai em todos eles. Ver o aviso em
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="18 de setembro de 2026 01:33:37 UTC">18 de setembro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="18 de setembro de 2026 18:48:52 UTC">18 de setembro de 2026</span>
   </span>
 
     
