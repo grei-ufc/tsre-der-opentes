@@ -1441,10 +1441,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#get_bus_voltagebus-phasenone-putrue-polartrue-mag_onlyfalse-averagefalse-zero_voltage_errorfalse" class="md-nav__link">
+  <a href="#get_bus_vmag_pubus" class="md-nav__link">
     <span class="md-ellipsis">
       
-        get_bus_voltage(bus, phase=None, pu=True, polar=True, mag_only=False, average=False, zero_voltage_error=False)
+        get_bus_vmag_pu(bus)
       
     </span>
   </a>
@@ -1452,10 +1452,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#get_all_bus_voltageskwargs" class="md-nav__link">
+  <a href="#get_bus_vangbus" class="md-nav__link">
     <span class="md-ellipsis">
       
-        get_all_bus_voltages(**kwargs)
+        get_bus_vang(bus)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_bus_voltage_pubus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_bus_voltage_pu(bus)
       
     </span>
   </a>
@@ -1480,10 +1491,32 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#get_powername-element-phasenone-totalfalse-line_bus1-rawfalse" class="md-nav__link">
+  <a href="#get_phase_powersname-elementload-terminal1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        get_power(name, element, phase=None, total=False, line_bus=1, raw=False)
+        get_phase_powers(name, element="Load", terminal=1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_phase_currentsname-elementload-terminal1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_phase_currents(name, element="Load", terminal=1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_power_totalname-elementload-terminal1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_power_total(name, element="Load", terminal=1)
       
     </span>
   </a>
@@ -1502,10 +1535,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#get_currentname-element-polartrue-mag_onlyfalse-line_bus1-phasenone-totalfalse-rawfalse-winding1" class="md-nav__link">
+  <a href="#get_is_openname-elementline-termnone" class="md-nav__link">
     <span class="md-ellipsis">
       
-        get_current(name, element, polar=True, mag_only=False, line_bus=1, phase=None, total=False, raw=False, winding=1)
+        get_is_open(name, element="Line", term=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set_is_openname-opentrue-elementline-termnone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        set_is_open(name, open=True, element="Line", term=None)
       
     </span>
   </a>
@@ -2940,10 +2984,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#get_bus_voltagebus-phasenone-putrue-polartrue-mag_onlyfalse-averagefalse-zero_voltage_errorfalse" class="md-nav__link">
+  <a href="#get_bus_vmag_pubus" class="md-nav__link">
     <span class="md-ellipsis">
       
-        get_bus_voltage(bus, phase=None, pu=True, polar=True, mag_only=False, average=False, zero_voltage_error=False)
+        get_bus_vmag_pu(bus)
       
     </span>
   </a>
@@ -2951,10 +2995,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#get_all_bus_voltageskwargs" class="md-nav__link">
+  <a href="#get_bus_vangbus" class="md-nav__link">
     <span class="md-ellipsis">
       
-        get_all_bus_voltages(**kwargs)
+        get_bus_vang(bus)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_bus_voltage_pubus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_bus_voltage_pu(bus)
       
     </span>
   </a>
@@ -2979,10 +3034,32 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#get_powername-element-phasenone-totalfalse-line_bus1-rawfalse" class="md-nav__link">
+  <a href="#get_phase_powersname-elementload-terminal1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        get_power(name, element, phase=None, total=False, line_bus=1, raw=False)
+        get_phase_powers(name, element="Load", terminal=1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_phase_currentsname-elementload-terminal1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_phase_currents(name, element="Load", terminal=1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_power_totalname-elementload-terminal1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_power_total(name, element="Load", terminal=1)
       
     </span>
   </a>
@@ -3001,10 +3078,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#get_currentname-element-polartrue-mag_onlyfalse-line_bus1-phasenone-totalfalse-rawfalse-winding1" class="md-nav__link">
+  <a href="#get_is_openname-elementline-termnone" class="md-nav__link">
     <span class="md-ellipsis">
       
-        get_current(name, element, polar=True, mag_only=False, line_bus=1, phase=None, total=False, raw=False, winding=1)
+        get_is_open(name, element="Line", term=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set_is_openname-opentrue-elementline-termnone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        set_is_open(name, open=True, element="Line", term=None)
       
     </span>
   </a>
@@ -3493,70 +3581,29 @@ sair negativa sob acoplamento mútuo forte com correntes desequilibradas.</p>
 <h3 id="barras">Barras<a class="headerlink" href="#barras" title="Permanent link">&para;</a></h3>
 <h4 id="get_all_buses"><code>get_all_buses()</code><a class="headerlink" href="#get_all_buses" title="Permanent link">&para;</a></h4>
 <p><strong>Retorno</strong>: <code>list[str]</code> — lista de nomes de todas as barras.</p>
-<h4 id="get_bus_voltagebus-phasenone-putrue-polartrue-mag_onlyfalse-averagefalse-zero_voltage_errorfalse"><code>get_bus_voltage(bus, phase=None, pu=True, polar=True, mag_only=False, average=False, zero_voltage_error=False)</code><a class="headerlink" href="#get_bus_voltagebus-phasenone-putrue-polartrue-mag_onlyfalse-averagefalse-zero_voltage_errorfalse" title="Permanent link">&para;</a></h4>
-<p>Obtém tensão de uma barra com opções flexíveis.</p>
-<table>
-<thead>
-<tr>
-<th>Parâmetro</th>
-<th>Tipo</th>
-<th>Default</th>
-<th>Descrição</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>bus</code></td>
-<td><code>str</code></td>
-<td>—</td>
-<td>Nome da barra</td>
-</tr>
-<tr>
-<td><code>phase</code></td>
-<td><code>int \| None</code></td>
-<td><code>None</code></td>
-<td>Fase específica (1, 2, 3) ou <code>None</code> para todas</td>
-</tr>
-<tr>
-<td><code>pu</code></td>
-<td><code>bool</code></td>
-<td><code>True</code></td>
-<td>Se <code>True</code>, retorna em p.u.; senão em Volts</td>
-</tr>
-<tr>
-<td><code>polar</code></td>
-<td><code>bool</code></td>
-<td><code>True</code></td>
-<td>Se <code>True</code>, retorna magnitude; senão (real, imaginário)</td>
-</tr>
-<tr>
-<td><code>mag_only</code></td>
-<td><code>bool</code></td>
-<td><code>False</code></td>
-<td>Se <code>True</code>, retorna apenas a magnitude</td>
-</tr>
-<tr>
-<td><code>average</code></td>
-<td><code>bool</code></td>
-<td><code>False</code></td>
-<td>Se <code>True</code>, retorna a média das fases</td>
-</tr>
-<tr>
-<td><code>zero_voltage_error</code></td>
-<td><code>bool</code></td>
-<td><code>False</code></td>
-<td>Se <code>True</code>, retorna 0.0 em caso de erro</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Retorno</strong>: <code>float</code> (fase única) ou <code>list[float]</code> (todas as fases) ou <code>tuple[float, float]</code> (polar=False).</p>
-<h4 id="get_all_bus_voltageskwargs"><code>get_all_bus_voltages(**kwargs)</code><a class="headerlink" href="#get_all_bus_voltageskwargs" title="Permanent link">&para;</a></h4>
-<p>Retorna tensões de todas as barras. Mesmos kwargs de <code>get_bus_voltage</code>.</p>
-<p><strong>Retorno</strong>: <code>dict[str, float|list]</code> — <code>{nome_barra: tensão}</code>.</p>
+<h4 id="get_bus_vmag_pubus"><code>get_bus_vmag_pu(bus)</code><a class="headerlink" href="#get_bus_vmag_pubus" title="Permanent link">&para;</a></h4>
+<p>Módulo da tensão por fase, em pu.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_bus_vmag_pu</span><span class="p">(</span><span class="s2">&quot;675&quot;</span><span class="p">)</span>      <span class="c1"># [0.9835, 1.0553, 0.9758]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_bus_vmag_pu</span><span class="p">(</span><span class="s2">&quot;611&quot;</span><span class="p">)</span>      <span class="c1"># [nan, nan, 0.9738] -- monofásica na fase 3</span>
+</span></code></pre></div>
+<p><strong>Retorno</strong>: <code>list[float]</code> — sempre três valores, indexados por fase; a fase que
+a barra não tem é <code>NaN</code>.</p>
+<p>Aceita o nome com ou sem sufixo de nó (<code>"675"</code> ou <code>"675.1"</code>). Servido de uma
+leitura única de todo o circuito (<code>circuit.buses_vmag_pu</code>), em cache até a
+próxima solução: monitorar duas barras não custa as 130.</p>
+<h4 id="get_bus_vangbus"><code>get_bus_vang(bus)</code><a class="headerlink" href="#get_bus_vangbus" title="Permanent link">&para;</a></h4>
+<p>Ângulo da tensão por fase, em graus. Mesma forma de retorno. Vem de uma chamada
+distinta ao motor, com cache próprio — pedir só o módulo nunca paga o ângulo.</p>
+<h4 id="get_bus_voltage_pubus"><code>get_bus_voltage_pu(bus)</code><a class="headerlink" href="#get_bus_voltage_pubus" title="Permanent link">&para;</a></h4>
+<p>Conveniência sobre as duas anteriores; lê os dois vetores.</p>
+<p><strong>Retorno</strong>: <code>tuple[list[float], list[float]]</code> — <code>([|V1|, |V2|, |V3|], [ang1, ang2, ang3])</code>.</p>
 <hr />
 <h3 id="elementos-potencia-corrente-propriedades">Elementos (potência, corrente, propriedades)<a class="headerlink" href="#elementos-potencia-corrente-propriedades" title="Permanent link">&para;</a></h3>
-<h4 id="get_powername-element-phasenone-totalfalse-line_bus1-rawfalse"><code>get_power(name, element, phase=None, total=False, line_bus=1, raw=False)</code><a class="headerlink" href="#get_powername-element-phasenone-totalfalse-line_bus1-rawfalse" title="Permanent link">&para;</a></h4>
-<p>Retorna potência P/Q de um elemento.</p>
+<h4 id="get_phase_powersname-elementload-terminal1"><code>get_phase_powers(name, element="Load", terminal=1)</code><a class="headerlink" href="#get_phase_powersname-elementload-terminal1" title="Permanent link">&para;</a></h4>
+<p>Potência ativa e reativa por fase, posicionadas pelos nós do elemento.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_phase_powers</span><span class="p">(</span><span class="s2">&quot;671&quot;</span><span class="p">,</span> <span class="n">element</span><span class="o">=</span><span class="s2">&quot;Load&quot;</span><span class="p">)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_phase_powers</span><span class="p">(</span><span class="s2">&quot;650632&quot;</span><span class="p">,</span> <span class="n">element</span><span class="o">=</span><span class="s2">&quot;Line&quot;</span><span class="p">,</span> <span class="n">terminal</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span></code></pre></div>
 <table>
 <thead>
 <tr>
@@ -3569,36 +3616,35 @@ sair negativa sob acoplamento mútuo forte com correntes desequilibradas.</p>
 <tr>
 <td><code>name</code></td>
 <td><code>str</code></td>
-<td>Nome do elemento (ex: <code>"Load.L1"</code>)</td>
+<td>Nome do elemento</td>
 </tr>
 <tr>
 <td><code>element</code></td>
 <td><code>str</code></td>
-<td>Classe (<code>"Load"</code>, <code>"PVSystem"</code>, etc.)</td>
+<td>Classe (<code>"Load"</code>, <code>"PVSystem"</code>, <code>"Line"</code>, ...)</td>
 </tr>
 <tr>
-<td><code>phase</code></td>
-<td><code>int \| None</code></td>
-<td>Fase específica ou <code>None</code> para total</td>
-</tr>
-<tr>
-<td><code>total</code></td>
-<td><code>bool</code></td>
-<td>Se <code>True</code>, soma todas as fases</td>
-</tr>
-<tr>
-<td><code>line_bus</code></td>
+<td><code>terminal</code></td>
 <td><code>int</code></td>
-<td>Para linhas: 1=bus de envio, 2=bus de recebimento</td>
-</tr>
-<tr>
-<td><code>raw</code></td>
-<td><code>bool</code></td>
-<td>Se <code>True</code>, retorna valores brutos sem formatação</td>
+<td>1 para elementos shunt; 1 ou 2 para linhas; enrolamento para transformadores</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Retorno</strong>: <code>tuple[float, float]</code> — <code>(P, Q)</code> ou <code>tuple</code> para raw.</p>
+<p><strong>Retorno</strong>: <code>tuple[list[float], list[float]]</code> — <code>([P1, P2, P3], [Q1, Q2, Q3])</code> em
+kW e kvar, na convenção do OpenDSS (carga positiva).</p>
+<p>A forma do retorno <strong>não</strong> depende do número de fases: são sempre três valores,
+indexados por fase, com <code>NaN</code> onde o elemento não tem condutor. O OpenDSS ordena
+por condutor, não por fase — um elemento monofásico em <code>bus.3</code> reporta um valor
+só, e empacotá-lo à esquerda o transformaria na fase 1; o posicionamento usa o
+<code>node_order</code> do elemento.</p>
+<h4 id="get_phase_currentsname-elementload-terminal1"><code>get_phase_currents(name, element="Load", terminal=1)</code><a class="headerlink" href="#get_phase_currentsname-elementload-terminal1" title="Permanent link">&para;</a></h4>
+<p>Módulo e ângulo da corrente por fase. Mesmos parâmetros e mesma forma de
+retorno: <code>([|I1|, |I2|, |I3|], [ang1, ang2, ang3])</code>, em amperes e graus.</p>
+<h4 id="get_power_totalname-elementload-terminal1"><code>get_power_total(name, element="Load", terminal=1)</code><a class="headerlink" href="#get_power_totalname-elementload-terminal1" title="Permanent link">&para;</a></h4>
+<p>O escalar que acompanha <code>get_phase_powers</code>.</p>
+<p><strong>Retorno</strong>: <code>tuple[float, float]</code> — <code>(P, Q)</code> somados <strong>nas fases presentes</strong>.
+Separar os dois métodos é o que dispensa uma bandeira <code>total</code> que mudaria o
+formato do retorno.</p>
 <h4 id="set_powername-p-q-element-size1000"><code>set_power(name, p, q, element, size=1000)</code><a class="headerlink" href="#set_powername-p-q-element-size1000" title="Permanent link">&para;</a></h4>
 <p>Define potência P/Q em um elemento Load, PVSystem ou Storage.</p>
 <table>
@@ -3638,28 +3684,36 @@ sair negativa sob acoplamento mútuo forte com correntes desequilibradas.</p>
 </tbody>
 </table>
 <p>Para Storage, determina automaticamente o estado (Charging/Discharging/Idling) com base no sinal de <code>p</code>.</p>
-<h4 id="get_currentname-element-polartrue-mag_onlyfalse-line_bus1-phasenone-totalfalse-rawfalse-winding1"><code>get_current(name, element, polar=True, mag_only=False, line_bus=1, phase=None, total=False, raw=False, winding=1)</code><a class="headerlink" href="#get_currentname-element-polartrue-mag_onlyfalse-line_bus1-phasenone-totalfalse-rawfalse-winding1" title="Permanent link">&para;</a></h4>
-<p>Retorna corrente de um elemento.</p>
-<p>Mesmos parâmetros de <code>get_power()</code>, com adição de:</p>
-<table>
-<thead>
-<tr>
-<th>Parâmetro</th>
-<th>Tipo</th>
-<th>Descrição</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>winding</code></td>
-<td><code>int</code></td>
-<td>Para transformadores: índice do winding (default: 1)</td>
-</tr>
-</tbody>
-</table>
+<h4 id="get_is_openname-elementline-termnone"><code>get_is_open(name, element="Line", term=None)</code><a class="headerlink" href="#get_is_openname-elementline-termnone" title="Permanent link">&para;</a></h4>
+<p>Se o elemento está aberto. Com <code>term=None</code> (padrão) responde pelo <strong>elemento</strong>:
+aberto se qualquer terminal estiver aberto.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_is_open</span><span class="p">(</span><span class="s2">&quot;671692&quot;</span><span class="p">)</span>          <span class="c1"># o elemento</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_is_open</span><span class="p">(</span><span class="s2">&quot;671692&quot;</span><span class="p">,</span> <span class="n">term</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># um terminal específico</span>
+</span></code></pre></div>
+<p><strong>Retorno</strong>: <code>bool</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Não confie na docstring do py-dss-interface</p>
+<p>Ela diz que <code>is_terminal_open</code> responde <em>"if any terminal is open"</em>, mas ele
+responde pelo terminal que recebe — verificado. Ler só o terminal 1 daria
+por fechadas as chaves normalmente abertas do IEEE123, que o <code>.dss</code> abre com
+<code>terminal=2</code>.</p>
+</div>
+<h4 id="set_is_openname-opentrue-elementline-termnone"><code>set_is_open(name, open=True, element="Line", term=None)</code><a class="headerlink" href="#set_is_openname-opentrue-elementline-termnone" title="Permanent link">&para;</a></h4>
+<p>Abre ou fecha. Com <code>term=None</code> (padrão) trata o elemento como uma chave de um
+estado só:</p>
+<ul>
+<li><strong>abrir</strong> usa o <strong>terminal 2</strong>, a convenção do próprio IEEE123
+  (<code>open Line.Sw7 terminal=2</code>). Assim o estado produzido aqui fica
+  indistinguível do que vem declarado no circuito;</li>
+<li><strong>fechar</strong> fecha os <strong>dois</strong> terminais — fechar só o terminal 2 deixaria
+  aberta a chave que alguém tivesse aberto pelo terminal 1, e o comando falharia
+  em silêncio, com a corrente seguindo em zero.</li>
+</ul>
+<p>Passe <code>term</code> para comandar um terminal específico. Não é preciso invalidar o
+cache: <code>run_command</code> já o faz.</p>
 <h4 id="get_ampacityname-elementline"><code>get_ampacity(name, element="Line")</code><a class="headerlink" href="#get_ampacityname-elementline" title="Permanent link">&para;</a></h4>
 <p>Retorna os limites de corrente do elemento — o denominador do carregamento.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_ampacity</span><span class="p">(</span><span class="s2">&quot;650632&quot;</span><span class="p">,</span> <span class="s2">&quot;Line&quot;</span><span class="p">)</span>   <span class="c1"># (400.0, 600.0)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_ampacity</span><span class="p">(</span><span class="s2">&quot;650632&quot;</span><span class="p">,</span> <span class="s2">&quot;Line&quot;</span><span class="p">)</span>   <span class="c1"># (400.0, 600.0)</span>
 </span></code></pre></div>
 <p><strong>Retorno</strong>: <code>tuple[float, float]</code> — <code>(normal, emergencial)</code> em amperes.</p>
 <p>O valor é estático: pertence ao circuito compilado, não a uma solução. Quem
@@ -3755,7 +3809,7 @@ valor que sai em todos eles. Ver o aviso em
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="17 de setembro de 2026 21:20:37 UTC">17 de setembro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="18 de setembro de 2026 01:33:37 UTC">18 de setembro de 2026</span>
   </span>
 
     

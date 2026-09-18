@@ -2606,7 +2606,7 @@
 <tbody>
 <tr>
 <td><code>IEEE123Master.dss</code></td>
-<td>Definição principal: fonte 4.16kV, reguladores, 118+ linhas, capacitores</td>
+<td>Definição principal: fonte 4.16kV, reguladores, 118 linhas, 8 chaves, capacitores</td>
 </tr>
 <tr>
 <td><code>IEEE123Loads.DSS</code></td>
@@ -2618,7 +2618,7 @@
 </tr>
 <tr>
 <td><code>IEEE123Switches.dss</code></td>
-<td>Chaves</td>
+<td>Master alternativo do IEEE, do qual veio o bloco de chaves adotado (ver abaixo); não é usado pelos runners</td>
 </tr>
 <tr>
 <td><code>IEEELineCodes.DSS</code></td>
@@ -2658,6 +2658,25 @@
 </tr>
 </tbody>
 </table>
+<div class="admonition note">
+<p class="admonition-title">As chaves do IEEE123 e uma edição no master</p>
+<p>O IEEE123 original define as oito chaves (<code>Sw1</code>–<code>Sw8</code>) como linhas curtas
+quaisquer, e o próprio arquivo observa que "could also be defined by setting
+the Switch=Yes property". Sem essa propriedade não há como distinguir uma
+chave de um trecho curto de linha.</p>
+<p>O bloco de chaves do <code>IEEE123Switches.dss</code> — que as declara com
+<code>switch=yes</code> — foi adotado no <code>IEEE123Master.dss</code>, em vez de repontar os 12
+runners que o compilam. O circuito é numericamente o mesmo: a maior
+divergência de tensão entre as duas versões é 3e-11 pu.</p>
+<p><strong>A ordem importa</strong>: <code>switch=yes</code> sobrescreve a impedância da linha por um
+padrão do OpenDSS, então <code>r1</code>/<code>x1</code>/<code>c1</code>/<code>Length</code> vêm depois dele na mesma
+linha, repondo os valores originais. Inverter a ordem muda o circuito sem
+que nada acuse.</p>
+<p>Efeito colateral bem-vindo: as normalmente abertas (<code>Sw7</code>, <code>Sw8</code>) passaram a
+ligar as barras reais <code>300</code> e <code>94.1</code>, abertas com <code>terminal=2</code>, em vez das
+fictícias <code>300_OPEN</code>/<code>94_OPEN</code>. Como <code>300</code> e <code>94</code> constam do
+<code>BusCoords.dat</code>, o alimentador deixou de ter barras sem coordenada.</p>
+</div>
 <h2 id="infopv-dados-reais-de-estacoes-solares">InfoPV — Dados reais de estações solares<a class="headerlink" href="#infopv-dados-reais-de-estacoes-solares" title="Permanent link">&para;</a></h2>
 <h3 id="power_station_metadatacsv">power_station_metadata.csv<a class="headerlink" href="#power_station_metadatacsv" title="Permanent link">&para;</a></h3>
 <p>Metadados de 51 estações solares brasileiras (PS_001 a PS_051):</p>
@@ -2784,7 +2803,7 @@
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="24 de agosto de 2026 11:30:45 UTC">24 de agosto de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="17 de setembro de 2026 22:57:16 UTC">17 de setembro de 2026</span>
   </span>
 
     

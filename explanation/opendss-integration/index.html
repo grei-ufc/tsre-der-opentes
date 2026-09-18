@@ -1992,6 +1992,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#chave-uma-line-no-motor-um-modelo-proprio-no-mosaik" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chave: uma Line no motor, um modelo próprio no mosaik
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chave: uma Line no motor, um modelo próprio no mosaik">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#o-estado-e-do-elemento-nao-do-terminal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        O estado é do elemento, não do terminal
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#controle-de-pvsystem" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2462,6 +2490,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#chave-uma-line-no-motor-um-modelo-proprio-no-mosaik" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chave: uma Line no motor, um modelo próprio no mosaik
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chave: uma Line no motor, um modelo próprio no mosaik">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#o-estado-e-do-elemento-nao-do-terminal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        O estado é do elemento, não do terminal
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#controle-de-pvsystem" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2735,6 +2791,26 @@ carregamento não custa nenhuma leitura extra.</p>
 o <code>pmpp</code> do elemento é reescrito a cada passo pelo setpoint, e reler o motor
 daria a geração comandada no lugar da capacidade. A ampacidade ninguém reescreve
 — o cache ali é por custo, não por correção.</p>
+<h2 id="chave-uma-line-no-motor-um-modelo-proprio-no-mosaik">Chave: uma <code>Line</code> no motor, um modelo próprio no mosaik<a class="headerlink" href="#chave-uma-line-no-motor-um-modelo-proprio-no-mosaik" title="Permanent link">&para;</a></h2>
+<p>O OpenDSS não tem classe de chave: é uma <code>Line</code> com <code>switch=yes</code>, de impedância
+desprezível e comprimento quase nulo. Misturada às demais, ela distorce qualquer
+estatística de linha — entra na média de carregamento com um valor que não
+significa nada, e no total de comprimento com um milésimo de quilômetro.</p>
+<p>Por isso <code>_add_lines</code> lê a propriedade e roteia entre dois modelos, <code>Line</code> e
+<code>Switch</code>, ambos com <code>dss_class="Line"</code>: a separação é do mosaik, não do motor. As
+duas specs compartilham o <code>LINE_ATTR_MAP</code>, porque eletricamente a chave é uma
+linha e lê as mesmas grandezas.</p>
+<p>O <code>topology_builder</code> não participa dessa separação — fala direto com <code>dss.lines</code>,
+e para o grafo a chave é uma aresta como qualquer elemento série, marcada com
+<code>metadata["open"]</code>.</p>
+<h3 id="o-estado-e-do-elemento-nao-do-terminal">O estado é do elemento, não do terminal<a class="headerlink" href="#o-estado-e-do-elemento-nao-do-terminal" title="Permanent link">&para;</a></h3>
+<p>Uma chave está aberta ou fechada; o OpenDSS guarda um estado por terminal. A
+diferença não é acadêmica: o IEEE123 abre as suas chaves normalmente abertas com
+<code>open Line.Sw7 terminal=2</code>, e uma leitura do terminal 1 as daria por fechadas —
+com a corrente em zero, o que pareceria uma chave fechada sem carga.</p>
+<p><code>get_is_open</code> percorre os terminais; <code>set_is_open</code> abre pelo terminal 2 e fecha
+os dois. Fechar um só deixaria aberta a chave que outro caminho tivesse aberto
+pelo outro lado, e o comando falharia sem nada acusando.</p>
 <h2 id="controle-de-pvsystem">Controle de PVSystem<a class="headerlink" href="#controle-de-pvsystem" title="Permanent link">&para;</a></h2>
 <p>O adaptador aceita <code>P_des</code> e <code>Q_des</code> de entidades externas (inversores) e aplica ao OpenDSS:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Em opendss_pv.py</span>
@@ -2787,7 +2863,7 @@ daria a geração comandada no lugar da capacidade. A ampacidade ninguém reescr
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="17 de setembro de 2026 21:20:37 UTC">17 de setembro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="17 de setembro de 2026 22:57:16 UTC">17 de setembro de 2026</span>
   </span>
 
     
