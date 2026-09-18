@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O projeto usa **pytest**, com 16 arquivos e 503 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 502 passed, 1 skipped).
+O projeto usa **pytest**, com 17 arquivos e 532 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 531 passed, 1 skipped).
 
 Duas categorias, misturadas entre os arquivos:
 
@@ -39,8 +39,9 @@ uv run --no-sync python -m pytest tests/ -v --tb=long
 | `test_webvis_topology.py` | 40 | Não | Limpeza do grafo de entidades, allow-list e dados enviados ao navegador (`webvis.webvis_sim`) |
 | `test_webvis_server.py` | 12 | Não³ | Arquivos estáticos e ciclo de vida do servidor da visualização |
 | `test_opendss_visualization.py` | 13 | Não | Presets e `attach_webvis`, com dublês no lugar do webvis e do OpenDSS |
-| `test_element_specs.py` | 64 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
-| `test_error_handling.py` | 18 | Sim | Propagação de erro no wrapper e no adaptador OpenDSS |
+| `test_collector.py` | 18 | Não | Alinhamento das colunas do CSV de resultados (`collector.Collector`) |
+| `test_element_specs.py` | 67 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
+| `test_error_handling.py` | 26 | Sim | Propagação de erro no wrapper e no adaptador OpenDSS |
 | `test_opendss_entities.py` | 37 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
 | `test_opendss_phase_reads.py` | 23 | Sim | Leitura por fase do wrapper (`opendss_wrapper.py`) |
 | `test_opendss_snapshot.py` | 19 | Sim | Cache de leituras do wrapper |

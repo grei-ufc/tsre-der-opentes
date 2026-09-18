@@ -523,6 +523,31 @@ def init(self, sid, time_resolution, start_date, date_format,
          output_file, print_results)
 ```
 
+| Parâmetro | Tipo | Default | Descrição |
+|---|---|---|---|
+| `start_date` | `str` | — | Data/hora do passo zero; cada linha recebe o carimbo derivado dela |
+| `date_format` | `str` | `"%Y-%m-%d %H:%M:%S"` | Formato de `start_date` |
+| `output_file` | `str` | `output/results.csv` | Arquivo de saída |
+| `print_results` | `bool` | `False` | Imprime tudo no `finalize`. Ligado, o coletor passa a **acumular em memória** |
+
+### Alinhamento das colunas
+
+O arquivo que este simulador escreve é o resultado do estudo, e um CSV bem
+formado com os valores nas colunas erradas não se distingue de um correto ao
+abrir. Daí três garantias:
+
+- **As colunas são fixadas na primeira escrita** — não no passo `time == 0`,
+  porque num simulador `event-based` a primeira entrada pode chegar depois — e
+  cada linha seguinte é gravada **por nome**, não por posição.
+- **Um atributo que falta num passo vira célula vazia**, sem deslocar os
+  demais. É o caso legítimo de uma fonte que não dispara todo passo.
+- **Um atributo novo depois do cabeçalho interrompe** com `SchemaError`: não
+  há coluna onde gravá-lo, e gravá-lo em silêncio desalinharia o arquivo.
+  Conecte todas as fontes antes do primeiro passo.
+
+A escrita é incremental, com `flush` por linha: uma execução interrompida
+preserva o que já mediu.
+
 ---
 
 ## CSV Reader
