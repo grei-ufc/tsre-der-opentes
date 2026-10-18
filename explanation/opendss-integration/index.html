@@ -2031,6 +2031,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#controle-de-generator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Controle de Generator
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#controle-de-storage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2529,6 +2540,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#controle-de-generator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Controle de Generator
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#controle-de-storage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2822,6 +2844,25 @@ pelo outro lado, e o comando falharia sem nada acusando.</p>
 <li>Se <code>P_des &lt;= 0.001</code>: define <code>Irradiance = 0.0</code> (desliga o PV)</li>
 </ul>
 <p>Isso sobrepõe o controle nativo do OpenDSS, permitindo que o inversor mosaik controle a geração.</p>
+<p>Para que o <code>PMPP</code> escrito seja a potência injetada, o carregamento do circuito
+troca as curvas de eficiência (<code>EffCurve</code>) e de derating térmico (<code>P-TCurve</code>) de
+todo PVSystem por curvas planas de fator 1, e zera na prática o <code>%cutin</code> e o
+<code>%cutout</code>. As curvas declaradas continuam disponíveis em <code>extra_info</code>, para o
+inversor aplicar essas perdas do lado dele.</p>
+<h2 id="controle-de-generator">Controle de Generator<a class="headerlink" href="#controle-de-generator" title="Permanent link">&para;</a></h2>
+<p>O adaptador aceita <code>P_set</code>/<code>Q_set</code> em kW/kvar, ou <code>P_mult</code> de 0 a 1 sobre o <code>kW</code>
+nominal, e aplica ao OpenDSS com <code>edit Generator.&lt;nome&gt; kW=... kvar=...</code>:</p>
+<ul>
+<li><code>P_mult</code>: ativa e reativa escaladas pelo mesmo fator, preservando o <code>pf</code>
+  declarado.</li>
+<li><code>P_set</code> sem <code>Q_set</code>: a reativa acompanha pelo <code>pf</code> declarado, calculada da
+  placa guardada na criação.</li>
+<li><code>Q_set</code> sozinho: ajusta só a reativa.</li>
+</ul>
+<p>Um gerador com curva <code>daily</code>/<code>yearly</code> no <code>.dss</code> a segue no <code>step</code>, pelo mesmo
+laço que move as cargas; uma entrada externa no passo tem precedência. Ao
+carregar o circuito, a faixa <code>Vminpu</code>/<code>Vmaxpu</code> é aberta, para que a potência
+comandada seja a entregue mesmo com a tensão fora de 0,9–1,1 pu.</p>
 <h2 id="controle-de-storage">Controle de Storage<a class="headerlink" href="#controle-de-storage" title="Permanent link">&para;</a></h2>
 <p>Para elementos Storage, o adaptador aceita <code>P_set</code>, <code>Q_set</code> e <code>SoC_set</code>:</p>
 <ul>
@@ -2863,7 +2904,7 @@ pelo outro lado, e o comando falharia sem nada acusando.</p>
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="17 de setembro de 2026 22:57:16 UTC">17 de setembro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="18 de outubro de 2026 21:03:46 UTC">18 de outubro de 2026</span>
   </span>
 
     

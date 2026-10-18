@@ -2841,7 +2841,7 @@
 
 <h1 id="testes">Testes<a class="headerlink" href="#testes" title="Permanent link">&para;</a></h1>
 <h2 id="visao-geral">Visão geral<a class="headerlink" href="#visao-geral" title="Permanent link">&para;</a></h2>
-<p>O projeto usa <strong>pytest</strong>, com 17 arquivos e 581 casos de teste (contando parametrização; rodando <code>uv run --no-sync python -m pytest tests/ -v</code> neste ambiente: 580 passed, 1 skipped).</p>
+<p>O projeto usa <strong>pytest</strong>, com 17 arquivos e 617 casos de teste (contando parametrização; rodando <code>uv run --no-sync python -m pytest tests/ -v</code> neste ambiente: 616 passed, 1 skipped).</p>
 <p>Duas categorias, misturadas entre os arquivos:</p>
 <ul>
 <li><strong>Testes de domínio</strong> — instanciam a classe diretamente (<code>OpenDSSBattery</code>, <code>InverterModel</code>, <code>VR_Model</code>, <code>SmartInverterModel</code>, <code>map_to_phases</code>), sem fixture, sem mosaik, sem OpenDSS.</li>
@@ -2928,13 +2928,13 @@
 </tr>
 <tr>
 <td><code>test_element_specs.py</code></td>
-<td>105</td>
+<td>126</td>
 <td>Sim</td>
 <td><code>opendss.element_specs</code> (registro declarativo) + <code>api_opendss.OpenDSSSimulator</code></td>
 </tr>
 <tr>
 <td><code>test_error_handling.py</code></td>
-<td>26</td>
+<td>29</td>
 <td>Sim</td>
 <td>Propagação de erro no wrapper e no adaptador OpenDSS</td>
 </tr>
@@ -2958,7 +2958,7 @@
 </tr>
 <tr>
 <td><code>test_topology_builder.py</code></td>
-<td>39</td>
+<td>44</td>
 <td>Sim</td>
 <td><code>opendss.topology_builder.build_graph</code></td>
 </tr>
@@ -3462,6 +3462,26 @@
 <td>1</td>
 <td><code>extra_info</code> de um filho é uma cópia, não uma referência viva ao estado do simulador</td>
 </tr>
+<tr>
+<td><code>TestGenerator</code></td>
+<td>6</td>
+<td>Cada Generator vira entidade ligada à sua barra, com a placa em <code>extra_info</code>; toda saída declarada é produzida; gerador monofásico reporta na própria fase</td>
+</tr>
+<tr>
+<td><code>TestGeneratorDispatch</code></td>
+<td>9</td>
+<td><code>P_set</code>/<code>Q_set</code> chegam iguais; <code>P_set</code> sozinho segue o <code>pf</code> declarado (da placa, não do motor); <code>P_mult</code> escala <code>kW</code> e <code>kvar</code>, preservando até <code>pf</code> adiantado; fora de [0, 1] ou junto de <code>P_set</code> interrompe</td>
+</tr>
+<tr>
+<td><code>TestGeneratorFollowsItsShape</code></td>
+<td>4</td>
+<td>Sem entrada, o gerador segue a curva <code>daily</code> do <code>.dss</code>; a entrada externa vence a curva; sem curva, mantém o último despacho</td>
+</tr>
+<tr>
+<td><code>TestGeneratorVoltageBand</code></td>
+<td>2</td>
+<td>Abaixo do <code>Vminpu</code> declarado, a potência comandada é a entregue; a faixa declarada continua reportada</td>
+</tr>
 </tbody>
 </table>
 <div class="admonition warning">
@@ -3507,9 +3527,9 @@ circuito ativo.</p>
 <td><code>setup_done()</code> resolve o circuito de fato</td>
 </tr>
 <tr>
-<td><code>TestPvCurveBypassIsOptional</code></td>
-<td>2</td>
-<td>O bypass das curvas nativas de PV do OpenDSS é ligado por padrão e pode ser desligado</td>
+<td><code>TestPvSystemsLoadWithIdealConversion</code></td>
+<td>5</td>
+<td>O carregamento troca a conversão DC/AC nativa dos PVSystems por uma ideal: a potência comandada sai igual (abaixo do <code>%cutin</code> declarado, a 60 °C, já na solução do construtor e depois de recompilar), e as curvas declaradas continuam reportadas</td>
 </tr>
 </tbody>
 </table>
@@ -3552,6 +3572,11 @@ circuito ativo.</p>
 <td><code>TestStorage</code></td>
 <td>6</td>
 <td>Enumeração de baterias e classificação da barra, num circuito sintético, já que nenhum alimentador de <code>data/</code> tem Storage</td>
+</tr>
+<tr>
+<td><code>TestGenerator</code></td>
+<td>5</td>
+<td>Generator vira elemento próprio e entra no índice da barra e no JSON exportado, sem mudar o <code>node_type</code>; desabilitado fica de fora</td>
 </tr>
 <tr>
 <td><code>TestDisabledElements</code></td>
@@ -3741,7 +3766,7 @@ circuito ativo.</p>
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="18 de setembro de 2026 23:18:58 UTC">18 de setembro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="18 de outubro de 2026 21:03:46 UTC">18 de outubro de 2026</span>
   </span>
 
     

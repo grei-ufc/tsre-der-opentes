@@ -1734,6 +1734,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#generator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generator
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Generator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get_all_generators_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_all_generators_info()
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#storage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3277,6 +3305,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#generator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generator
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Generator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get_all_generators_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_all_generators_info()
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#storage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3495,6 +3551,14 @@
 <p>Os dois são reaplicados a <strong>cada</strong> compilação: o <code>Compile</code> do OpenDSS repõe
 ambos no padrão, e um wrapper que recompilasse o circuito perderia o ajuste sem
 nada avisando.</p>
+<p>Também a cada compilação, antes da primeira solução, todo PVSystem troca a
+<code>EffCurve</code> e a <code>P-TCurve</code> por curvas planas de fator 1 e o <code>%cutin</code>/<code>%cutout</code>
+por <code>0.0001</code>. A potência escrita por <code>set_pvsystem_pq</code> é a que sai: sem isso o
+OpenDSS aplicaria a eficiência e o derating térmico sobre um valor que já os
+inclui, e desligaria o inversor abaixo de 20 % do kVA.</p>
+<p>Pelo mesmo motivo, todo Generator tem a faixa de tensão aberta para
+<code>Vminpu=0.001</code> e <code>Vmaxpu=10</code>: fora da faixa declarada o OpenDSS o troca por uma
+impedância constante, e a potência entregue deixa de ser a comandada.</p>
 <p>Um wrapper atende a <strong>um</strong> circuito: o motor OpenDSS é único no processo, então
 compilar um segundo circuito substituiria o primeiro. Passar uma lista de
 caminhos levanta <code>TypeError</code>; arquivos auxiliares vão nos <code>Redirect</code> do master.</p>
@@ -3774,11 +3838,19 @@ valor que sai em todos eles. Ver o aviso em
 <hr />
 <h3 id="pvsystem">PVSystem<a class="headerlink" href="#pvsystem" title="Permanent link">&para;</a></h3>
 <h4 id="get_all_pvsystems_info"><code>get_all_pvsystems_info()</code><a class="headerlink" href="#get_all_pvsystems_info" title="Permanent link">&para;</a></h4>
-<p>Delega para <code>opendss_pv.py</code>. Retorna dict de todos os PVSystems com: <code>pmpp</code>, <code>kva</code>, <code>irradiance</code>, <code>daily</code>, <code>cutin</code>, <code>cutout</code>, <code>pt_curve</code>, <code>eff_curve</code>, <code>bus</code>.</p>
+<p>Delega para <code>opendss_pv.py</code>. Retorna dict de todos os PVSystems com: <code>pmpp</code>, <code>kva</code>, <code>kv</code>, <code>pf</code>, <code>irradiance</code>, <code>daily</code>, <code>pct_cutin</code>, <code>pct_cutout</code>, <code>pt_curve_x</code>/<code>_y</code>, <code>eff_curve_x</code>/<code>_y</code>, <code>bus</code>, <code>num_phases</code>.</p>
+<p>As curvas e os limiares são os declarados no <code>.dss</code>, lidos antes de a compilação
+os trocar pelos ideais — e não os que o motor usa de fato.</p>
 <h4 id="set_pvsystem_pqname-p_des-q_des"><code>set_pvsystem_pq(name, p_des, q_des)</code><a class="headerlink" href="#set_pvsystem_pqname-p_des-q_des" title="Permanent link">&para;</a></h4>
 <p>Delega para <code>opendss_pv.py</code>. Força P/Q: se <code>p_des &gt; 0.001</code>, define PMPP, Irradiance=1.0 e kvar; senão Irradiance=0.0.</p>
 <h4 id="get_pvsystem_powername"><code>get_pvsystem_power(name)</code><a class="headerlink" href="#get_pvsystem_powername" title="Permanent link">&para;</a></h4>
 <p>Delega para <code>opendss_pv.py</code>. Retorna <code>(P_kW, Q_kvar)</code> invertendo sinal.</p>
+<hr />
+<h3 id="generator">Generator<a class="headerlink" href="#generator" title="Permanent link">&para;</a></h3>
+<h4 id="get_all_generators_info"><code>get_all_generators_info()</code><a class="headerlink" href="#get_all_generators_info" title="Permanent link">&para;</a></h4>
+<p>Delega para <code>opendss_generator.py</code>. Retorna dict de todos os Generators com: <code>name</code>, <code>bus</code>, <code>num_phases</code>, <code>kv</code>, <code>kw</code>, <code>kvar</code>, <code>pf</code>, <code>kva</code>, <code>model</code>, <code>conn</code>, <code>status</code>, <code>daily</code>, <code>yearly</code>, <code>vminpu</code>, <code>vmaxpu</code>.</p>
+<p>A faixa de tensão é a declarada no <code>.dss</code>, lida antes de a compilação a abrir — e não a que o motor usa de fato.</p>
+<p>O despacho passa por <code>set_power(name, p, q, element="Generator")</code>.</p>
 <hr />
 <h3 id="storage">Storage<a class="headerlink" href="#storage" title="Permanent link">&para;</a></h3>
 <h4 id="get_all_storages_info"><code>get_all_storages_info()</code><a class="headerlink" href="#get_all_storages_info" title="Permanent link">&para;</a></h4>
@@ -3834,7 +3906,7 @@ valor que sai em todos eles. Ver o aviso em
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="18 de setembro de 2026 18:48:52 UTC">18 de setembro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="18 de outubro de 2026 21:03:46 UTC">18 de outubro de 2026</span>
   </span>
 
     
