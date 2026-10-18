@@ -901,6 +901,7 @@ def build_meta() -> dict[str, Any]:
                 "buscoords",
                 "tolerance",
                 "max_iterations",
+                "fail_on_error",
             ],
             "attrs": [],
         }

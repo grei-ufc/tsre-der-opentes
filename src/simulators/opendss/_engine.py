@@ -6,6 +6,7 @@ tratamento de erros; leitura e escrita se apoiam nela.
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import os
 import pathlib
@@ -84,7 +85,8 @@ class EngineMixin:
                 return
 
             self.dss.text(f"set datapath={path.parent}")
-            status = self.dss.text(f'Redirect "{path}"')
+            with self._dialogs_while_compiling():
+                status = self.dss.text(f'Redirect "{path}"')
 
             if status and ("not found" in status.lower() or "error" in status.lower()):
                 self.fail(f'Redirect failed for "{path}": {status}')
@@ -98,6 +100,29 @@ class EngineMixin:
             self._after_compile()
         finally:
             os.chdir(base_dir)
+
+    @contextlib.contextmanager
+    def _dialogs_while_compiling(self):
+        """Liga as caixas de diálogo do OpenDSS só enquanto o ``.dss`` compila.
+
+        Com elas desligadas (``AllowForms``), o erro de um comando volta como
+        texto e código, que :meth:`run_command` confere. Mas o ``Redirect`` de
+        um arquivo informa só o erro da **última** linha executada — medido: um
+        parâmetro inexistente no meio do arquivo, seguido de linhas boas,
+        termina com código 0 e status vazio. Sem a caixa, um erro de digitação
+        no ``.dss`` passaria em silêncio.
+
+        Fora da compilação elas ficam desligadas: uma caixa no meio do estudo
+        trava a execução até alguém clicar, o que anularia o
+        ``fail_on_error=False``. O estado é global do motor — uma instância nova
+        de ``DSS()`` herda o que a anterior deixou —, por isso é religado a cada
+        compilação, e não uma vez só.
+        """
+        self.dss.dssinterface.allow_forms = True
+        try:
+            yield
+        finally:
+            self.dss.dssinterface.allow_forms = False
 
     def _after_compile(self) -> None:
         """Ajustes que todo ``Compile`` desfaz e que, por isso, seguem cada um.
@@ -170,14 +195,25 @@ class EngineMixin:
         Args:
             cmd (str): The DSS command to execute.
 
+        O erro é detectado pelo código do motor, e não só pela palavra "error"
+        no status: das mensagens de erro do OpenDSS, poucas a contêm —
+        ``Unknown parameter`` (580), ``Unknown Command`` (302) e ``... not
+        found`` (180) passavam como se fossem um aviso. A descrição do erro
+        (``error_desc``) não é lida: no ``py-dss-interface`` 2.3.0 ela derruba o
+        processo com falha de segmentação; o texto do status já a traz.
+
         Raises:
             OpenDSSException: If the command returns an error and fail_on_error is True.
         """
         self.invalidate_snapshot()
         status = self.dss.text(cmd)
-        if status and "error" in status.lower() and self.fail_on_error:
-            self.fail(f"Status ({cmd}): {status}")
-        if status:
+        # O motor zera o código a cada comando e a cada leitura: lido aqui, logo
+        # depois do comando, ele é deste comando, e de nenhum anterior.
+        code = self.dss.errorinterface.error_code
+
+        if code or (status and "error" in status.lower()):
+            self.fail(f"Status ({cmd}): [OpenDSS {code}] {status}")
+        elif status:
             self.print(f"Status ({cmd}): {status}")
 
     def redirect(self, filename: str) -> None:
@@ -189,7 +225,8 @@ class EngineMixin:
         """
         self.print(f"Running file: {filename}")
         self.invalidate_snapshot()
-        self.dss.text(f'compile "{filename}"')
+        with self._dialogs_while_compiling():
+            self.dss.text(f'compile "{filename}"')
         self._after_compile()
 
     def run_dss(self, no_controls: bool = False) -> None:

@@ -30,7 +30,11 @@ por `0.0001`. A potência escrita por `set_pvsystem_pq` é a que sai: sem isso o
 OpenDSS aplicaria a eficiência e o derating térmico sobre um valor que já os
 inclui, e desligaria o inversor abaixo de 20 % do kVA.
 
-Pelo mesmo motivo, todo Generator tem a faixa de tensão aberta para
+As caixas de diálogo do OpenDSS ficam ligadas só durante a compilação — aqui e
+em `redirect()` —, para que um erro no meio do `.dss` apareça. Fora dela ficam
+desligadas, e os erros de comando chegam a `run_command` como código e texto.
+
+Pelo mesmo motivo das curvas, todo Generator tem a faixa de tensão aberta para
 `Vminpu=0.001` e `Vmaxpu=10`: fora da faixa declarada o OpenDSS o troca por uma
 impedância constante, e a potência entregue deixa de ser a comandada.
 
@@ -57,6 +61,10 @@ dss.run_command("New Load.L1 Bus1=bus.1.2.3 kW=100 kvar=50")
 | `cmd` | `str` | Comando DSS a executar |
 
 Levanta `OpenDSSException` em caso de erro (quando `fail_on_error=True`).
+O erro é detectado pelo código do motor (`errorinterface.error_code`), e a
+mensagem traz o código e o texto: `Status (cmd): [OpenDSS 580] Unknown
+parameter ...`. A descrição do erro (`error_desc`) não é lida: no
+`py-dss-interface` 2.3.0 ela derruba o processo.
 
 #### `redirect(filename)`
 

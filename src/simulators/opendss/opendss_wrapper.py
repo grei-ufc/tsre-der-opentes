@@ -80,6 +80,10 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin):
             time_step (dt.timedelta): The simulation time step.
             start_time (dt.datetime): The simulation start time (sets hour and angle).
             fail_on_error (bool, optional): If True, raises an exception on DSS errors. Defaults to True.
+                Vale para tudo que passa por :meth:`fail`: comando recusado pelo
+                motor, fluxo que não convergiu, barra inexistente. Não controla
+                as caixas de diálogo do OpenDSS, que ficam ligadas só enquanto o
+                ``.dss`` compila; ver ``_dialogs_while_compiling``.
             tolerance: Critério de convergência do fluxo de potência. ``None``
                 mantém o padrão do motor, que é ``1e-4`` — folgado para
                 co-simulação, onde as tensões alimentam contas a jusante que

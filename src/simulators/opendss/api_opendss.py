@@ -226,6 +226,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         buscoords=None,
         tolerance=None,
         max_iterations=None,
+        fail_on_error=True,
         **sim_params,
     ):
         """Inicializa o simulador e compila o circuito.
@@ -254,6 +255,14 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 operação — o primeiro passo depois do setup, ou uma manobra de
                 chave. O modelo ``Circuit`` reporta ``converged`` e
                 ``iterations`` de cada passo.
+            fail_on_error: Com ``True`` (padrão), um erro do motor — comando
+                recusado, fluxo que não convergiu — interrompe a simulação. Com
+                ``False`` ele só é impresso, e a simulação segue: é o caminho de
+                quem prefere não perder a execução inteira por um passo ruim, e
+                registra quais passos não convergiram pelo ``converged`` do
+                modelo ``Circuit``. Erros de uso — elemento ou propriedade
+                inexistente, multiplicador fora da faixa — interrompem de
+                qualquer forma.
         """
         self.sid = sid
         self.time_resolution = time_resolution
@@ -264,6 +273,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             start_time=datetime.datetime(2025, 1, 1),
             tolerance=tolerance,
             max_iterations=max_iterations,
+            fail_on_error=fail_on_error,
         )
 
         if buscoords is not None:

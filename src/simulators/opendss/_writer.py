@@ -104,9 +104,11 @@ class WriterMixin:
             OpenDSSException: If the property does not exist for that element,
                 or if reading it back does not match what was written.
         """
-        # Validar antes de escrever: mandar uma propriedade inexistente ao
-        # motor faz o OpenDSS abrir uma caixa de dialogo no Windows, que trava
-        # execucoes nao interativas.
+        # Validar antes de escrever: a mensagem lista as propriedades validas, o
+        # que o motor nao faz. Com as caixas de dialogo ligadas -- o padrao do
+        # OpenDSS --, mandar uma propriedade inexistente ainda abria uma no
+        # Windows e travava a execucao; hoje elas ficam desligadas fora da
+        # compilacao (ver _dialogs_while_compiling).
         valid = self.get_all_properties(name, element)
         if property_name.lower() not in [p.lower() for p in valid]:
             self.fail(

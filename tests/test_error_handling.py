@@ -15,6 +15,7 @@ sys.path.insert(0, "src")
 
 from simulators.opendss._writer import _values_match
 from simulators.opendss.api_opendss import OpenDSSSimulator
+from simulators.opendss.element_specs import build_meta
 from simulators.opendss.opendss_wrapper import OpenDSS, OpenDSSException
 
 DATA = (pathlib.Path(__file__).parent.parent / "data").resolve()
@@ -72,9 +73,10 @@ class TestSetProperty:
         assert dss.get_property("671", "kW", "Load") == pytest.approx(1100.0)
 
     def test_unknown_property_is_rejected_before_reaching_the_engine(self, dss, monkeypatch):
-        """Sending a bad property to OpenDSS opens a Windows dialog box.
+        """Validating first gives an error that lists the valid properties.
 
-        Validating first keeps non-interactive runs from hanging on it.
+        With OpenDSS dialogs enabled, a bad property also opened a Windows dialog
+        box that hung non-interactive runs.
         """
         commands = []
         monkeypatch.setattr(dss, "run_command", lambda cmd: commands.append(cmd))
@@ -340,3 +342,123 @@ class TestSolutionSettings:
 
         assert wrapper.dss.solution.converged
         assert 0 < wrapper.dss.solution.iterations <= 15
+
+
+class TestEngineErrorsAfterLoading:
+    """Depois de compilar, todo erro do motor passa pelo `fail()`, sem caixa de diálogo.
+
+    O OpenDSS abre uma caixa de diálogo no Windows a cada comando recusado, e ela
+    trava a execução até alguém clicar — com ou sem `fail_on_error`. Fora da
+    compilação as caixas ficam desligadas, e o erro volta como código e texto.
+    Antes só o texto era conferido, à procura da palavra "error", que a maioria
+    das mensagens do motor não contém.
+    """
+
+    @pytest.fixture
+    def wrapper(self):
+        if not IEEE13.exists():
+            pytest.skip("IEEE13 fixture not found")
+        wrapper = OpenDSS(
+            topofile=str(IEEE13),
+            time_step=dt.timedelta(seconds=300),
+            start_time=dt.datetime(2025, 1, 1),
+        )
+        # Guarda: com as caixas ligadas, os comandos inválidos destes testes
+        # travariam a suíte esperando um clique.
+        if wrapper.dss.dssinterface.allow_forms:
+            pytest.fail("as caixas de diálogo continuam ligadas depois da compilação")
+        return wrapper
+
+    def test_dialogs_are_off_after_loading(self, wrapper):
+        assert wrapper.dss.dssinterface.allow_forms == 0
+
+    def test_dialogs_are_on_while_compiling(self, wrapper, monkeypatch):
+        """Um erro no meio do `.dss` só aparece pela caixa de diálogo.
+
+        O `Redirect` informa só o erro da última linha executada; sem a caixa,
+        um erro de digitação no arquivo passaria em silêncio.
+        """
+        durante = {}
+        original = wrapper.dss.text
+
+        def text(cmd):
+            if cmd.lower().startswith("compile"):
+                durante["allow_forms"] = wrapper.dss.dssinterface.allow_forms
+            return original(cmd)
+
+        monkeypatch.setattr(wrapper.dss, "text", text)
+        wrapper.redirect(str(IEEE13))
+
+        assert durante["allow_forms"] == 1
+        assert wrapper.dss.dssinterface.allow_forms == 0
+
+    @pytest.mark.parametrize(
+        ("cmd", "code"),
+        [
+            pytest.param("Edit Load.671 naoexiste=1", 580, id="parametro-inexistente"),
+            pytest.param("comando_invalido", 302, id="comando-inexistente"),
+            pytest.param(
+                "New Line.x bus1=671 bus2=692 linecode=nao_existe", 180, id="linecode-inexistente"
+            ),
+            pytest.param("Edit Load.671 kW=abc", 303, id="valor-invalido"),
+        ],
+    )
+    def test_a_refused_command_stops(self, wrapper, cmd, code):
+        """Só o último caso tem "error" no texto; os outros passavam como aviso."""
+        with pytest.raises(OpenDSSException, match=rf"\[OpenDSS {code}\]"):
+            wrapper.run_command(cmd)
+
+    def test_the_message_carries_the_engine_text(self, wrapper):
+        with pytest.raises(OpenDSSException, match='Unknown parameter "naoexiste"'):
+            wrapper.run_command("Edit Load.671 naoexiste=1")
+
+    def test_with_the_error_off_it_only_reports(self, wrapper, capsys):
+        wrapper.fail_on_error = False
+        wrapper.run_command("Edit Load.671 naoexiste=1")
+
+        assert "Unknown parameter" in capsys.readouterr().out
+
+    def test_a_valid_command_is_not_flagged(self, wrapper):
+        wrapper.run_command("Edit Load.671 kW=1000")
+
+        assert wrapper.get_property("671", "kW", "Load") == pytest.approx(1000.0)
+
+
+class TestFailOnErrorFromTheScenario:
+    """`fail_on_error` como parâmetro do `init()`, e não só do wrapper.
+
+    Sem ele, o caminho de "seguir e marcar" que a documentação recomendava —
+    desligar o erro e registrar `converged` pelo modelo `Circuit` — não estava ao
+    alcance do cenário: a flag passada ao `world.start` caía em `**sim_params` e
+    era ignorada em silêncio.
+    """
+
+    def _start(self, **kwargs):
+        if not IEEE13.exists():
+            pytest.skip("IEEE13 fixture not found")
+        simulator = OpenDSSSimulator()
+        simulator.init("DSS-0", 1.0, topofile=str(IEEE13), step_size=300, **kwargs)
+        return simulator
+
+    def test_it_reaches_the_wrapper(self):
+        assert self._start(fail_on_error=False).dss_wrapper.fail_on_error is False
+
+    def test_it_is_on_by_default(self):
+        assert self._start().dss_wrapper.fail_on_error is True
+
+    def test_it_is_declared_in_meta(self):
+        assert "fail_on_error" in build_meta()["models"]["Grid"]["params"]
+
+    def test_follow_and_mark(self, capsys):
+        """O passo que não converge segue adiante, e fica marcado no `Circuit`."""
+        simulator = self._start(max_iterations=1, fail_on_error=False)
+        simulator.create(1, "Grid")
+        simulator.step(0, {"Load-671": {"S_mult": {"csv": 0.1}}}, 300)
+        data = simulator.get_data({"Circuit-0": ["converged"]})["Circuit-0"]
+
+        assert data["converged"] is False
+        assert "nao convergiu" in capsys.readouterr().out
+
+    def test_by_default_the_same_circuit_stops(self):
+        with pytest.raises(OpenDSSException, match="nao convergiu"):
+            self._start(max_iterations=1)

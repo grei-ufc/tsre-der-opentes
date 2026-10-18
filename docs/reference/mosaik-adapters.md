@@ -22,7 +22,7 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
         "Grid": {
             "public": True,
             "params": ["topofile", "step_size", "output_graph_path", "buscoords",
-                        "tolerance", "max_iterations"],
+                        "tolerance", "max_iterations", "fail_on_error"],
             "attrs": [],
         },
         "Circuit": {
@@ -111,7 +111,7 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
 
 ```python
 def init(self, sid, time_resolution, topofile, step_size=900, output_graph_path=None,
-         buscoords=None, tolerance=None, max_iterations=None)
+         buscoords=None, tolerance=None, max_iterations=None, fail_on_error=True)
 ```
 
 | Parâmetro | Tipo | Default | Descrição |
@@ -122,6 +122,7 @@ def init(self, sid, time_resolution, topofile, step_size=900, output_graph_path=
 | `buscoords` | `str \| None` | `None` | Arquivo `Buscoords` a carregar após o circuito. Vários alimentadores do IEEE trazem o arquivo mas não o carregam no `.dss` principal |
 | `tolerance` | `float \| None` | `None` | Critério de convergência do fluxo. `None` mantém o padrão do motor, `1e-4` |
 | `max_iterations` | `int \| None` | `None` | Limite de iterações. `None` mantém o padrão do motor, `15` — **leia o aviso sobre convergência abaixo** |
+| `fail_on_error` | `bool` | `True` | Com `True`, um erro do motor (comando recusado, fluxo que não convergiu) interrompe a simulação. Com `False`, só é impresso e a simulação segue — **leia o aviso sobre convergência abaixo** |
 
 Ao carregar o circuito, os PVSystems trocam a `EffCurve` e a `P-TCurve` por
 curvas planas de fator 1 e o `%cutin`/`%cutout` por um limiar praticamente nulo:
@@ -300,7 +301,16 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 
     Desde esta versão o wrapper confere `converged` e **interrompe**. Quem
     prefere seguir e marcar desliga `fail_on_error` e acompanha o atributo
-    `converged` do modelo `Circuit`, que registra cada passo no CSV.
+    `converged` do modelo `Circuit`, que registra cada passo no CSV:
+
+    ```python
+    dss = world.start("DSS", topofile=..., step_size=300, fail_on_error=False)
+    world.connect(por_eid["Circuit-0"], monitor, "converged", "iterations")
+    ```
+
+    `fail_on_error` só alcança os erros **do motor**. Erros de uso — elemento
+    ou propriedade inexistente, multiplicador fora da faixa, `P_mult` junto de
+    `P_set` — interrompem de qualquer forma.
 
     Cuidado ao ajustar por fora: o `Compile` do OpenDSS **repõe os dois no
     padrão**. Por isso eles são parâmetros de `init()`, reaplicados a cada
@@ -310,6 +320,23 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
     referência de tensão — abrir a chave que isola uma barra cuja única fonte
     é um `PVSystem` — não tem solução, e o fluxo diverge em vez de convergir
     devagar.
+
+!!! info "Caixas de diálogo do OpenDSS"
+    No Windows, o OpenDSS abre uma caixa de diálogo a cada comando recusado, e
+    ela trava a execução até alguém clicar — com ou sem `fail_on_error`. O
+    adaptador as mantém ligadas **só enquanto o `.dss` compila**: o `Redirect`
+    informa apenas o erro da última linha do arquivo, e um erro de digitação no
+    meio dele só aparece pela caixa.
+
+    Fora da compilação elas ficam desligadas, e o erro volta como código e
+    texto, que o wrapper confere: todo comando recusado passa a interromper (ou
+    só a ser impresso, com `fail_on_error=False`). Antes só se procurava a
+    palavra "error" no texto, e a maioria das mensagens do motor —
+    `Unknown parameter`, `Unknown Command`, `... not found` — passava como
+    aviso.
+
+    Fica um ponto cego, do próprio motor: `Edit` num elemento que não existe
+    não devolve erro nenhum.
 
 !!! info "Chaves"
     No OpenDSS a chave é uma `Line` com `switch=yes` — trecho de impedância
