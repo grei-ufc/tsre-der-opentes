@@ -11,7 +11,7 @@ import os
 import pathlib
 from typing import Any
 
-from . import opendss_pv
+from . import opendss_generator, opendss_pv
 from ._types import OpenDSSException
 
 
@@ -21,7 +21,8 @@ class EngineMixin:
     Espera de quem compoe: ``self.dss``, ``self._snapshot``,
     ``self._node_index``, ``self.fail_on_error``, ``self.includes_elements``,
     ``self._tolerance`` e ``self._max_iterations``. Preenche
-    ``self._declared_pv_conversion`` a cada compilacao.
+    ``self._declared_pv_conversion`` e ``self._declared_generator_band`` a cada
+    compilacao.
     """
 
     def warn_if_engine_already_in_use(self) -> None:
@@ -94,10 +95,21 @@ class EngineMixin:
                     "buses — check the file path and its contents."
                 )
 
-            self.apply_solution_settings()
-            self._idealize_pvsystems()
+            self._after_compile()
         finally:
             os.chdir(base_dir)
+
+    def _after_compile(self) -> None:
+        """Ajustes que todo ``Compile`` desfaz e que, por isso, seguem cada um.
+
+        O ``Compile`` do OpenDSS repõe o critério de convergência no padrão e
+        traz de volta o que o ``.dss`` declara para PVSystems e Generators.
+        Reunidos aqui para que :meth:`compile_circuit` e :meth:`redirect` não
+        possam divergir sobre o que reaplicar.
+        """
+        self.apply_solution_settings()
+        self._idealize_pvsystems()
+        self._relax_generators()
 
     def apply_solution_settings(self) -> None:
         """(Re)aplica ``tolerance`` e ``max_iterations`` ao motor.
@@ -131,6 +143,16 @@ class EngineMixin:
         :func:`~.opendss_pv.idealize_pvsystems`.
         """
         self._declared_pv_conversion = opendss_pv.idealize_pvsystems(self.dss)
+
+    def _relax_generators(self) -> None:
+        """Abre a faixa de tensão dos Generators do circuito recém-compilado.
+
+        Mesma razão e mesma regra de :meth:`_idealize_pvsystems`: a potência
+        comandada tem de ser a entregue, a troca vem antes da primeira solução,
+        e uma segunda chamada na mesma compilação leria a faixa relaxada como se
+        fosse a declarada. Ver :func:`~.opendss_generator.relax_voltage_band`.
+        """
+        self._declared_generator_band = opendss_generator.relax_voltage_band(self.dss)
 
     def invalidate_snapshot(self) -> None:
         """Drop cached solution results.
@@ -168,10 +190,7 @@ class EngineMixin:
         self.print(f"Running file: {filename}")
         self.invalidate_snapshot()
         self.dss.text(f'compile "{filename}"')
-        # O compile repoe os ajustes de solucao e as curvas declaradas dos
-        # PVSystems; ver apply_solution_settings e _idealize_pvsystems.
-        self.apply_solution_settings()
-        self._idealize_pvsystems()
+        self._after_compile()
 
     def run_dss(self, no_controls: bool = False) -> None:
         """Resolve o fluxo de potência e confere se a solução convergiu.

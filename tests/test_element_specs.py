@@ -165,7 +165,7 @@ class TestLosses:
 
         assert {"Ploss_kw", "Qloss_kvar", "Ploss1_kw", "Qloss1_kvar"} <= attrs
 
-    @pytest.mark.parametrize("model", ["Load", "PVSystem", "Storage", "Bus"])
+    @pytest.mark.parametrize("model", ["Load", "PVSystem", "Storage", "Generator", "Bus"])
     def test_shunt_models_do_not(self, model):
         """Num elemento de um terminal o mesmo cálculo devolve a potência dele.
 
@@ -510,7 +510,7 @@ class TestLoadMultiplier:
         A ``Load.671`` do circuito de teste tem perfil declarado no ``.dss``, e
         o laço de ``LoadShape`` roda depois de aplicar as entradas.
         """
-        assert self.LOAD in sim.loads_with_profiles, "a fixture perdeu o perfil da carga"
+        assert self.LOAD in sim.profiles, "a fixture perdeu o perfil da carga"
 
         kw, _ = sim.load_nameplate("671")
         sim.step(300, {self.LOAD: {"S_mult": {"csv": 0.42}}}, 300)
@@ -520,7 +520,11 @@ class TestLoadMultiplier:
 
     def test_a_load_without_input_still_follows_its_shape(self, sim):
         """As duas fontes convivem no mesmo passo, cada carga com a sua."""
-        outra = next(eid for eid in sim.loads_with_profiles if eid != self.LOAD)
+        outra = next(
+            eid
+            for eid, perfil in sim.profiles.items()
+            if eid != self.LOAD and perfil["element"] == "Load"
+        )
         sim.step(300, {self.LOAD: {"S_mult": {"csv": 0.0}}}, 300)
 
         data = sim.get_data({outra: ["P_out_mw"]})[outra]
@@ -1169,3 +1173,216 @@ class TestExtraInfoIsolation:
 
         sim._extra_info[eid]["pmpp"] = 999999
         assert child["extra_info"]["pmpp"] != 999999
+
+
+# g_tri segue a curva do .dss; g_mono declara um Vminpu acima da tensão da sua
+# barra; g_lead tem pf adiantado, que o OpenDSS representa negativo.
+GENERATOR_CIRCUIT = """\
+Redirect "{master}"
+New Loadshape.curva_gen npts=4 sinterval=300 mult=[0.2 0.4 0.6 0.8]
+New Generator.g_tri phases=3 bus1=675 kV=4.16 kW=500 pf=0.95 kVA=600 daily=curva_gen
+New Generator.g_mono phases=1 bus1=611.3 kV=2.4 kW=100 pf=1 Vminpu=0.99
+New Generator.g_lead phases=3 bus1=680 kV=4.16 kW=200 pf=-0.9
+"""
+
+
+@pytest.fixture(scope="module")
+def gen_sim(tmp_path_factory):
+    """IEEE13 mais três geradores; nenhum circuito co-simulável de data/ tem um.
+
+    No fim do arquivo, como as demais fixtures que compilam outro circuito:
+    todas as instâncias do ``py_dss_interface`` dividem um motor só.
+    """
+    master = DATA_DIR / "IEEE13Nodeckt.dss"
+    if not master.exists():
+        pytest.skip(f"IEEE13 fixture not found at {master}")
+
+    path = tmp_path_factory.mktemp("generator") / "gen.dss"
+    path.write_text(GENERATOR_CIRCUIT.format(master=master.as_posix()))
+
+    simulator = OpenDSSSimulator()
+    simulator.init("DSS-0", 1.0, topofile=str(path), step_size=300)
+    if simulator.dss_wrapper.dss.circuit.num_buses == 0:
+        pytest.skip("IEEE13 failed to compile (check the OpenDSS DataPath)")
+
+    simulator.create(1, "Grid")
+    simulator.step(0, {}, 300)
+    return simulator
+
+
+TRI = "Generator-g_tri"
+MONO = "Generator-g_mono"
+LEAD = "Generator-g_lead"
+
+
+def _potencia(sim, eid):
+    data = sim.get_data({eid: ["P_meas", "Q_meas"]})[eid]
+    return data["P_meas"], data["Q_meas"]
+
+
+class TestGenerator:
+    def test_every_generator_is_an_entity(self, gen_sim):
+        assert set(gen_sim._eids_by_type["Generator"]) == {TRI, MONO, LEAD}
+        assert {info["name"] for info in gen_sim.get_detected_generators()} == {
+            "g_tri",
+            "g_mono",
+            "g_lead",
+        }
+
+    def test_it_hangs_on_its_bus(self, gen_sim):
+        rel = {c["eid"]: c["rel"] for c in gen_sim._children}
+
+        assert rel[TRI] == ["Bus-675"]
+        assert rel[MONO] == ["Bus-611"]
+
+    def test_extra_info_carries_the_nameplate(self, gen_sim):
+        tri = gen_sim.generator_map[TRI]
+        mono = gen_sim.generator_map[MONO]
+
+        assert tri["kw"] == pytest.approx(500.0)
+        assert tri["pf"] == pytest.approx(0.95)
+        assert tri["kva"] == pytest.approx(600.0)
+        assert tri["daily"] == "curva_gen"
+        assert (tri["phases"], tri["nodes"]) == (3, [1, 2, 3])
+        assert (mono["phases"], mono["nodes"]) == (1, [3])
+
+    def test_all_declared_outputs_are_produced(self, gen_sim):
+        declared = list(MODEL_SPECS["Generator"].outputs)
+        produced = gen_sim.get_data({MONO: declared})[MONO]
+
+        assert [a for a in declared if a not in produced] == []
+
+    def test_single_phase_generator_reports_on_its_phase(self, gen_sim):
+        gen_sim.step(300, {MONO: {"P_set": {"ctrl": 60.0}}}, 300)
+        data = gen_sim.get_data({MONO: ["P1", "P2", "P3"]})[MONO]
+
+        # g_mono está em 611.3
+        assert math.isnan(data["P1"])
+        assert math.isnan(data["P2"])
+        assert data["P3"] == pytest.approx(60.0, rel=1e-4)
+
+    def test_generation_is_positive(self, gen_sim):
+        gen_sim.step(300, {TRI: {"P_set": {"ctrl": 300.0}}}, 300)
+
+        assert _potencia(gen_sim, TRI)[0] > 0
+
+
+class TestGeneratorDispatch:
+    """``P_set``/``Q_set`` absolutos ou ``P_mult`` sobre a placa — nunca os dois."""
+
+    def test_absolute_setpoints_arrive(self, gen_sim):
+        gen_sim.step(300, {MONO: {"P_set": {"ctrl": 70.0}, "Q_set": {"ctrl": 20.0}}}, 300)
+        p, q = _potencia(gen_sim, MONO)
+
+        assert p == pytest.approx(70.0, rel=1e-4)
+        assert q == pytest.approx(20.0, rel=1e-3)
+
+    def test_p_set_alone_follows_the_declared_power_factor(self, gen_sim):
+        """Vem da placa, e não do estado do motor.
+
+        O primeiro passo zera a reativa com ``Q_set``; se a reativa do segundo
+        saísse do motor, herdaria esse zero.
+        """
+        gen_sim.step(300, {TRI: {"P_set": {"ctrl": 300.0}, "Q_set": {"ctrl": 0.0}}}, 300)
+        gen_sim.step(600, {TRI: {"P_set": {"ctrl": 300.0}}}, 300)
+        p, q = _potencia(gen_sim, TRI)
+
+        assert p == pytest.approx(300.0, rel=1e-4)
+        assert q == pytest.approx(reactive_from_pf(300.0, 0.95), rel=1e-3)
+
+    def test_q_set_alone_keeps_the_active(self, gen_sim):
+        gen_sim.step(300, {MONO: {"P_set": {"ctrl": 80.0}}}, 300)
+        gen_sim.step(600, {MONO: {"Q_set": {"ctrl": 15.0}}}, 300)
+        p, q = _potencia(gen_sim, MONO)
+
+        assert p == pytest.approx(80.0, rel=1e-4)
+        assert q == pytest.approx(15.0, rel=1e-3)
+
+    def test_the_multiplier_scales_the_nameplate(self, gen_sim):
+        kw, kvar = gen_sim.generator_nameplate("g_tri")
+        gen_sim.step(300, {TRI: {"P_mult": {"csv": 0.5}}}, 300)
+        p, q = _potencia(gen_sim, TRI)
+
+        assert p == pytest.approx(0.5 * kw, rel=1e-4)
+        assert q == pytest.approx(0.5 * kvar, rel=1e-3)
+
+    def test_a_leading_power_factor_is_preserved(self, gen_sim):
+        """``pf=-0.9``: o gerador absorve reativa enquanto injeta ativa.
+
+        :func:`reactive_from_pf` zeraria a reativa de um ``pf`` negativo; é por
+        isso que o multiplicador escala o ``kvar`` da placa.
+        """
+        kw, kvar = gen_sim.generator_nameplate("g_lead")
+        gen_sim.step(300, {LEAD: {"P_mult": {"csv": 0.5}}}, 300)
+        p, q = _potencia(gen_sim, LEAD)
+
+        assert kvar < 0
+        assert p == pytest.approx(0.5 * kw, rel=1e-4)
+        assert q == pytest.approx(0.5 * kvar, rel=1e-3)
+
+    def test_concurrent_setpoints_are_summed(self, gen_sim):
+        gen_sim.step(300, {MONO: {"P_set": {"a": 30.0, "b": 20.0}}}, 300)
+
+        assert _potencia(gen_sim, MONO)[0] == pytest.approx(50.0, rel=1e-4)
+
+    def test_it_conflicts_with_the_absolute_setpoint(self, gen_sim):
+        with pytest.raises(OpenDSSException, match="P_mult chegou junto de"):
+            gen_sim.step(300, {MONO: {"P_mult": {"a": 0.5}, "P_set": {"b": 10.0}}}, 300)
+
+    @pytest.mark.parametrize("valor", [1.5, -0.1])
+    def test_out_of_range_stops_the_simulation(self, gen_sim, valor):
+        with pytest.raises(ValueError, match="fora da faixa"):
+            gen_sim.step(300, {MONO: {"P_mult": {"csv": valor}}}, 300)
+
+    def test_the_model_declares_the_inputs(self):
+        attrs = set(build_meta()["models"]["Generator"]["attrs"])
+
+        assert {"P_set", "Q_set", "P_mult", "P_meas", "Q_meas"} <= attrs
+        assert "get_detected_generators" in build_meta()["extra_methods"]
+
+
+class TestGeneratorFollowsItsShape:
+    """Em snapshot o OpenDSS ignora a curva; o ``step`` a reproduz, como na carga."""
+
+    def test_the_curve_is_registered(self, gen_sim):
+        assert gen_sim.profiles[TRI]["element"] == "Generator"
+        assert MONO not in gen_sim.profiles
+
+    @pytest.mark.parametrize(("time", "mult"), [(0, 0.2), (300, 0.4), (600, 0.6)])
+    def test_without_input_it_follows_the_curve(self, gen_sim, time, mult):
+        gen_sim.step(time, {}, 300)
+
+        assert _potencia(gen_sim, TRI)[0] == pytest.approx(mult * 500.0, rel=1e-4)
+
+    def test_an_external_input_beats_the_curve(self, gen_sim):
+        """No passo 300 a curva pediria 200 kW."""
+        gen_sim.step(300, {TRI: {"P_set": {"ctrl": 450.0}}}, 300)
+
+        assert _potencia(gen_sim, TRI)[0] == pytest.approx(450.0, rel=1e-4)
+
+    def test_a_generator_without_curve_keeps_the_last_dispatch(self, gen_sim):
+        gen_sim.step(300, {MONO: {"P_set": {"ctrl": 80.0}}}, 300)
+        gen_sim.step(600, {}, 300)
+
+        assert _potencia(gen_sim, MONO)[0] == pytest.approx(80.0, rel=1e-4)
+
+
+class TestGeneratorVoltageBand:
+    """Fora de ``Vminpu`` o OpenDSS troca o gerador por impedância constante.
+
+    O carregamento abre a faixa para que a potência comandada seja a entregue;
+    sem isso, 100 kW numa barra a 0,97 pu com ``Vminpu=0.99`` saem 96 kW.
+    """
+
+    def test_the_commanded_power_is_delivered_below_the_declared_vminpu(self, gen_sim):
+        gen_sim.step(300, {MONO: {"P_set": {"ctrl": 100.0}}}, 300)
+        tensao = gen_sim.get_data({"Bus-611": ["V3_pu"]})["Bus-611"]["V3_pu"]
+
+        assert tensao < 0.99, "a barra tem de estar abaixo do Vminpu declarado"
+        assert _potencia(gen_sim, MONO)[0] == pytest.approx(100.0, rel=1e-4)
+
+    def test_the_declared_band_is_still_reported(self, gen_sim):
+        info = gen_sim.generator_map[MONO]
+
+        assert info["vminpu"] == pytest.approx(0.99)
+        assert info["vmaxpu"] == pytest.approx(1.1)

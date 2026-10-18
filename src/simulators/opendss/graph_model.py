@@ -37,7 +37,7 @@ class NetworkEdge:
 
 @dataclass
 class NetworkElement:
-    """Elemento conectado a uma barra (PVSystem, Storage).
+    """Elemento conectado a uma barra (PVSystem, Storage, Generator).
 
     Enquanto :class:`NetworkEdge` liga duas barras, um elemento pendura-se numa
     só. O ``node_type`` da barra diz apenas que existe geração fotovoltaica ali;

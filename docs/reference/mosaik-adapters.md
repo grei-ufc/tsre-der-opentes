@@ -92,11 +92,18 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
                        "P1", "P2", "P3", "Q1", "Q2", "Q3", "I1_A", "I2_A", "I3_A",
                        "P_pu", "P1_pu", "P2_pu", "P3_pu"],
         },
+        "Generator": {
+            "public": True,
+            "params": [],
+            "attrs": ["P_set", "Q_set", "P_mult",
+                       "P1", "P2", "P3", "Q1", "Q2", "Q3", "I1_A", "I2_A", "I3_A",
+                       "P_meas", "Q_meas"],
+        },
     },
     "extra_methods": ["get_dss_wrapper", "get_extra_info", "get_detected_regulators",
                        "get_detected_pvsystems", "get_detected_storages",
-                       "get_detected_transformers", "get_detected_switches",
-                       "get_bus_positions"],
+                       "get_detected_generators", "get_detected_transformers",
+                       "get_detected_switches", "get_bus_positions"],
 }
 ```
 
@@ -125,10 +132,10 @@ simulador de inversor aplicá-los do lado dele.
 
 ### create()
 
-Apenas o modelo `Grid` pode ser criado. Ao criar o Grid, todas as entidades Load, Line, Bus, Transformer, RegControl, Storage e PVSystem são criadas automaticamente.
+Apenas o modelo `Grid` pode ser criado. Ao criar o Grid, todas as entidades Load, Line, Bus, Transformer, RegControl, Storage, PVSystem e Generator são criadas automaticamente.
 
 Os eids seguem `<Modelo>-<nome no OpenDSS>`: `Load-671`, `Line-650632`,
-`Switch-sw1`, `PVSystem-pv`. As barras usam o nome da própria barra
+`Switch-sw1`, `PVSystem-pv`, `Generator-g1`. As barras usam o nome da própria barra
 (`Bus-675`), e o circuito inteiro é `Circuit-0`.
 
 !!! warning "O eid do PVSystem mudou"
@@ -156,6 +163,9 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Load | `S_mult` | `float` | Multiplicador da potência nominal, de 0 a 1 |
 | PVSystem | `P_mult` | `float` | Multiplicador do `Pmpp`, de 0 a 1 |
 | Storage | `P_mult` | `float` | Multiplicador da potência nominal, de −1 (carregando) a 1 (descarregando) |
+| Generator | `P_set` | `float` | Potência ativa despachada (kW) |
+| Generator | `Q_set` | `float` | Potência reativa despachada (kvar). Sem ela, a reativa acompanha o `P_set` pelo `pf` declarado |
+| Generator | `P_mult` | `float` | Multiplicador do `kW` nominal, de 0 a 1; o `kvar` segue pelo mesmo fator |
 
 ### Atributos de saída (get_data)
 
@@ -191,6 +201,9 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Storage | `P_act` | `float` | Potência ativa atual (kW) |
 | Storage | `Q_act` | `float` | Potência reativa atual (kvar) |
 | Storage | `SoC` | `float` | Estado de carga (%) |
+| Generator | `P_meas` | `float` | Potência ativa entregue (kW), positiva gerando |
+| Generator | `Q_meas` | `float` | Potência reativa entregue (kvar) |
+| Generator | `P1..P3`, `Q1..Q3`, `I1_A..I3_A` | `float` | Por fase; `NaN` na fase que o gerador não tem |
 | Circuit | `converged` | `bool` | Se o passo convergiu — **leia o aviso abaixo** |
 | Circuit | `iterations` | `int` | Iterações gastas no passo |
 | Circuit | `P_mw`, `Q_mvar` | `float` | Potência total na fonte (MW / MVAr) |
@@ -199,7 +212,7 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Switch | (demais) | `float` | As mesmas da `Line`: correntes, potências, perdas e carregamento |
 
 !!! info "Curvas de multiplicadores"
-    Os três elementos de potência aceitam uma curva normalizada — um
+    Os elementos de potência aceitam uma curva normalizada — um
     `loadshape`/`pvshape` externo, injetável pelo simulador de CSV — em vez de
     potências em kW que o cenário precisaria calcular. A potência sai da placa
     do próprio elemento e do `pf` declarado:
@@ -209,10 +222,13 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
     | `Load` | `S_mult` | 0..1 | `mult × kW` | `mult × kvar` |
     | `PVSystem` | `P_mult` | 0..1 | `mult × Pmpp` | `P·tan(acos(pf))` |
     | `Storage` | `P_mult` | −1..1 | `mult × kWrated` | `P·tan(acos(pf))` |
+    | `Generator` | `P_mult` | 0..1 | `mult × kW` | `mult × kvar` |
 
-    Na carga, escalar ativa e reativa pelo mesmo fator **preserva o fator de
-    potência** — escalar a aparente a `pf` constante é essa mesma conta, e é por
-    isso que o `pf` da carga não precisa ser lido.
+    Na carga e no gerador, escalar ativa e reativa pelo mesmo fator **preserva
+    o fator de potência** — escalar a aparente a `pf` constante é essa mesma
+    conta, e é por isso que o `pf` não precisa ser lido. No gerador isso vale
+    também para `pf` adiantado, que o OpenDSS representa negativo, com `kvar`
+    negativo.
 
     No PV e na bateria, toda a potência disponível vira ativa e a reativa vem da
     folga do inversor: é a convenção do próprio OpenDSS, que com `pf` declarado
@@ -226,15 +242,40 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
     `P_des`/`P_set` no mesmo elemento interrompe: os dois comandam a mesma
     grandeza, e aplicar um significa descartar o outro.
 
-    **A carga movida de fora ignora a `LoadShape` do `.dss`** naquele passo. As
-    duas fontes convivem no mesmo circuito, cada carga com a sua.
+    **O elemento movido de fora ignora a `LoadShape` do `.dss`** naquele passo.
+    As duas fontes convivem no mesmo circuito, cada elemento com a sua.
 
     Ligando pelo CSV, onde o primeiro nome é a coluna do arquivo:
 
     ```python
     world.connect(curva, por_eid["Load-671"], ("carga_671", "S_mult"))
     world.connect(curva, por_eid["PVSystem-pv"], ("pv_634", "P_mult"))
+    world.connect(curva, por_eid["Generator-g1"], ("gerador_g1", "P_mult"))
     ```
+
+!!! info "Geradores"
+    Cada `Generator` do circuito vira uma entidade `Generator-<nome>`, comandada
+    por `P_set`/`Q_set` em kW/kvar ou por `P_mult` — nunca os dois. É um
+    gerador PQ: o adaptador não muda o `Model` declarado.
+
+    - **Segue a curva do `.dss`.** Um gerador com `daily` ou `yearly` declarado
+      a reproduz a cada passo, como a carga: em snapshot o OpenDSS ignora a
+      curva, e o gerador ficaria parado no kW nominal. Uma entrada externa no
+      passo — qualquer uma, inclusive um `Q_set` sozinho — suspende a curva
+      naquele passo. `duty` não é seguida. Sem curva e sem entrada, o gerador
+      mantém o último despacho.
+    - **Potência comandada é a entregue.** Fora de `Vminpu`/`Vmaxpu` (0,9 a 1,1
+      pu por padrão) o OpenDSS troca o gerador por uma impedância constante, e
+      a potência passa a depender da tensão: 100 kW numa barra a 0,97 pu com
+      `Vminpu=0.99` saem 96 kW. Por isso, ao carregar o circuito, a faixa vira
+      `0.001`–`10`. A declarada continua em `extra_info` (`vminpu`, `vmaxpu`).
+    - **O `pf` não declarado vale 0,88 no OpenDSS.** Um gerador sem `pf` no
+      `.dss` injeta reativa, e `P_mult` e `P_set` a acompanham. Declare `pf=1`
+      se não for essa a intenção.
+    - **O kVA não limita a saída**, ao contrário do PVSystem: um gerador de 600
+      kVA despachado a 700 kW entrega 700.
+
+    Inventário do circuito: `get_detected_generators()`.
 
 !!! warning "Dois tetos do OpenDSS que cortam a reativa em silêncio"
     Ambos são conferidos **na criação das entidades**, com um aviso por

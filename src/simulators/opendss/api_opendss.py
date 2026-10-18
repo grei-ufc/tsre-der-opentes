@@ -52,7 +52,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self.dss_wrapper = None
         self.step_size = None
         self.entity_map = {}
-        self.loads_with_profiles = {}
+        self.profiles = {}
         self.shape_data_cache = {}
         self.time_resolution = 1.0
 
@@ -64,6 +64,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self._pv_nameplate = {}
         self._line_ampacity = {}
         self._load_nameplate = {}
+        self._generator_nameplate = {}
         self._power_factor = {}
 
     # ------------------------------------------------------------------
@@ -96,6 +97,10 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
     @property
     def detected_storages(self):
         return self._info_by_type("Storage")
+
+    @property
+    def detected_generators(self):
+        return self._info_by_type("Generator")
 
     @property
     def detected_transformers(self):
@@ -169,6 +174,24 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         """
         return self._load_nameplate.get(name, (0.0, 0.0))
 
+    def generator_nameplate(self, name):
+        """Potência nominal de um gerador: ``(kW, kvar)``.
+
+        Guardada na criação pela mesma razão de :meth:`load_nameplate`: o
+        despacho e o laço de curvas em :meth:`step` reescrevem o ``kW`` e o
+        ``kvar`` do elemento, então o valor corrente é o comandado. É contra ela
+        que ``P_mult`` incide, e dela que sai a reativa de um ``P_set`` sem
+        ``Q_set``.
+
+        Args:
+            name: Nome do gerador no OpenDSS.
+
+        Returns:
+            Tupla ``(kw, kvar)``, ou ``(0.0, 0.0)`` se o nome não for de um
+            gerador conhecido.
+        """
+        return self._generator_nameplate.get(name, (0.0, 0.0))
+
     def line_ampacity(self, name):
         """Limites de corrente de uma linha: ``(normal, emergencial)`` em A.
 
@@ -188,6 +211,10 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
     @property
     def storage_map(self):
         return self._map_by_type("Storage")
+
+    @property
+    def generator_map(self):
+        return self._map_by_type("Generator")
 
     def init(
         self,
@@ -305,6 +332,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self._add_regulators()
         self._add_storages()
         self._add_pvsystems()
+        self._add_generators()
 
         return [
             {
@@ -453,7 +481,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                     "conn": row.get("conn", ""),
                 },
             )
-            self._check_load_profile(eid, name)
+            self._check_profile(eid, name, "Load", kw, kvar)
 
     def _add_lines(self):
         """Cria as linhas do circuito, separando as chaves num modelo próprio.
@@ -661,6 +689,40 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 f"Pmpp: {info['pmpp']} kW | kVA: {info['kva']}"
             )
 
+    def _add_generators(self):
+        """Cria uma entidade por gerador, ligada à sua barra.
+
+        Um gerador que declara curva (``daily``/``yearly``) passa a segui-la no
+        :meth:`step`, como uma carga: em snapshot o OpenDSS a ignora, e o
+        gerador ficaria parado no kW nominal o estudo inteiro.
+        """
+        for name, info in self.dss_wrapper.get_all_generators_info().items():
+            eid = f"Generator-{name}"
+            bus_name, nodes = _parse_bus(info.get("bus", ""))
+            phases = info.get("num_phases") or len(nodes) or 3
+            info["eid_dss"] = eid
+            info["bus"] = bus_name
+            info["nodes"] = _resolve_nodes(nodes, phases)
+            info["phases"] = phases
+
+            # Antes que o despacho comece a reescrever o kW; ver
+            # generator_nameplate().
+            kw, kvar = _as_float(info.get("kw")), _as_float(info.get("kvar"))
+            self._generator_nameplate[name] = (kw, kvar)
+
+            self._add_child(
+                eid,
+                "Generator",
+                name,
+                rel=self._bus_rel(bus_name, eid),
+                extra_info=info,
+            )
+            self._check_profile(eid, name, "Generator", kw, kvar)
+            print(
+                f"[OpenTES] Generator detectado: {name} @ {bus_name} | "
+                f"kW: {kw} | kvar: {kvar} | kVA: {info['kva']}"
+            )
+
     def _warn_if_storage_reactive_is_capped(self, name, info):
         """Avisa se o ``kvarMax`` da bateria corta a reativa do fator de potência.
 
@@ -718,17 +780,25 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 "ficara abaixo da curva. Aumente o kVA ou aproxime o pf de 1."
             )
 
-    def _check_load_profile(self, eid, name):
-        """Registra a LoadShape associada a uma carga, se houver.
+    def _check_profile(self, eid, name, element, base_kw, base_kvar):
+        """Registra a LoadShape associada a uma carga ou gerador, se houver.
 
-        Uma falha aqui não é inofensiva: sem perfil, a carga fica congelada no
-        valor nominal durante toda a simulação. Por isso é sinalizada em vez de
-        ignorada.
+        Em snapshot o OpenDSS não aplica a curva declarada; quem a reproduz é o
+        laço de :meth:`step`. Uma falha aqui não é inofensiva: sem perfil, o
+        elemento fica congelado no valor nominal durante toda a simulação. Por
+        isso é sinalizada em vez de ignorada.
+
+        Args:
+            eid: Identificador mosaik do elemento.
+            name: Nome do elemento no OpenDSS.
+            element: Classe OpenDSS (``'Load'`` ou ``'Generator'``).
+            base_kw: Potência ativa nominal, sobre a qual o multiplicador incide.
+            base_kvar: Potência reativa nominal.
         """
         shape_name = None
         try:
-            yearly = self.dss_wrapper.get_property(name, "yearly", "Load")
-            daily = self.dss_wrapper.get_property(name, "daily", "Load")
+            yearly = self.dss_wrapper.get_property(name, "yearly", element)
+            daily = self.dss_wrapper.get_property(name, "daily", element)
             if isinstance(yearly, str) and yearly.lower() not in ["none", "constant", ""]:
                 shape_name = yearly
             if isinstance(daily, str) and daily.lower() not in ["none", "constant", ""]:
@@ -736,14 +806,13 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
 
         except OpenDSSException as exc:
             print(
-                f"[OpenTES][AVISO] Nao foi possivel ler o perfil de Load.{name}: {exc}. "
-                "A carga ficara fixa no valor nominal."
+                f"[OpenTES][AVISO] Nao foi possivel ler o perfil de {element}.{name}: "
+                f"{exc}. O elemento ficara fixo no valor nominal."
             )
 
         if shape_name:
-            base_kw = float(self.dss_wrapper.get_property(name, "kW", "Load") or 0.0)
-            base_kvar = float(self.dss_wrapper.get_property(name, "kvar", "Load") or 0.0)
-            self.loads_with_profiles[eid] = {
+            self.profiles[eid] = {
+                "element": element,
                 "shape_name": shape_name,
                 "base_kw": base_kw,
                 "base_kvar": base_kvar,
@@ -756,7 +825,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         """Lê uma LoadShape uma vez e guarda seus multiplicadores.
 
         Se a leitura falhar, o perfil fica ausente do cache e ``step()`` deixa
-        as cargas que o usam paradas no valor nominal — daí o aviso dizer a
+        os elementos que o usam parados no valor nominal — daí o aviso dizer a
         consequência, e não só o erro.
         """
         try:
@@ -797,21 +866,23 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         except Exception as exc:
             print(
                 f"[OpenTES][ERRO] Falha ao ler a LoadShape '{shape_name}': {exc}. "
-                "As cargas que a usam ficarao fixas no valor nominal."
+                "Os elementos que a usam ficarao fixos no valor nominal."
             )
 
     def step(self, time, inputs, max_advance):
         self._apply_inputs(inputs)
 
-        # A carga movida de fora não é tocada pela LoadShape do .dss. Sem isto o
-        # laço abaixo reescreveria kW e kvar logo depois de `_apply_inputs`,
-        # apagando o multiplicador em silêncio — e só nas cargas que têm perfil,
-        # de modo que obedecer ou não dependeria do arquivo de dados.
-        movidas_de_fora = {eid for eid, attrs in inputs.items() if attrs.get("S_mult")}
+        # O elemento movido de fora não é tocado pela LoadShape do .dss. Sem isto
+        # o laço abaixo reescreveria kW e kvar logo depois de `_apply_inputs`,
+        # apagando a entrada em silêncio — e só nos elementos que têm perfil, de
+        # modo que obedecer ou não dependeria do arquivo de dados. Qualquer
+        # entrada conta: num gerador, um `Q_set` sozinho também suspende a curva
+        # naquele passo.
+        movidos_de_fora = {eid for eid, attrs in inputs.items() if any(attrs.values())}
 
-        # ATUALIZAÇÃO DAS CARGAS
-        for eid, profile in self.loads_with_profiles.items():
-            if eid in movidas_de_fora:
+        # CARGAS E GERADORES COM CURVA NO .dss
+        for eid, profile in self.profiles.items():
+            if eid in movidos_de_fora:
                 continue
             shape_name = profile["shape_name"]
             if shape_name not in self.shape_data_cache:
@@ -830,11 +901,9 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 p_set = profile["base_kw"] * pmult
                 q_set = profile["base_kvar"] * qmult
 
-            load_name = self.entity_map[eid]
-            self.dss_wrapper.set_power(load_name, p=p_set, q=q_set, element="Load")
-
-            # if eid == 'Load-671' and time < 1200:
-            #     print(f"[STEP {time}] Atualizando {load_name}: Multiplicador={pmult:.3f} -> Definindo kW={p_set:.2f}")
+            self.dss_wrapper.set_power(
+                self.entity_map[eid], p=p_set, q=q_set, element=profile["element"]
+            )
 
         # 2. RESOLVER FLUXO DE POTÊNCIA (SNAPSHOT)
         self.dss_wrapper.run_dss()
@@ -903,6 +972,9 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
 
     def get_detected_storages(self):
         return self.detected_storages
+
+    def get_detected_generators(self):
+        return self.detected_generators
 
     def get_detected_transformers(self):
         return self.detected_transformers

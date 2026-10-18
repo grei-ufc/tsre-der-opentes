@@ -30,6 +30,10 @@ por `0.0001`. A potência escrita por `set_pvsystem_pq` é a que sai: sem isso o
 OpenDSS aplicaria a eficiência e o derating térmico sobre um valor que já os
 inclui, e desligaria o inversor abaixo de 20 % do kVA.
 
+Pelo mesmo motivo, todo Generator tem a faixa de tensão aberta para
+`Vminpu=0.001` e `Vmaxpu=10`: fora da faixa declarada o OpenDSS o troca por uma
+impedância constante, e a potência entregue deixa de ser a comandada.
+
 Um wrapper atende a **um** circuito: o motor OpenDSS é único no processo, então
 compilar um segundo circuito substituiria o primeiro. Passar uma lista de
 caminhos levanta `TypeError`; arquivos auxiliares vão nos `Redirect` do master.
@@ -347,6 +351,18 @@ Delega para `opendss_pv.py`. Força P/Q: se `p_des > 0.001`, define PMPP, Irradi
 #### `get_pvsystem_power(name)`
 
 Delega para `opendss_pv.py`. Retorna `(P_kW, Q_kvar)` invertendo sinal.
+
+---
+
+### Generator
+
+#### `get_all_generators_info()`
+
+Delega para `opendss_generator.py`. Retorna dict de todos os Generators com: `name`, `bus`, `num_phases`, `kv`, `kw`, `kvar`, `pf`, `kva`, `model`, `conn`, `status`, `daily`, `yearly`, `vminpu`, `vmaxpu`.
+
+A faixa de tensão é a declarada no `.dss`, lida antes de a compilação a abrir — e não a que o motor usa de fato.
+
+O despacho passa por `set_power(name, p, q, element="Generator")`.
 
 ---
 

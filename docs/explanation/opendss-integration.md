@@ -212,6 +212,22 @@ todo PVSystem por curvas planas de fator 1, e zera na prática o `%cutin` e o
 `%cutout`. As curvas declaradas continuam disponíveis em `extra_info`, para o
 inversor aplicar essas perdas do lado dele.
 
+## Controle de Generator
+
+O adaptador aceita `P_set`/`Q_set` em kW/kvar, ou `P_mult` de 0 a 1 sobre o `kW`
+nominal, e aplica ao OpenDSS com `edit Generator.<nome> kW=... kvar=...`:
+
+- `P_mult`: ativa e reativa escaladas pelo mesmo fator, preservando o `pf`
+  declarado.
+- `P_set` sem `Q_set`: a reativa acompanha pelo `pf` declarado, calculada da
+  placa guardada na criação.
+- `Q_set` sozinho: ajusta só a reativa.
+
+Um gerador com curva `daily`/`yearly` no `.dss` a segue no `step`, pelo mesmo
+laço que move as cargas; uma entrada externa no passo tem precedência. Ao
+carregar o circuito, a faixa `Vminpu`/`Vmaxpu` é aberta, para que a potência
+comandada seja a entregue mesmo com a tensão fora de 0,9–1,1 pu.
+
 ## Controle de Storage
 
 Para elementos Storage, o adaptador aceita `P_set`, `Q_set` e `SoC_set`:

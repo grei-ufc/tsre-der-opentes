@@ -301,7 +301,7 @@ class TestElements:
     def test_every_bus_carries_the_index(self, ieee13_pv):
         """Vazia ou não, a chave existe: o consumidor itera sem checar."""
         for node in ieee13_pv.graph.nodes.values():
-            assert set(node.metadata["attached"]) == {"pv", "storage"}
+            assert set(node.metadata["attached"]) == {"pv", "storage", "generator"}
 
     def test_buses_do_not_share_one_index_instance(self, ieee13_pv):
         """Um dict compartilhado faria um PV aparecer em todas as barras."""
@@ -315,9 +315,8 @@ class TestElements:
 
     def test_circuit_without_der_has_no_elements(self, ieee13):
         assert ieee13.graph.elements == {}
-        assert all(
-            n.metadata["attached"] == {"pv": [], "storage": []} for n in ieee13.graph.nodes.values()
-        )
+        vazio = {"pv": [], "storage": [], "generator": []}
+        assert all(n.metadata["attached"] == vazio for n in ieee13.graph.nodes.values())
 
 
 STORAGE_CIRCUIT = """\
@@ -374,6 +373,56 @@ class TestStorage:
         assert len(circuito_com_storage.graph.edges) == (
             circuito_com_storage.n_lines + circuito_com_storage.n_transformers
         )
+
+
+GENERATOR_CIRCUIT = """\
+Redirect "{master}"
+New Generator.g_mono bus1=611.3 phases=1 kV=2.4 kW=100 pf=1
+New Generator.g_desligado bus1=680 phases=3 kV=4.16 kW=200 enabled=no
+"""
+
+
+@pytest.fixture(scope="module")
+def circuito_com_gerador(tmp_path_factory):
+    """Nenhum circuito co-simulável de data/ tem gerador."""
+    if not IEEE13.exists():
+        pytest.skip("IEEE13 fixture not found")
+
+    path = tmp_path_factory.mktemp("topo") / "gerador.dss"
+    path.write_text(GENERATOR_CIRCUIT.format(master=IEEE13.as_posix()))
+    return _open(path)
+
+
+class TestGenerator:
+    def test_generator_becomes_an_element(self, circuito_com_gerador):
+        gerador = circuito_com_gerador.graph.elements["generator_g_mono"]
+
+        assert gerador.element_type == "generator"
+        assert gerador.bus == "611"
+        assert gerador.phases == 1
+        assert gerador.nodes == [3]
+
+    def test_generator_bus_indexes_it(self, circuito_com_gerador):
+        attached = circuito_com_gerador.graph.nodes["611"].metadata["attached"]
+
+        assert attached["generator"] == ["generator_g_mono"]
+
+    def test_generator_does_not_classify_its_bus(self, circuito_com_gerador):
+        """O gerador entra no inventário, não no ``node_type``.
+
+        Classificar a barra por ele mudaria o tipo de barras que o consumidor da
+        topologia já desenha — a 611 tem carga, e continua ``load``.
+        """
+        assert circuito_com_gerador.graph.nodes["611"].node_type == "load"
+
+    def test_disabled_generator_is_not_an_element(self, circuito_com_gerador):
+        assert "generator_g_desligado" not in circuito_com_gerador.graph.elements
+
+    def test_it_reaches_the_exported_json(self, circuito_com_gerador):
+        exportado = json.loads(json.dumps(serialize_graph(circuito_com_gerador.graph)))
+        ids = {e["id"] for e in exportado["elements"]}
+
+        assert "generator_g_mono" in ids
 
 
 DISABLED_CIRCUIT = """\

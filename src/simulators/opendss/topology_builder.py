@@ -28,8 +28,9 @@ NODE_TYPE_PRECEDENCE = (
 
 # Classes cujos elementos entram no inventário, na ordem em que aparecem no
 # grafo. O prefixo do identificador segue a convenção das arestas
-# ('line_650632'), e mantém um PV e um Storage homônimos distintos.
-ELEMENT_TYPES = ("pv", "storage")
+# ('line_650632'), e mantém um PV, um Storage e um Generator homônimos
+# distintos.
+ELEMENT_TYPES = ("pv", "storage", "generator")
 
 
 def parse_bus(bus_reference):
@@ -282,6 +283,22 @@ def get_storage_elements(dss):
     return elements
 
 
+def get_generator_elements(dss):
+    """Um elemento por Generator habilitado."""
+    elements = []
+
+    if not dss.generators.count:
+        return elements
+
+    index = dss.generators.first()
+    while index > 0:
+        if dss.cktelement.is_enabled:
+            elements.append(_element_at_active(dss, dss.generators.name, "generator"))
+        index = dss.generators.next()
+
+    return elements
+
+
 def collect_elements(dss):
     """Inventário dos elementos pendurados nas barras.
 
@@ -290,13 +307,17 @@ def collect_elements(dss):
     trifásica são indistinguíveis de um único PV trifásico olhando só o tipo
     da barra.
 
+    Os geradores entram só aqui, e não no ``node_type``: classificar a barra
+    por eles mudaria o tipo de barras que o consumidor já desenha.
+
     Args:
         dss: Instância ativa de ``py_dss_interface.DSS``.
 
     Returns:
-        Lista de :class:`~.graph_model.NetworkElement`, PVs antes de Storages.
+        Lista de :class:`~.graph_model.NetworkElement`: PVs, depois Storages,
+        depois Generators.
     """
-    return get_pv_elements(dss) + get_storage_elements(dss)
+    return get_pv_elements(dss) + get_storage_elements(dss) + get_generator_elements(dss)
 
 
 def index_by_bus(elements):
@@ -464,7 +485,7 @@ def build_graph(dss):
 
     Returns:
         :class:`~.graph_model.NetworkGraph` com uma barra por nó, um elemento
-        série por aresta e um PVSystem ou Storage por elemento.
+        série por aresta e um PVSystem, Storage ou Generator por elemento.
     """
     graph = NetworkGraph()
 

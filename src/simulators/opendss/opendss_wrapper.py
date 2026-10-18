@@ -117,6 +117,8 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin):
         # Curvas e limiares que o circuito declara para os PVSystems, antes de
         # o carregamento troca-los pelos ideais; ver _idealize_pvsystems.
         self._declared_pv_conversion: dict[str, dict[str, object]] = {}
+        # Idem para a faixa de tensao dos Generators; ver _relax_generators.
+        self._declared_generator_band: dict[str, dict[str, float]] = {}
 
         self.print("Compiling...")
         self.warn_if_engine_already_in_use()

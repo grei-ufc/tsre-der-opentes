@@ -46,6 +46,7 @@ uv add <package>
 │       │   ├── api_opendss.py       # Mosaik adapter wrapping opendss_wrapper
 │       │   ├── opendss_pv.py        # PVSystem operations (standalone functions)
 │       │   ├── opendss_storage.py   # Storage operations
+│       │   ├── opendss_generator.py # Generator reads + voltage band relaxed on load
 │       │   ├── opendss_regulator.py # Regulator operations
 │       │   ├── _utils.py            # Shared helpers (to_3phase, extract_3phase_pq)
 │       │   ├── topology_builder.py  # Circuit graph builder

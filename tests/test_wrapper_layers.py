@@ -89,6 +89,7 @@ class TestPublicApiIsPreserved:
             "set_tap",
             "set_pvsystem_pq",
             "get_all_pvsystems_info",
+            "get_all_generators_info",
             "get_all_storages_info",
             "get_all_regulators_info",
             "grafo_tsdq",

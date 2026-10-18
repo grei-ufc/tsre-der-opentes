@@ -676,6 +676,38 @@ def write_pvsystem(sim, name: str, values: dict[str, Any]) -> None:
     )
 
 
+def write_generator(sim, name: str, values: dict[str, Any]) -> None:
+    """Aplica o despacho do gerador, por potência absoluta ou por multiplicador.
+
+    ``P_set``/``Q_set`` chegam em kW e kvar. Sem ``Q_set``, a reativa acompanha
+    a ativa pelo ``pf`` declarado — calculada da placa, e não do estado do
+    motor, que guardaria o ``Q_set`` de um passo anterior. ``Q_set`` sozinho
+    ajusta só a reativa.
+
+    ``P_mult`` é um multiplicador de 0 a 1 sobre o ``kW`` da placa, e escala o
+    ``kvar`` pelo mesmo fator, como na carga. Daria o mesmo que
+    :func:`reactive_from_pf` para ``pf`` atrasado, mas o gerador também aceita
+    ``pf`` adiantado — negativo, com ``kvar`` negativo —, que aquela função
+    zeraria. Os dois caminhos são exclusivos.
+
+    A placa vem de :meth:`~.api_opendss.OpenDSSSimulator.generator_nameplate`,
+    e não do motor: depois do primeiro despacho o ``kW`` corrente é o comandado.
+    """
+    _single_source(values, "P_mult", ("P_set", "Q_set"))
+    kw, kvar = sim.generator_nameplate(name)
+
+    if "P_mult" in values:
+        mult = values["P_mult"]
+        p, q = mult * kw, mult * kvar
+    elif "P_set" in values:
+        p = values["P_set"]
+        q = values["Q_set"] if "Q_set" in values else (p * kvar / kw if kw else 0.0)
+    else:
+        p, q = None, values["Q_set"]
+
+    sim.dss_wrapper.set_power(name, p=p, q=q, element="Generator")
+
+
 def write_load(sim, name: str, values: dict[str, Any]) -> None:
     """Move a carga por um multiplicador de 0 a 1 sobre a potência nominal.
 
@@ -829,6 +861,27 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         # números de fase diferentes. Ver read_pvsystem.
         extra_outputs=PV_PU_OUTPUTS,
     ),
+    "Generator": ModelSpec(
+        dss_class="Generator",
+        reader=read_phases,
+        writer=write_generator,
+        public=True,
+        inputs={
+            "P_set": InputSpec(),
+            "Q_set": InputSpec(),
+            # Multiplicador do kW da placa; o kvar segue pelo mesmo fator.
+            "P_mult": InputSpec(aggregator=single_value, bounds=(0.0, 1.0)),
+        },
+        # sign=-1: injeção na rede é positiva para o cenário.
+        attr_map=phase_attr_map(
+            p=("P1", "P2", "P3"),
+            q=("Q1", "Q2", "Q3"),
+            i_mag=("I1_A", "I2_A", "I3_A"),
+            p_total=("P_meas",),
+            q_total=("Q_meas",),
+            sign=-1,
+        ),
+    ),
 }
 
 
@@ -869,6 +922,7 @@ def build_meta() -> dict[str, Any]:
             "get_detected_regulators",
             "get_detected_pvsystems",
             "get_detected_storages",
+            "get_detected_generators",
             "get_detected_transformers",
             "get_detected_switches",
             "get_bus_positions",

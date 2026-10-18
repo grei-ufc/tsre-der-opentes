@@ -13,7 +13,13 @@ import numpy as np
 import pandas as pd
 import py_dss_interface
 
-from . import opendss_pv, opendss_regulator, opendss_storage, opendss_transformer
+from . import (
+    opendss_generator,
+    opendss_pv,
+    opendss_regulator,
+    opendss_storage,
+    opendss_transformer,
+)
 from ._types import ElementSnapshot, OpenDSSException
 from ._utils import ABSENT, map_to_phases, sum_phases
 
@@ -617,6 +623,15 @@ class ReaderMixin:
         inversor precisa. Ver :meth:`_idealize_pvsystems`.
         """
         return opendss_pv.get_all_pvsystems_info(self.dss, self._declared_pv_conversion)
+
+    def get_all_generators_info(self):
+        """Retorna dados estaticos de todos os Generators.
+
+        A faixa de tensao (``vminpu``/``vmaxpu``) e a que o circuito declara, e
+        nao a relaxada que o carregamento pos no motor. Ver
+        :meth:`_relax_generators`.
+        """
+        return opendss_generator.get_all_generators_info(self.dss, self._declared_generator_band)
 
     def get_all_storages_info(self):
         """Retorna dados estaticos de todos os elementos Storage."""
