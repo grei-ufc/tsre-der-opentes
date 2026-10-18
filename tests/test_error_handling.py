@@ -21,6 +21,10 @@ DATA = (pathlib.Path(__file__).parent.parent / "data").resolve()
 IEEE13 = DATA / "13Bus" / "IEEE13Nodeckt.dss"
 IEEE13_PV = DATA / "13Bus" / "run_ieee13_cosim_pv_5min.dss"
 
+# Curvas MyEff e MyPvsT de data/13Bus/ieee13_pv.dss.
+DECLARED_EFF = [0.86, 0.90, 0.93, 0.97]
+DECLARED_PT = [1.2, 1.0, 0.8, 0.6]
+
 
 @pytest.fixture(scope="module")
 def dss():
@@ -178,23 +182,78 @@ class TestSetupDone:
         assert any(0.8 < m < 1.2 for m in mags)
 
 
-class TestPvCurveBypassIsOptional:
-    def _build(self, **kwargs):
-        simulator = OpenDSSSimulator()
-        simulator.init("DSS-0", 1.0, topofile=str(IEEE13_PV), step_size=300, **kwargs)
-        simulator.create(1, "Grid")
-        return simulator
+class TestPvSystemsLoadWithIdealConversion:
+    """O carregamento troca a conversão DC/AC nativa dos PVSystems por uma ideal.
 
-    def test_bypass_is_on_by_default(self):
-        simulator = self._build()
-        cutin = simulator.dss_wrapper.dss.text("? PVSystem.pv.%cutin")
-        assert float(cutin) == pytest.approx(0.0001)
+    A potência chega pronta ao OpenDSS — calculada pelo inversor ou pela curva
+    de multiplicadores — e tem de sair igual: sem a eficiência e o derating
+    térmico aplicados por cima, e sem o ``%cutin`` de 20 % do kVA zerando a
+    geração nas pontas do dia.
+    """
 
-    def test_bypass_can_be_disabled(self):
-        """Deixa o OpenDSS aplicar suas próprias curvas de eficiência."""
-        simulator = self._build(bypass_native_pv_curves=False)
-        curve = simulator.dss_wrapper.dss.text("? PVSystem.pv.EffCurve")
-        assert curve.lower() != "effideal_cosim"
+    def _build(self):
+        if not IEEE13_PV.exists():
+            pytest.skip("IEEE13 PV fixture not found")
+        return OpenDSS(
+            topofile=str(IEEE13_PV),
+            time_step=dt.timedelta(seconds=300),
+            start_time=dt.datetime(2025, 1, 1),
+        )
+
+    def _inject(self, wrapper, p_kw, temperature=25.0):
+        """Comanda ``p_kw`` no PV-2, com os demais desligados, e devolve o medido."""
+        for name in wrapper.get_all_pvsystems_info():
+            wrapper.set_pvsystem_pq(name, 0.0, 0.0)
+        wrapper.run_command(f"Edit PVSystem.pv-2 temperature={temperature}")
+        wrapper.set_pvsystem_pq("pv-2", p_kw, 0.0)
+        wrapper.run_dss()
+        return wrapper.get_pvsystem_power("pv-2")[0]
+
+    @pytest.mark.parametrize(
+        "p_kw",
+        [
+            pytest.param(50.0, id="abaixo-do-cutin-declarado"),
+            pytest.param(300.0, id="meia-carga"),
+            pytest.param(900.0, id="perto-da-placa"),
+        ],
+    )
+    def test_the_commanded_power_is_injected(self, p_kw):
+        assert self._inject(self._build(), p_kw) == pytest.approx(p_kw, rel=1e-4)
+
+    def test_temperature_does_not_derate(self):
+        """A 60 °C, a P-TCurve declarada cortaria 14 % da geração."""
+        injected = self._inject(self._build(), 300.0, temperature=60.0)
+        assert injected == pytest.approx(300.0, rel=1e-4)
+
+    def test_the_constructor_solve_is_already_ideal(self):
+        """A troca faz parte do carregamento, antes da primeira solução.
+
+        Com as curvas nativas, os 800 kW do ``.dss`` (Pmpp=1000, irrad=0.8)
+        sairiam multiplicados pela eficiência a 0,8 pu, cerca de 0,96.
+        """
+        wrapper = self._build()
+        assert wrapper.get_pvsystem_power("pv")[0] == pytest.approx(800.0, rel=1e-4)
+
+    def test_the_declared_curves_are_still_reported(self):
+        """Um inversor modelado fora aplica essas perdas, e precisa recebê-las."""
+        info = self._build().get_all_pvsystems_info()["pv"]
+
+        assert info["eff_curve_y"] == pytest.approx(DECLARED_EFF)
+        assert info["pt_curve_y"] == pytest.approx(DECLARED_PT)
+        assert info["pct_cutin"] == pytest.approx(20.0)  # padrão do OpenDSS
+
+    def test_a_recompile_idealizes_again(self):
+        """O ``Compile`` traz de volta as curvas declaradas."""
+        wrapper = self._build()
+        wrapper.redirect(str(IEEE13_PV))
+        # O master declara `mode=daily`, e o redirect, ao contrário do
+        # construtor, não volta ao snapshot: a hora 0 da curva `daily` do PV
+        # zeraria a geração, com ou sem as curvas ideais.
+        wrapper.run_command("set mode=snapshot")
+
+        assert self._inject(wrapper, 50.0, temperature=60.0) == pytest.approx(50.0, rel=1e-4)
+        info = wrapper.get_all_pvsystems_info()["pv"]
+        assert info["eff_curve_y"] == pytest.approx(DECLARED_EFF)
 
 
 class TestSolutionSettings:

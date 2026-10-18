@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O projeto usa **pytest**, com 17 arquivos e 581 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 580 passed, 1 skipped).
+O projeto usa **pytest**, com 17 arquivos e 586 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 585 passed, 1 skipped).
 
 Duas categorias, misturadas entre os arquivos:
 
@@ -41,7 +41,7 @@ uv run --no-sync python -m pytest tests/ -v --tb=long
 | `test_opendss_visualization.py` | 13 | Não | Presets e `attach_webvis`, com dublês no lugar do webvis e do OpenDSS |
 | `test_collector.py` | 18 | Não | Alinhamento das colunas do CSV de resultados (`collector.Collector`) |
 | `test_element_specs.py` | 105 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
-| `test_error_handling.py` | 26 | Sim | Propagação de erro no wrapper e no adaptador OpenDSS |
+| `test_error_handling.py` | 29 | Sim | Propagação de erro no wrapper e no adaptador OpenDSS |
 | `test_opendss_entities.py` | 37 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
 | `test_opendss_phase_reads.py` | 23 | Sim | Leitura por fase do wrapper (`opendss_wrapper.py`) |
 | `test_opendss_snapshot.py` | 19 | Sim | Cache de leituras do wrapper |
@@ -199,7 +199,7 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | `TestRegulatorMeasurements` | 6 | Toda fase de regulador reporta corrente e tensão (não zero por indexação errada); fase/winding inválidos levantam erro |
 | `TestControlWritesAreNotSwallowed` | 3 | Uma escrita de controle que falha interrompe o passo e nomeia a entidade no erro |
 | `TestSetupDone` | 1 | `setup_done()` resolve o circuito de fato |
-| `TestPvCurveBypassIsOptional` | 2 | O bypass das curvas nativas de PV do OpenDSS é ligado por padrão e pode ser desligado |
+| `TestPvSystemsLoadWithIdealConversion` | 5 | O carregamento troca a conversão DC/AC nativa dos PVSystems por uma ideal: a potência comandada sai igual (abaixo do `%cutin` declarado, a 60 °C, já na solução do construtor e depois de recompilar), e as curvas declaradas continuam reportadas |
 
 #### `test_topology_builder.py`
 

@@ -56,7 +56,6 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self.shape_data_cache = {}
         self.time_resolution = 1.0
 
-        self.bypass_native_pv_curves = True
         self._children = []
         self._extra_info = {}
         self._eids_by_type = {}
@@ -197,13 +196,17 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         topofile,
         step_size=900,
         output_graph_path=None,
-        bypass_native_pv_curves=True,
         buscoords=None,
         tolerance=None,
         max_iterations=None,
         **sim_params,
     ):
         """Inicializa o simulador e compila o circuito.
+
+        Na compilação, os PVSystems trocam as curvas de eficiência e de
+        derating térmico e os limiares de corte por versões ideais, para que a
+        potência comandada seja a injetada. As curvas declaradas continuam em
+        ``extra_info``. Ver :func:`~.opendss_pv.idealize_pvsystems`.
 
         Args:
             sid: Identificador do simulador no mosaik.
@@ -213,11 +216,6 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 processo, então um segundo circuito substituiria o primeiro.
             step_size: Passo de simulação, em segundos.
             output_graph_path: Se informado, exporta o grafo do circuito.
-            bypass_native_pv_curves: Neutraliza as curvas de eficiência e
-                derating térmico dos PVSystems. Deixe ``True`` quando o
-                inversor for modelado por outro simulador — caso contrário a
-                penalidade é aplicada duas vezes. Use ``False`` para deixar o
-                OpenDSS cuidar da conversão DC/AC.
             buscoords: Arquivo de coordenadas das barras (``Buscoords``) a
                 carregar depois do circuito. Vários alimentadores do IEEE trazem
                 o arquivo mas não o carregam no ``.dss`` principal; sem ele as
@@ -233,7 +231,6 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         self.sid = sid
         self.time_resolution = time_resolution
         self.step_size = step_size
-        self.bypass_native_pv_curves = bypass_native_pv_curves
         self.dss_wrapper = OpenDSS(
             topofile=topofile,
             time_step=datetime.timedelta(seconds=self.step_size),
@@ -288,8 +285,8 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
 
         Sem isso, o primeiro ``get_data`` — o que alimenta as conexões
         ``time_shifted`` com dados iniciais — leria a solução feita durante a
-        compilação, antes de qualquer ajuste feito na criação das entidades
-        (como o bypass das curvas nativas dos PVSystems).
+        compilação, antes de qualquer ajuste feito depois dela, na criação das
+        entidades ou pelo cenário via ``get_dss_wrapper``.
         """
         self.dss_wrapper.run_dss()
 
@@ -636,9 +633,6 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         if not pv_infos:
             return
 
-        if self.bypass_native_pv_curves:
-            self._bypass_native_pv_curves(pv_infos)
-
         for name, info in pv_infos.items():
             bus_name, nodes = _parse_bus(info.get("bus", ""))
             phases = info.get("num_phases") or len(nodes) or 3
@@ -722,24 +716,6 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
                 f"exige {necessario:.1f} kVA, mas o inversor tem {kva:.1f} kVA. "
                 "Movido por P_mult, o OpenDSS limitara a saida ao kVA e a geracao "
                 "ficara abaixo da curva. Aumente o kVA ou aproxime o pf de 1."
-            )
-
-    def _bypass_native_pv_curves(self, pv_infos):
-        """Neutraliza as curvas nativas dos PVSystems para a co-simulação.
-
-        Quem calcula eficiência e derating térmico é o simulador de inversor,
-        então deixar as curvas do OpenDSS ativas aplicaria a penalidade duas
-        vezes. As curvas originais continuam disponíveis em ``extra_info``
-        (``eff_curve_*`` e ``pt_curve_*``) para quem for modelá-las fora.
-        """
-        dss = self.dss_wrapper.dss
-        dss.text("New XYCurve.EffIdeal_Cosim npts=2 xarray=[0.0 1.0] yarray=[1.0 1.0]")
-        dss.text("New XYCurve.PTIdeal_Cosim npts=2 xarray=[0.0 100.0] yarray=[1.0 1.0]")
-
-        for name in pv_infos:
-            dss.text(
-                f"Edit PVSystem.{name} %cutin=0.0001 %cutout=0.0001 "
-                f"EffCurve=EffIdeal_Cosim P-TCurve=PTIdeal_Cosim"
             )
 
     def _check_load_profile(self, eid, name):

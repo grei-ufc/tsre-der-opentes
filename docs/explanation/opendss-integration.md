@@ -206,6 +206,12 @@ Internamente:
 
 Isso sobrepõe o controle nativo do OpenDSS, permitindo que o inversor mosaik controle a geração.
 
+Para que o `PMPP` escrito seja a potência injetada, o carregamento do circuito
+troca as curvas de eficiência (`EffCurve`) e de derating térmico (`P-TCurve`) de
+todo PVSystem por curvas planas de fator 1, e zera na prática o `%cutin` e o
+`%cutout`. As curvas declaradas continuam disponíveis em `extra_info`, para o
+inversor aplicar essas perdas do lado dele.
+
 ## Controle de Storage
 
 Para elementos Storage, o adaptador aceita `P_set`, `Q_set` e `SoC_set`:

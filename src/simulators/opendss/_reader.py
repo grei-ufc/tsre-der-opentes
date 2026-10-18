@@ -610,8 +610,13 @@ class ReaderMixin:
         return opendss_pv.get_pvsystem_power(self.dss, name)
 
     def get_all_pvsystems_info(self):
-        """Retorna dados estaticos e curvas de todos os PVSystems."""
-        return opendss_pv.get_all_pvsystems_info(self.dss)
+        """Retorna dados estaticos e curvas de todos os PVSystems.
+
+        As curvas e os limiares de corte sao os que o circuito declara, e nao
+        os ideais que o carregamento pos no motor: e deles que um simulador de
+        inversor precisa. Ver :meth:`_idealize_pvsystems`.
+        """
+        return opendss_pv.get_all_pvsystems_info(self.dss, self._declared_pv_conversion)
 
     def get_all_storages_info(self):
         """Retorna dados estaticos de todos os elementos Storage."""

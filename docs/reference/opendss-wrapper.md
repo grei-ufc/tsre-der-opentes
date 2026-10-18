@@ -24,6 +24,12 @@ Os dois são reaplicados a **cada** compilação: o `Compile` do OpenDSS repõe
 ambos no padrão, e um wrapper que recompilasse o circuito perderia o ajuste sem
 nada avisando.
 
+Também a cada compilação, antes da primeira solução, todo PVSystem troca a
+`EffCurve` e a `P-TCurve` por curvas planas de fator 1 e o `%cutin`/`%cutout`
+por `0.0001`. A potência escrita por `set_pvsystem_pq` é a que sai: sem isso o
+OpenDSS aplicaria a eficiência e o derating térmico sobre um valor que já os
+inclui, e desligaria o inversor abaixo de 20 % do kVA.
+
 Um wrapper atende a **um** circuito: o motor OpenDSS é único no processo, então
 compilar um segundo circuito substituiria o primeiro. Passar uma lista de
 caminhos levanta `TypeError`; arquivos auxiliares vão nos `Redirect` do master.
@@ -329,7 +335,10 @@ Delega para `opendss_regulator.py`. Retorna dict com `v` (tensão complexa), `i`
 
 #### `get_all_pvsystems_info()`
 
-Delega para `opendss_pv.py`. Retorna dict de todos os PVSystems com: `pmpp`, `kva`, `irradiance`, `daily`, `cutin`, `cutout`, `pt_curve`, `eff_curve`, `bus`.
+Delega para `opendss_pv.py`. Retorna dict de todos os PVSystems com: `pmpp`, `kva`, `kv`, `pf`, `irradiance`, `daily`, `pct_cutin`, `pct_cutout`, `pt_curve_x`/`_y`, `eff_curve_x`/`_y`, `bus`, `num_phases`.
+
+As curvas e os limiares são os declarados no `.dss`, lidos antes de a compilação
+os trocar pelos ideais — e não os que o motor usa de fato.
 
 #### `set_pvsystem_pq(name, p_des, q_des)`
 

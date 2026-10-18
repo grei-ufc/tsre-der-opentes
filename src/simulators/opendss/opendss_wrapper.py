@@ -114,6 +114,9 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin):
         # ver apply_solution_settings, chamada de compile_circuit e de redirect.
         self._tolerance = tolerance
         self._max_iterations = max_iterations
+        # Curvas e limiares que o circuito declara para os PVSystems, antes de
+        # o carregamento troca-los pelos ideais; ver _idealize_pvsystems.
+        self._declared_pv_conversion: dict[str, dict[str, object]] = {}
 
         self.print("Compiling...")
         self.warn_if_engine_already_in_use()

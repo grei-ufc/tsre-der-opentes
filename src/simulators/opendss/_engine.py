@@ -11,6 +11,7 @@ import os
 import pathlib
 from typing import Any
 
+from . import opendss_pv
 from ._types import OpenDSSException
 
 
@@ -19,7 +20,8 @@ class EngineMixin:
 
     Espera de quem compoe: ``self.dss``, ``self._snapshot``,
     ``self._node_index``, ``self.fail_on_error``, ``self.includes_elements``,
-    ``self._tolerance`` e ``self._max_iterations``.
+    ``self._tolerance`` e ``self._max_iterations``. Preenche
+    ``self._declared_pv_conversion`` a cada compilacao.
     """
 
     def warn_if_engine_already_in_use(self) -> None:
@@ -93,6 +95,7 @@ class EngineMixin:
                 )
 
             self.apply_solution_settings()
+            self._idealize_pvsystems()
         finally:
             os.chdir(base_dir)
 
@@ -113,6 +116,21 @@ class EngineMixin:
             self.dss.solution.tolerance = self._tolerance
         if self._max_iterations is not None:
             self.dss.solution.max_iterations = self._max_iterations
+
+    def _idealize_pvsystems(self) -> None:
+        """Põe a conversão DC/AC ideal em todo PVSystem do circuito recém-compilado.
+
+        Faz parte do carregamento, e não da criação das entidades: assim a
+        primeira solução, a do construtor, já sai com o modelo que a
+        co-simulação usa. E, como o ``Compile`` traz de volta as curvas
+        declaradas, é reaplicada a cada compilação, como
+        :meth:`apply_solution_settings`.
+
+        Roda uma vez por compilação, e só: uma segunda chamada leria as curvas
+        ideais como se fossem as declaradas. Ver
+        :func:`~.opendss_pv.idealize_pvsystems`.
+        """
+        self._declared_pv_conversion = opendss_pv.idealize_pvsystems(self.dss)
 
     def invalidate_snapshot(self) -> None:
         """Drop cached solution results.
@@ -150,8 +168,10 @@ class EngineMixin:
         self.print(f"Running file: {filename}")
         self.invalidate_snapshot()
         self.dss.text(f'compile "{filename}"')
-        # O compile repoe os ajustes de solucao; ver apply_solution_settings.
+        # O compile repoe os ajustes de solucao e as curvas declaradas dos
+        # PVSystems; ver apply_solution_settings e _idealize_pvsystems.
         self.apply_solution_settings()
+        self._idealize_pvsystems()
 
     def run_dss(self, no_controls: bool = False) -> None:
         """Resolve o fluxo de potência e confere se a solução convergiu.

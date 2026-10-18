@@ -104,8 +104,7 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
 
 ```python
 def init(self, sid, time_resolution, topofile, step_size=900, output_graph_path=None,
-         bypass_native_pv_curves=True, buscoords=None,
-         tolerance=None, max_iterations=None)
+         buscoords=None, tolerance=None, max_iterations=None)
 ```
 
 | Parâmetro | Tipo | Default | Descrição |
@@ -113,10 +112,16 @@ def init(self, sid, time_resolution, topofile, step_size=900, output_graph_path=
 | `topofile` | `str` | — | Caminho do arquivo `.dss` master. Um circuito por simulação: o motor OpenDSS é único no processo, então um segundo circuito substituiria o primeiro |
 | `step_size` | `int` | 900 | Passo de tempo em segundos |
 | `output_graph_path` | `str \| None` | `None` | Se fornecido, exporta topologia JSON |
-| `bypass_native_pv_curves` | `bool` | `True` | Neutraliza as curvas de eficiência e derating dos PVSystems, quando o inversor é modelado por outro simulador |
 | `buscoords` | `str \| None` | `None` | Arquivo `Buscoords` a carregar após o circuito. Vários alimentadores do IEEE trazem o arquivo mas não o carregam no `.dss` principal |
 | `tolerance` | `float \| None` | `None` | Critério de convergência do fluxo. `None` mantém o padrão do motor, `1e-4` |
 | `max_iterations` | `int \| None` | `None` | Limite de iterações. `None` mantém o padrão do motor, `15` — **leia o aviso sobre convergência abaixo** |
+
+Ao carregar o circuito, os PVSystems trocam a `EffCurve` e a `P-TCurve` por
+curvas planas de fator 1 e o `%cutin`/`%cutout` por um limiar praticamente nulo:
+a potência comandada (`P_des` ou `P_mult`) é a injetada, sem perdas de conversão
+aplicadas pelo OpenDSS. As curvas e os limiares declarados no `.dss` continuam
+em `extra_info` (`eff_curve_*`, `pt_curve_*`, `pct_cutin`, `pct_cutout`), para o
+simulador de inversor aplicá-los do lado dele.
 
 ### create()
 

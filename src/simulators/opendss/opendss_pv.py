@@ -7,10 +7,60 @@ measurements.
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
+# Curvas planas, de fator 1 em toda a faixa, e limiar de corte (em % do kVA)
+# que o carregamento do circuito poe no lugar dos declarados. Ver
+# idealize_pvsystems.
+IDEAL_EFF_CURVE = "EffIdeal_Cosim"
+IDEAL_PT_CURVE = "PTIdeal_Cosim"
+IDEAL_CUT_PCT = 0.0001
 
-def get_all_pvsystems_info(dss: Any) -> dict[str, dict[str, Any]]:
+
+def idealize_pvsystems(dss: Any) -> dict[str, dict[str, Any]]:
+    """Troca a conversão DC/AC nativa de todo PVSystem por uma ideal.
+
+    A potência de um PVSystem chega ao motor já calculada — pelo inversor
+    modelado em outro simulador, ou pela curva de multiplicadores — e entra
+    como ``pmpp`` com ``irradiance=1`` (ver :func:`set_pvsystem_pq`). O modelo
+    nativo ainda a multiplicaria pela ``EffCurve`` e pela ``P-TCurve``, e
+    desligaria o inversor abaixo do ``%cutin``, que por padrão é 20 % do kVA:
+    a injeção sairia menor que a comandada, e zerada nas pontas do dia, sem
+    nada avisando.
+
+    Cada PVSystem passa a usar duas curvas planas e limiares de corte
+    praticamente nulos, de modo que a potência escrita é a que sai.
+
+    Args:
+        dss: Active ``py_dss_interface.DSS`` instance.
+
+    Returns:
+        O modelo de conversão que o circuito declarava, por PVSystem, lido
+        antes da troca: ``pct_cutin``, ``pct_cutout``, ``pt_curve_x``/``_y`` e
+        ``eff_curve_x``/``_y``. É o que um simulador de inversor precisa para
+        aplicar essas perdas do lado dele.
+    """
+    names = _pvsystem_names(dss)
+    declared = {name: _read_conversion_model(dss, name) for name in names}
+    if not names:
+        return declared
+
+    dss.text(f"New XYCurve.{IDEAL_EFF_CURVE} npts=2 xarray=[0.0 1.0] yarray=[1.0 1.0]")
+    dss.text(f"New XYCurve.{IDEAL_PT_CURVE} npts=2 xarray=[0.0 100.0] yarray=[1.0 1.0]")
+
+    for name in names:
+        dss.text(
+            f"Edit PVSystem.{name} %cutin={IDEAL_CUT_PCT} %cutout={IDEAL_CUT_PCT} "
+            f"EffCurve={IDEAL_EFF_CURVE} P-TCurve={IDEAL_PT_CURVE}"
+        )
+
+    return declared
+
+
+def get_all_pvsystems_info(
+    dss: Any, declared: dict[str, dict[str, Any]] | None = None
+) -> dict[str, dict[str, Any]]:
     """Return static data and curves for every PVSystem in the circuit.
 
     Automatically reads the attached XYCurves (``P-TCurve``, ``EffCurve``)
@@ -18,26 +68,24 @@ def get_all_pvsystems_info(dss: Any) -> dict[str, dict[str, Any]]:
 
     Args:
         dss: Active ``py_dss_interface.DSS`` instance.
+        declared: Modelo de conversão declarado no circuito, por PVSystem, como
+            devolvido por :func:`idealize_pvsystems`. Os PVSystems listados
+            nele reportam essas curvas e limiares, e não os ideais que o motor
+            usa de fato; os demais são lidos do motor.
 
     Returns:
         Dictionary mapping PVSystem names to parameter dictionaries.
     """
     pv_infos: dict[str, dict[str, Any]] = {}
-    names = dss.pvsystems.names
+    declared = declared or {}
 
-    if not names or names[0].upper() == "NONE":
-        return pv_infos
-
-    for name in names:
+    for name in _pvsystem_names(dss):
         dss.pvsystems.name = name
 
         pmpp = dss.pvsystems.pmpp
         kva = dss.pvsystems.kva
         irradiance = dss.pvsystems.irradiance
         daily = dss.text(f"? PVSystem.{name}.daily")
-
-        cutin = float(dss.text(f"? PVSystem.{name}.%cutin"))
-        cutout = float(dss.text(f"? PVSystem.{name}.%cutout"))
 
         bus_name = dss.cktelement.bus_names[0]
         num_phases = dss.cktelement.num_phases
@@ -51,11 +99,10 @@ def get_all_pvsystems_info(dss: Any) -> dict[str, dict[str, Any]]:
         # P = mult x pmpp, a reativa vale P x tan(acos(pf)). Ver write_pvsystem.
         pf = _as_float(dss.text(f"? PVSystem.{name}.pf"), 1.0)
 
-        pt_curve_name = dss.text(f"? PVSystem.{name}.P-TCurve")
-        eff_curve_name = dss.text(f"? PVSystem.{name}.EffCurve")
-
-        pt_x, pt_y = _read_xy_curve(dss, pt_curve_name)
-        eff_x, eff_y = _read_xy_curve(dss, eff_curve_name)
+        if name in declared:
+            conversion = copy.deepcopy(declared[name])
+        else:
+            conversion = _read_conversion_model(dss, name)
 
         pv_infos[name] = {
             "pmpp": pmpp,
@@ -64,12 +111,7 @@ def get_all_pvsystems_info(dss: Any) -> dict[str, dict[str, Any]]:
             "pf": pf,
             "irradiance": irradiance,
             "daily": daily,
-            "pct_cutin": cutin,
-            "pct_cutout": cutout,
-            "pt_curve_x": pt_x,
-            "pt_curve_y": pt_y,
-            "eff_curve_x": eff_x,
-            "eff_curve_y": eff_y,
+            **conversion,
             "bus": bus_name,
             "num_phases": num_phases,
         }
@@ -125,6 +167,32 @@ def _as_float(value: Any, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _pvsystem_names(dss: Any) -> list[str]:
+    """Nomes dos PVSystems do circuito; vazio se não houver nenhum."""
+    names = dss.pvsystems.names
+    if not names or names[0].upper() == "NONE":
+        return []
+    return list(names)
+
+
+def _read_conversion_model(dss: Any, name: str) -> dict[str, Any]:
+    """Limiares de corte e curvas de eficiência e P-T de um PVSystem, como no motor."""
+    cutin = float(dss.text(f"? PVSystem.{name}.%cutin"))
+    cutout = float(dss.text(f"? PVSystem.{name}.%cutout"))
+
+    pt_x, pt_y = _read_xy_curve(dss, dss.text(f"? PVSystem.{name}.P-TCurve"))
+    eff_x, eff_y = _read_xy_curve(dss, dss.text(f"? PVSystem.{name}.EffCurve"))
+
+    return {
+        "pct_cutin": cutin,
+        "pct_cutout": cutout,
+        "pt_curve_x": pt_x,
+        "pt_curve_y": pt_y,
+        "eff_curve_x": eff_x,
+        "eff_curve_y": eff_y,
+    }
 
 
 def _read_xy_curve(dss: Any, curve_name: str) -> tuple[list[float], list[float]]:
