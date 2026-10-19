@@ -61,8 +61,7 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
         "Bus": {
             "public": False,
             "params": [],
-            "attrs": ["V1_pu", "V1_ang", "V2_pu", "V2_ang", "V3_pu", "V3_ang",
-                       "V_min_pu", "V_max_pu", "V_mean_pu", "V_unb_pct"],
+            "attrs": ["V1_pu", "V1_ang", "V2_pu", "V2_ang", "V3_pu", "V3_ang"],
         },
         "Transformer": {
             "public": False,
@@ -183,8 +182,6 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | Line | `Loading1_pct..Loading3_pct` | `float` | Carregamento por fase: corrente em % de `normamps` — **leia o aviso abaixo** |
 | Bus | `V1_pu..V3_pu` | `float` | Tensão por fase (p.u.); `NaN` na fase que a barra não tem |
 | Bus | `V1_ang..V3_ang` | `float` | Ângulo por fase (graus) |
-| Bus | `V_min_pu`, `V_max_pu`, `V_mean_pu` | `float` | Extremos e média entre as **fases presentes** |
-| Bus | `V_unb_pct` | `float` | Desequilíbrio NEMA: maior desvio em relação à média, em % |
 | Transformer | `P1_kw..P3_kw` | `float` | Potência ativa por fase no enrolamento 1 (kW) |
 | Transformer | `Q1_kvar..Q3_kvar` | `float` | Potência reativa por fase no enrolamento 1 (kvar) |
 | Transformer | `I1_A..I3_A` | `float` | Corrente por fase (A) |

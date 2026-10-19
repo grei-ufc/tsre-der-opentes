@@ -16,7 +16,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
-from ._utils import ABSENT, normalize_zero, present_phases, sum_phases
+from ._utils import ABSENT, normalize_zero, sum_phases
 
 # Fontes de leitura de um elemento, resolvidas sob demanda por `read_phases`.
 SOURCE_P = "p"
@@ -264,8 +264,12 @@ def read_phases(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[s
 
 
 def read_bus(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[str, Any]:
-    """Lê tensões de barra; módulo e ângulo vêm de leituras em bloco distintas."""
-    attrs = list(attrs)
+    """Lê tensões de barra; módulo e ângulo vêm de leituras em bloco distintas.
+
+    Só por fase, com :data:`~._utils.ABSENT` na fase que a barra não tem.
+    Resumir a barra num escalar (mínimo, média, desequilíbrio) fica com quem
+    consome — a visualização já faz a sua redução sobre as três fases.
+    """
     cache: dict[str, list[float]] = {}
     result: dict[str, Any] = {}
 
@@ -284,60 +288,6 @@ def read_bus(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[str,
             continue
         kind, index, factor = mapping
         result[attr] = source(kind)[index] * factor
-
-    wanted = [attr for attr in attrs if attr in BUS_AGGREGATES]
-    if wanted:
-        result.update(bus_aggregates(source("vmag"), wanted))
-
-    return result
-
-
-BUS_AGGREGATES = ("V_min_pu", "V_max_pu", "V_mean_pu", "V_unb_pct")
-
-
-def bus_aggregates(vmag_pu: Iterable[float], attrs: Iterable[str]) -> dict[str, float]:
-    """Resume as tensões de uma barra num escalar por atributo.
-
-    Só as fases presentes entram na conta. ``get_bus_vmag_pu`` devolve sempre
-    três valores, com :data:`~._utils.ABSENT` onde a barra não tem fase;
-    incluí-las faria um ramal monofásico parecer estar com 2/3 da tensão
-    colapsada — e é justamente esse número que colore o mapa de calor.
-
-    A presença é decidida por ``isnan``, e não por o valor ser diferente de
-    zero: uma barra em curto franco marca 0.0 pu de verdade, e esse zero tem de
-    entrar no mínimo em vez de sumir da conta.
-
-    Args:
-        vmag_pu: Tensões por fase em pu, na ordem A, B, C.
-        attrs: Quais agregados calcular, dentre :data:`BUS_AGGREGATES`.
-
-    Returns:
-        Mapa atributo -> valor. Numa barra sem nenhuma fase todos os agregados
-        são :data:`~._utils.ABSENT`.
-    """
-    present = present_phases(vmag_pu)
-    result: dict[str, float] = {}
-
-    if not present:
-        return dict.fromkeys(attrs, ABSENT)
-
-    mean = sum(present) / len(present)
-
-    for attr in attrs:
-        if attr == "V_min_pu":
-            result[attr] = min(present)
-        elif attr == "V_max_pu":
-            result[attr] = max(present)
-        elif attr == "V_mean_pu":
-            result[attr] = mean
-        elif attr == "V_unb_pct":
-            # Desequilíbrio no sentido NEMA (LVUR): maior desvio em relação à
-            # média, em porcentagem. Com uma fase só não há desequilíbrio a
-            # medir, e numa barra inteira em 0.0 pu — curto franco — não há
-            # média por que dividir: o desequilíbrio é indefinido, e 0.0 diz
-            # isso sem interromper a leitura das outras barras.
-            deviation = max(abs(v - mean) for v in present) if len(present) > 1 else 0.0
-            result[attr] = 100.0 * deviation / mean if mean else 0.0
 
     return result
 
@@ -750,7 +700,6 @@ MODEL_SPECS: dict[str, ModelSpec] = {
             "V2_ang": ("vang", 1, 1.0),
             "V3_ang": ("vang", 2, 1.0),
         },
-        extra_outputs=BUS_AGGREGATES,
     ),
     "Load": ModelSpec(
         dss_class="Load",

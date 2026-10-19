@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O projeto usa **pytest**, com 17 arquivos e 644 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 643 passed, 1 skipped).
+O projeto usa **pytest**, com 17 arquivos e 638 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 637 passed, 1 skipped).
 
 Duas categorias, misturadas entre os arquivos:
 
@@ -40,7 +40,7 @@ uv run --no-sync python -m pytest tests/ -v --tb=long
 | `test_webvis_server.py` | 12 | Não³ | Arquivos estáticos e ciclo de vida do servidor da visualização |
 | `test_opendss_visualization.py` | 13 | Não | Presets e `attach_webvis`, com dublês no lugar do webvis e do OpenDSS |
 | `test_collector.py` | 18 | Não | Alinhamento das colunas do CSV de resultados (`collector.Collector`) |
-| `test_element_specs.py` | 133 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
+| `test_element_specs.py` | 127 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
 | `test_error_handling.py` | 43 | Sim | Propagação de erro no wrapper e no adaptador OpenDSS |
 | `test_opendss_entities.py` | 37 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
 | `test_opendss_phase_reads.py` | 23 | Sim | Leitura por fase do wrapper (`opendss_wrapper.py`) |
@@ -175,9 +175,8 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | Classe | Testes | O que valida |
 |---|---|---|
 | `TestAggregators` | 4 | `sum_values` soma; `single_value` avisa e não descarta silenciosamente um valor concorrente |
-| `TestBusAggregates` | 7 | Fase ausente sai da conta; a barra em curto (0.0 pu) entra nela, porque zero é uma medição e não uma ausência |
 | `TestPhaseAttrMap` | 2 | Sinal se aplica à potência, não à corrente; escala se aplica aos totais |
-| `TestGeneratedMeta` | 5 | `META` gerada tem todo modelo, sem atributo duplicado; todo modelo com input declara um writer |
+| `TestGeneratedMeta` | 6 | `META` gerada tem todo modelo, sem atributo duplicado; todo modelo com input declara um writer; a barra expõe só as tensões por fase |
 | `TestMetaMatchesImplementation` | 4 | Toda saída declarada é de fato produzida por `get_data`; atributo desconhecido é ignorado, não quebra |
 | `TestInputRouting` | 6 | Setpoint de PV chega ao circuito; múltiplos controladores no mesmo elemento são somados; PV monofásico cai na fase certa |
 | `TestGenerationInPerUnit` | 8 | Geração em pu da placa: um PV trifásico e um monofásico a 10% marcam o mesmo, a partir de kW 3× diferentes. A placa vem da criação das entidades, e não do motor, porque o writer sobrescreve o `pmpp` a cada passo |

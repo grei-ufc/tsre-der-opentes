@@ -14,14 +14,11 @@ import pytest
 
 sys.path.insert(0, "src")
 
-from simulators.opendss._utils import ABSENT
 from simulators.opendss.api_opendss import OpenDSSSimulator
 from simulators.opendss.element_specs import (
-    BUS_AGGREGATES,
     LINE_LOADING_OUTPUTS,
     MODEL_SPECS,
     build_meta,
-    bus_aggregates,
     phase_attr_map,
     reactive_from_pf,
     single_value,
@@ -65,67 +62,6 @@ class TestAggregators:
         """The old code took [0] with no trace; that is the regression guarded here."""
         single_value("tap", "RegControl-x", [3, 7])
         assert capsys.readouterr().out != ""
-
-
-class TestBusAggregates:
-    """One number per bus, for scenarios and for the heatmap of the web view.
-
-    ``get_bus_vmag_pu`` always returns three values, with ``NaN`` where the bus
-    has no phase. Counting those would report a single-phase lateral as being at
-    a third of its voltage; contá-las como zero, que era a convenção anterior,
-    confundia a fase ausente com a barra em curto.
-    """
-
-    def test_absent_phases_do_not_count(self):
-        result = bus_aggregates([ABSENT, 0.97, ABSENT], BUS_AGGREGATES)
-
-        assert result["V_min_pu"] == pytest.approx(0.97)
-        assert result["V_max_pu"] == pytest.approx(0.97)
-        assert result["V_mean_pu"] == pytest.approx(0.97)
-        assert result["V_unb_pct"] == pytest.approx(0.0)
-
-    def test_a_collapsed_phase_counts(self):
-        """0.0 pu é um curto franco, não uma fase ausente.
-
-        Enquanto a ausência era 0.0 as duas eram indistinguíveis, e a barra em
-        curto — justamente a que o mapa de calor deve destacar — saía da conta.
-        """
-        result = bus_aggregates([0.0, 0.97, 0.98], BUS_AGGREGATES)
-
-        assert result["V_min_pu"] == 0.0
-
-    def test_three_phase_bus(self):
-        result = bus_aggregates([1.00, 0.98, 0.96], BUS_AGGREGATES)
-
-        assert result["V_min_pu"] == pytest.approx(0.96)
-        assert result["V_max_pu"] == pytest.approx(1.00)
-        assert result["V_mean_pu"] == pytest.approx(0.98)
-        # NEMA: maior desvio (0.02) sobre a média (0.98).
-        assert result["V_unb_pct"] == pytest.approx(100 * 0.02 / 0.98)
-
-    def test_bus_without_any_phase_is_absent_not_an_error(self):
-        result = bus_aggregates([ABSENT, ABSENT, ABSENT], BUS_AGGREGATES)
-
-        assert set(result) == set(BUS_AGGREGATES)
-        assert all(math.isnan(v) for v in result.values())
-
-    def test_a_fully_collapsed_bus_reads_zero(self):
-        """Três fases em 0.0 pu existem e valem zero — não são ausência."""
-        result = bus_aggregates([0.0, 0.0, 0.0], BUS_AGGREGATES)
-
-        assert result["V_min_pu"] == 0.0
-        assert result["V_max_pu"] == 0.0
-
-    def test_only_requested_attributes_are_computed(self):
-        assert set(bus_aggregates([1.0, 1.0, 1.0], ["V_min_pu"])) == {"V_min_pu"}
-
-    def test_reader_serves_them_from_the_circuit(self, sim):
-        eid = next(e for e in sim._eids_by_type["Bus"])
-        data = sim.get_data({eid: [*BUS_AGGREGATES, "V1_pu", "V2_pu", "V3_pu"]})[eid]
-
-        phases = [v for v in (data["V1_pu"], data["V2_pu"], data["V3_pu"]) if not math.isnan(v)]
-        assert data["V_min_pu"] == pytest.approx(min(phases))
-        assert data["V_max_pu"] == pytest.approx(max(phases))
 
 
 class TestPhaseAttrMap:
@@ -208,6 +144,16 @@ class TestGeneratedMeta:
         for model, spec in build_meta()["models"].items():
             attrs = spec["attrs"]
             assert len(attrs) == len(set(attrs)), f"{model} has duplicate attrs"
+
+    def test_bus_exposes_only_per_phase_voltages(self):
+        """Os agregados por barra (`V_min_pu`, `V_unb_pct`...) saíram do adaptador.
+
+        Nada no repositório os consumia: a visualização reduz as três fases por
+        conta própria. Resumir a barra fica com quem coleta.
+        """
+        attrs = set(build_meta()["models"]["Bus"]["attrs"])
+
+        assert attrs == {"V1_pu", "V2_pu", "V3_pu", "V1_ang", "V2_ang", "V3_ang"}
 
     def test_tap_is_both_input_and_output_but_listed_once(self):
         attrs = build_meta()["models"]["RegControl"]["attrs"]
