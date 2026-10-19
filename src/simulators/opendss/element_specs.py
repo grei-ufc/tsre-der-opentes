@@ -366,8 +366,8 @@ def read_circuit(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[
 
     As leituras vêm do motor, não do cache da solução: são escalares de uma
     chamada só. Os totais por classe de ``get_circuit_info`` ficam de fora de
-    propósito — as chaves são rótulos com espaço e o conjunto varia com o
-    circuito, e a META não pode depender disso.
+    propósito — as chaves são rótulos com espaço, que não servem de atributo
+    mosaik.
     """
     attrs = list(attrs)
     result: dict[str, Any] = {}

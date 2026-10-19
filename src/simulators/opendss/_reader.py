@@ -23,6 +23,9 @@ from . import (
 from ._types import ElementSnapshot, OpenDSSException
 from ._utils import ABSENT, map_to_phases, sum_phases
 
+# Classes totalizadas por get_circuit_info, na ordem das chaves.
+CIRCUIT_INFO_CLASSES = ("Load", "PVSystem", "Generator", "Storage")
+
 
 class ReaderMixin:
     """Consultas de barras, elementos, propriedades e totais do circuito."""
@@ -574,10 +577,10 @@ class ReaderMixin:
         """
         p_total_kw, q_total_kvar = self.get_circuit_power()
         p_loss_kw, q_loss_kvar = self.get_losses()
+        # Toda classe entra, com zero se o circuito não tiver nenhum elemento
+        # dela: o conjunto de chaves não depende do circuito.
         total_by_class = {
-            class_name: self.get_total_power(class_name)
-            for class_name, included in self.includes_elements.items()
-            if included
+            class_name: self.get_total_power(class_name) for class_name in CIRCUIT_INFO_CLASSES
         }
 
         out = {

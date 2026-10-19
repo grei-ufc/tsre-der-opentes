@@ -20,8 +20,8 @@ class EngineMixin:
     """Compilacao, execucao e invalidacao de cache.
 
     Espera de quem compoe: ``self.dss``, ``self._snapshot``,
-    ``self._node_index``, ``self.fail_on_error``, ``self.includes_elements``,
-    ``self._tolerance`` e ``self._max_iterations``. Preenche
+    ``self._node_index``, ``self.fail_on_error``, ``self._tolerance`` e
+    ``self._max_iterations``. Preenche
     ``self._declared_pv_conversion`` e ``self._declared_generator_band`` a cada
     compilacao.
     """
@@ -256,9 +256,11 @@ class EngineMixin:
             else:
                 self.dss.solution.solve()
 
-            # Manually update storage state after solution
-            if self.includes_elements.get("Storage", False):
-                self.dss.text("UpdateStorage")
+            # Em snapshot o motor resolve o fluxo mas não integra a energia das
+            # baterias: é este comando que faz o SoC andar um passo. Sem bateria
+            # ele não faz nada, e por isso roda sempre — a guarda que havia
+            # nunca desligava, e não acompanharia uma recompilação.
+            self.dss.text("UpdateStorage")
 
         except Exception as e:
             self.dss.text("export Eventlog")

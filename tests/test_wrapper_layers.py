@@ -200,6 +200,19 @@ class TestReadersDoNotMutate:
 
         assert "Total P (MW)" in info
 
+    def test_circuit_info_keys_do_not_depend_on_the_circuit(self, dss):
+        """Toda classe aparece, com zero se o circuito não a tiver.
+
+        A seleção de classes vinha de `includes_elements`, cuja detecção dava
+        `True` para tudo — o `py_dss_interface` devolve `['None']` para uma
+        classe vazia. O conjunto de chaves nunca variou; agora é declarado fixo.
+        """
+        info = dss.get_circuit_info()
+
+        for classe in ("Load", "PV", "Generator", "Storage"):
+            assert f"Total {classe} P (MW)" in info
+        assert info["Total Generator P (MW)"] == 0.0
+
     def test_reads_leave_the_cache_populated(self, dss):
         dss.run_dss()
         dss.get_bus_vmag_pu("675")

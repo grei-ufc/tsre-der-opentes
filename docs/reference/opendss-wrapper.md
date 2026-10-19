@@ -42,7 +42,9 @@ Um wrapper atende a **um** circuito: o motor OpenDSS é único no processo, ent�
 compilar um segundo circuito substituiria o primeiro. Passar uma lista de
 caminhos levanta `TypeError`; arquivos auxiliares vão nos `Redirect` do master.
 
-Detecta automaticamente quais classes de elementos existem no circuito: `Load`, `PVSystem`, `Generator`, `Storage`.
+A cada solução roda o `UpdateStorage`, que integra a energia das baterias no
+passo — em snapshot o motor não o faz sozinho. Sem bateria o comando não faz
+nada.
 
 ---
 

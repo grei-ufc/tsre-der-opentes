@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O projeto usa **pytest**, com 17 arquivos e 631 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 630 passed, 1 skipped).
+O projeto usa **pytest**, com 17 arquivos e 633 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 632 passed, 1 skipped).
 
 Duas categorias, misturadas entre os arquivos:
 
@@ -40,13 +40,13 @@ uv run --no-sync python -m pytest tests/ -v --tb=long
 | `test_webvis_server.py` | 12 | Não³ | Arquivos estáticos e ciclo de vida do servidor da visualização |
 | `test_opendss_visualization.py` | 13 | Não | Presets e `attach_webvis`, com dublês no lugar do webvis e do OpenDSS |
 | `test_collector.py` | 18 | Não | Alinhamento das colunas do CSV de resultados (`collector.Collector`) |
-| `test_element_specs.py` | 126 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
+| `test_element_specs.py` | 127 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
 | `test_error_handling.py` | 40 | Sim | Propagação de erro no wrapper e no adaptador OpenDSS |
 | `test_opendss_entities.py` | 37 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
 | `test_opendss_phase_reads.py` | 23 | Sim | Leitura por fase do wrapper (`opendss_wrapper.py`) |
 | `test_opendss_snapshot.py` | 19 | Sim | Cache de leituras do wrapper |
 | `test_topology_builder.py` | 44 | Sim | `opendss.topology_builder.build_graph` |
-| `test_wrapper_layers.py` | 17 | Sim | Composição em mixins do wrapper (`_engine`/`_reader`/`_writer`) |
+| `test_wrapper_layers.py` | 18 | Sim | Composição em mixins do wrapper (`_engine`/`_reader`/`_writer`) |
 | `test_scenario_smoke.py` | 3 | Sim | Um cenário de ponta a ponta, com CSV de saída |
 
 ¹ Métodos de teste (não casos parametrizados — vários métodos rodam mais de um caso via `@pytest.mark.parametrize`).
@@ -134,7 +134,7 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | `TestPublicApiIsPreserved` | 2 | Todo método usado por cenários/notebooks continua acessível na fachada `OpenDSS` |
 | `TestPowerTotal` | 3 | Total de potência bate com a soma das fases; terminais opostos de uma linha têm sinais opostos |
 | `TestCompileIsRobust` | 4 | Construir o wrapper não muda o diretório de trabalho do processo; caminho relativo resolve contra o diretório do chamador; arquivo ausente levanta erro em vez de compilar um circuito vazio |
-| `TestReadersDoNotMutate` | 3 | Uma leitura (`get_circuit_info`) nunca chama `run_dss`; escrita limpa o cache |
+| `TestReadersDoNotMutate` | 4 | Uma leitura (`get_circuit_info`) nunca chama `run_dss`, e reporta as mesmas classes em qualquer circuito; escrita limpa o cache |
 
 #### `test_opendss_snapshot.py`
 
@@ -181,7 +181,7 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | `TestMetaMatchesImplementation` | 4 | Toda saída declarada é de fato produzida por `get_data`; atributo desconhecido é ignorado, não quebra |
 | `TestInputRouting` | 6 | Setpoint de PV chega ao circuito; múltiplos controladores no mesmo elemento são somados; PV monofásico cai na fase certa |
 | `TestGenerationInPerUnit` | 8 | Geração em pu da placa: um PV trifásico e um monofásico a 10% marcam o mesmo, a partir de kW 3× diferentes. A placa vem da criação das entidades, e não do motor, porque o writer sobrescreve o `pmpp` a cada passo |
-| `TestStorage` | 5 | SoC lido e aplicado corretamente, com clamp em `[0, 1]`; Storage monofásico reporta na própria fase |
+| `TestStorage` | 6 | SoC lido e aplicado corretamente, com clamp em `[0, 1]`; o SoC acompanha a potência a cada passo; Storage monofásico reporta na própria fase |
 | `TestExtraInfoIsolation` | 1 | `extra_info` de um filho é uma cópia, não uma referência viva ao estado do simulador |
 | `TestGenerator` | 6 | Cada Generator vira entidade ligada à sua barra, com a placa em `extra_info`; toda saída declarada é produzida; gerador monofásico reporta na própria fase |
 | `TestGeneratorDispatch` | 9 | `P_set`/`Q_set` chegam iguais; `P_set` sozinho segue o `pf` declarado (da placa, não do motor); `P_mult` escala `kW` e `kvar`, preservando até `pf` adiantado; fora de [0, 1] ou junto de `P_set` interrompe |

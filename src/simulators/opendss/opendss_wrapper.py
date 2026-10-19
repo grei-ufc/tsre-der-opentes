@@ -128,24 +128,6 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin):
         self.warn_if_engine_already_in_use()
         self.compile_circuit(topofile, base_dir)
 
-        # Checks for the existence of specific elements to optimize data retrieval
-        self.includes_elements = {
-            "Load": len(self.dss.loads.names) > 0,
-            "PVSystem": len(self.dss.pvsystems.names) > 0,
-            "Generator": len(self.dss.generators.names) > 0,
-        }
-
-        # Specific logic to handle Storage elements
-        self.dss.circuit.set_active_class("Storage")
-        storages_names = self.dss.active_class.names
-
-        if storages_names and storages_names[0] is not None:
-            self.includes_elements["Storage"] = True
-            self.storage_names = storages_names
-        else:
-            self.includes_elements["Storage"] = False
-            self.storage_names = []
-
         self.dss.solution.mode = 0  # Snapshot mode (initialization)
         self.dss.solution.number = 1
 

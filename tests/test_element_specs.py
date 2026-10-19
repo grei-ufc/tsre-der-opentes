@@ -778,6 +778,14 @@ class TestStorage:
         produced = storage_sim.get_data({"Storage-bat1": declared})["Storage-bat1"]
         assert [a for a in declared if a not in produced] == []
 
+    def test_the_soc_follows_the_power(self, storage_sim):
+        """Em snapshot é o `UpdateStorage`, depois de cada solução, que integra a energia."""
+        antes = storage_sim.get_data({"Storage-bat1": ["SoC"]})["Storage-bat1"]["SoC"]
+        storage_sim.step(1500, {"Storage-bat1": {"P_set": {"ctrl": 200.0}}}, 300)
+        depois = storage_sim.get_data({"Storage-bat1": ["SoC"]})["Storage-bat1"]["SoC"]
+
+        assert depois < antes
+
 
 @pytest.fixture(scope="module")
 def switch_sim():
