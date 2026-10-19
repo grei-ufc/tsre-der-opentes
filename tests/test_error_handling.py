@@ -91,6 +91,38 @@ class TestSetProperty:
             dss.set_property("671", "nao_existe", 1, element="Load")
 
 
+class TestSetPower:
+    """`set_power` atende Load, Generator e Storage; PVSystem tem caminho próprio."""
+
+    @pytest.mark.parametrize("element", ["PVSystem", "pvsystem", "PV"])
+    def test_a_pvsystem_is_refused_before_the_engine(self, dss, monkeypatch, element):
+        """A classe não tem `kW`: o motor recusaria com `Unknown parameter "kW"`.
+
+        `"PV"` era aceito como apelido de `PVSystem`, e o comando falhava.
+        """
+        commands = []
+        monkeypatch.setattr(dss, "run_command", lambda cmd: commands.append(cmd))
+
+        with pytest.raises(OpenDSSException, match="set_pvsystem_pq"):
+            dss.set_power("pv", p=100.0, q=0.0, element=element)
+
+        assert commands == [], f"o comando chegou ao motor: {commands}"
+
+    def test_a_pvsystem_is_refused_even_with_the_error_off(self, dss, monkeypatch):
+        """É erro de uso, não do motor: o `fail_on_error` não o alcança."""
+        monkeypatch.setattr(dss, "fail_on_error", False)
+
+        with pytest.raises(OpenDSSException, match="set_pvsystem_pq"):
+            dss.set_power("pv", p=100.0, element="PVSystem")
+
+    def test_a_load_is_still_written(self, dss):
+        # Os valores declarados no IEEE13: a fixture é compartilhada.
+        dss.set_power("671", p=1155.0, q=660.0, element="Load")
+
+        assert dss.get_property("671", "kW", "Load") == pytest.approx(1155.0)
+        assert dss.get_property("671", "kvar", "Load") == pytest.approx(660.0)
+
+
 class TestRegulatorMeasurements:
     """The phase current used to be indexed at position ``phase - 1``.
 

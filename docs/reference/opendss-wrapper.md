@@ -243,19 +243,24 @@ O escalar que acompanha `get_phase_powers`.
 Separar os dois métodos é o que dispensa uma bandeira `total` que mudaria o
 formato do retorno.
 
-#### `set_power(name, p, q, element, size=1000)`
+#### `set_power(name, p=None, q=None, element="Load")`
 
-Define potência P/Q em um elemento Load, PVSystem ou Storage.
+Define potência P/Q em um elemento Load, Generator ou Storage.
 
 | Parâmetro | Tipo | Descrição |
 |---|---|---|
 | `name` | `str` | Nome do elemento |
-| `p` | `float` | Potência ativa (W ou kW dependendo de `size`) |
-| `q` | `float` | Potência reativa |
-| `element` | `str` | Classe do elemento |
-| `size` | `int` | Fator de escala (default: 1000, converte kW→W) |
+| `p` | `float \| None` | Potência ativa (kW); `None` deixa como está |
+| `q` | `float \| None` | Potência reativa (kvar); `None` deixa como está |
+| `element` | `str` | `"Load"`, `"Generator"` ou `"Storage"` |
 
-Para Storage, determina automaticamente o estado (Charging/Discharging/Idling) com base no sinal de `p`.
+Para Storage, determina o estado pelo sinal de `p` (`> 0` descarrega, `< 0`
+carrega, `0` fica ociosa). Sem `p` nada é escrito, e sem `q` a reativa vai a
+zero.
+
+PVSystem é **recusado** com `OpenDSSException`, antes de chegar ao motor: a
+classe não tem `kW` — a saída é calculada de `Pmpp` e irradiância. Use
+`set_pvsystem_pq`.
 
 #### `get_is_open(name, element="Line", term=None)`
 

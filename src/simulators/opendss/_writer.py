@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from . import opendss_pv
+from ._types import OpenDSSException
 
 # Tolerância relativa ao conferir um valor numérico relido do motor.
 _VALUE_TOLERANCE = 1e-6
@@ -45,31 +46,46 @@ class WriterMixin:
         p: float | None = None,
         q: float | None = None,
         element: str = "Load",
-        size: float | None = None,
     ) -> None:
-        """
-        Sets the active and reactive power of an element.
+        """Define a potência ativa e reativa de uma carga, gerador ou bateria.
 
-        For 'Storage': Automatically calculates state (Charging/Discharging) and
-        Power Factor based on the sign of 'p'.
+        Load e Generator guardam a potência nas propriedades ``kW`` e ``kvar``,
+        e a escrita é direta; ``None`` deixa a grandeza como está.
+
+        Storage precisa também de um estado coerente com o sinal: ``p > 0``
+        descarrega, ``p < 0`` carrega e ``p == 0`` deixa a bateria ociosa. Sem
+        ``p`` nada é escrito; sem ``q``, a reativa vai a zero.
+
+        PVSystem não tem ``kW``: a saída é calculada de ``Pmpp`` e da
+        irradiância, e o motor recusaria o comando (``Unknown parameter "kW"``).
+        É barrado aqui, antes de chegar a ele, apontando para
+        :meth:`set_pvsystem_pq`.
 
         Args:
-            name (str): Element name.
-            p (float): Active Power (kW).
-            q (float): Reactive Power (kvar).
-            element (str): Class ('Load', 'PV', 'Storage').
-            size (float): Rated power (only for Storage).
+            name: Nome do elemento.
+            p: Potência ativa, em kW.
+            q: Potência reativa, em kvar.
+            element: Classe do elemento: ``'Load'``, ``'Generator'`` ou
+                ``'Storage'``.
+
+        Raises:
+            OpenDSSException: Se *element* for um PVSystem — um erro de uso, que
+                interrompe mesmo com ``fail_on_error`` desligado.
         """
-        element_class = "PVSystem" if element == "PV" else element
-        if element_class != "Storage":
-            cmd = f"edit {element_class}.{name}"
+        if element.lower() in ("pvsystem", "pv"):
+            raise OpenDSSException(
+                f'set_power nao comanda o PVSystem "{name}": a classe nao tem kW, e a '
+                "saida e calculada de Pmpp e irradiancia. Use set_pvsystem_pq."
+            )
+
+        if element.lower() != "storage":
+            cmd = f"edit {element}.{name}"
             if p is not None:
                 cmd += f" kW={p}"
             if q is not None:
                 cmd += f" kvar={q}"
             self.run_command(cmd)
         else:
-            # Specific logic for Storage
             if p is None:
                 return
             if q is None:
