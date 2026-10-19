@@ -3094,7 +3094,7 @@
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="s2">&quot;Grid&quot;</span><span class="p">:</span> <span class="p">{</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>            <span class="s2">&quot;public&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;topofile&quot;</span><span class="p">,</span> <span class="s2">&quot;step_size&quot;</span><span class="p">,</span> <span class="s2">&quot;output_graph_path&quot;</span><span class="p">,</span> <span class="s2">&quot;buscoords&quot;</span><span class="p">,</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                        <span class="s2">&quot;tolerance&quot;</span><span class="p">,</span> <span class="s2">&quot;max_iterations&quot;</span><span class="p">],</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                        <span class="s2">&quot;tolerance&quot;</span><span class="p">,</span> <span class="s2">&quot;max_iterations&quot;</span><span class="p">,</span> <span class="s2">&quot;fail_on_error&quot;</span><span class="p">],</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>            <span class="s2">&quot;attrs&quot;</span><span class="p">:</span> <span class="p">[],</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="p">},</span>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="s2">&quot;Circuit&quot;</span><span class="p">:</span> <span class="p">{</span>
@@ -3180,7 +3180,7 @@
 </span></code></pre></div>
 <h3 id="init">init()<a class="headerlink" href="#init" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">time_resolution</span><span class="p">,</span> <span class="n">topofile</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mi">900</span><span class="p">,</span> <span class="n">output_graph_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>         <span class="n">buscoords</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_iterations</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>         <span class="n">buscoords</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_iterations</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fail_on_error</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -3227,6 +3227,12 @@
 <td><code>int \| None</code></td>
 <td><code>None</code></td>
 <td>Limite de iterações. <code>None</code> mantém o padrão do motor, <code>15</code> — <strong>leia o aviso sobre convergência abaixo</strong></td>
+</tr>
+<tr>
+<td><code>fail_on_error</code></td>
+<td><code>bool</code></td>
+<td><code>True</code></td>
+<td>Com <code>True</code>, um erro do motor (comando recusado, fluxo que não convergiu) interrompe a simulação. Com <code>False</code>, só é impresso e a simulação segue — <strong>leia o aviso sobre convergência abaixo</strong></td>
 </tr>
 </tbody>
 </table>
@@ -3707,7 +3713,13 @@ não bastar. Um solve truncado devolve tensões que <strong>não resolvem o
 circuito</strong> e têm exatamente a mesma aparência das corretas.</p>
 <p>Desde esta versão o wrapper confere <code>converged</code> e <strong>interrompe</strong>. Quem
 prefere seguir e marcar desliga <code>fail_on_error</code> e acompanha o atributo
-<code>converged</code> do modelo <code>Circuit</code>, que registra cada passo no CSV.</p>
+<code>converged</code> do modelo <code>Circuit</code>, que registra cada passo no CSV:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">dss</span> <span class="o">=</span> <span class="n">world</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="s2">&quot;DSS&quot;</span><span class="p">,</span> <span class="n">topofile</span><span class="o">=...</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">fail_on_error</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">world</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">por_eid</span><span class="p">[</span><span class="s2">&quot;Circuit-0&quot;</span><span class="p">],</span> <span class="n">monitor</span><span class="p">,</span> <span class="s2">&quot;converged&quot;</span><span class="p">,</span> <span class="s2">&quot;iterations&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>fail_on_error</code> só alcança os erros <strong>do motor</strong>. Erros de uso — elemento
+ou propriedade inexistente, multiplicador fora da faixa, <code>P_mult</code> junto de
+<code>P_set</code> — interrompem de qualquer forma.</p>
 <p>Cuidado ao ajustar por fora: o <code>Compile</code> do OpenDSS <strong>repõe os dois no
 padrão</strong>. Por isso eles são parâmetros de <code>init()</code>, reaplicados a cada
 recompilação, em vez de um <code>run_command("set tolerance=...")</code> avulso.</p>
@@ -3715,6 +3727,33 @@ recompilação, em vez de um <code>run_command("set tolerance=...")</code> avuls
 referência de tensão — abrir a chave que isola uma barra cuja única fonte
 é um <code>PVSystem</code> — não tem solução, e o fluxo diverge em vez de convergir
 devagar.</p>
+</div>
+<div class="admonition info">
+<p class="admonition-title">Reguladores: taps só por controlador externo</p>
+<p>O controle automático dos <code>RegControl</code> do OpenDSS é travado ao carregar o
+circuito (<code>MaxTapChange=0</code>), antes da primeira solução. Os taps ficam na
+posição que o <code>.dss</code> declara durante todo o estudo, a menos que um
+controlador externo os comande pelo atributo <code>tap</code>; um tap comandado
+permanece até o próximo comando.</p>
+<p>A posição declarada aparece em <code>extra_info["tap_ini"]</code> de cada <code>RegControl</code>.
+Até esta versão o adaptador zerava os taps ao criar as entidades, e o
+<code>tap_ini</code> era sempre 0.</p>
+</div>
+<div class="admonition info">
+<p class="admonition-title">Caixas de diálogo do OpenDSS</p>
+<p>No Windows, o OpenDSS abre uma caixa de diálogo a cada comando recusado, e
+ela trava a execução até alguém clicar — com ou sem <code>fail_on_error</code>. O
+adaptador as mantém ligadas <strong>só enquanto o <code>.dss</code> compila</strong>: o <code>Redirect</code>
+informa apenas o erro da última linha do arquivo, e um erro de digitação no
+meio dele só aparece pela caixa.</p>
+<p>Fora da compilação elas ficam desligadas, e o erro volta como código e
+texto, que o wrapper confere: todo comando recusado passa a interromper (ou
+só a ser impresso, com <code>fail_on_error=False</code>). Antes só se procurava a
+palavra "error" no texto, e a maioria das mensagens do motor —
+<code>Unknown parameter</code>, <code>Unknown Command</code>, <code>... not found</code> — passava como
+aviso.</p>
+<p>Fica um ponto cego, do próprio motor: <code>Edit</code> num elemento que não existe
+não devolve erro nenhum.</p>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Chaves</p>
@@ -3750,7 +3789,7 @@ alimentador inteiro — passa 564 A e marca <strong>141%</strong>. Ela não est�
 sobrecarregada; o que está errado é o denominador.</p>
 <p>Para obter um número que signifique alguma coisa, declare a ampacidade onde
 ela pertence, no <code>.dss</code>:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>New LineCode.acsr336 nphases=3 ... normamps=530 emergamps=700
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>New LineCode.acsr336 nphases=3 ... normamps=530 emergamps=700
 </span></code></pre></div>
 <p>O adaptador lê o que estiver no circuito, sem configuração nenhuma. Os dois
 limites em vigor ficam visíveis em <code>extra_info</code> de cada linha
@@ -3945,17 +3984,17 @@ controle.</p>
 <strong>Classe</strong>: <code>PVPanelSim</code>
 <strong>Tipo</strong>: <code>time-based</code></p>
 <h3 id="meta_1">META<a class="headerlink" href="#meta_1" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="s2">&quot;api_version&quot;</span><span class="p">:</span> <span class="s2">&quot;3.0&quot;</span><span class="p">,</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;time-based&quot;</span><span class="p">,</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="s2">&quot;PVPanel&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>            <span class="s2">&quot;public&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;P_mpp&quot;</span><span class="p">,</span> <span class="s2">&quot;irradiance_base&quot;</span><span class="p">,</span> <span class="s2">&quot;pt_curve_x&quot;</span><span class="p">,</span> <span class="s2">&quot;pt_curve_y&quot;</span><span class="p">],</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>            <span class="s2">&quot;attrs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;irradiance&quot;</span><span class="p">,</span> <span class="s2">&quot;temperature&quot;</span><span class="p">,</span> <span class="s2">&quot;P_dc&quot;</span><span class="p">],</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        <span class="p">}</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="p">}</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">}</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="s2">&quot;api_version&quot;</span><span class="p">:</span> <span class="s2">&quot;3.0&quot;</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;time-based&quot;</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="s2">&quot;PVPanel&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>            <span class="s2">&quot;public&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;P_mpp&quot;</span><span class="p">,</span> <span class="s2">&quot;irradiance_base&quot;</span><span class="p">,</span> <span class="s2">&quot;pt_curve_x&quot;</span><span class="p">,</span> <span class="s2">&quot;pt_curve_y&quot;</span><span class="p">],</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>            <span class="s2">&quot;attrs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;irradiance&quot;</span><span class="p">,</span> <span class="s2">&quot;temperature&quot;</span><span class="p">,</span> <span class="s2">&quot;P_dc&quot;</span><span class="p">],</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>        <span class="p">}</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="p">}</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="p">}</span>
 </span></code></pre></div>
 <h3 id="parametros-de-criacao_1">Parâmetros de criação<a class="headerlink" href="#parametros-de-criacao_1" title="Permanent link">&para;</a></h3>
 <table>
@@ -4026,19 +4065,19 @@ controle.</p>
 <strong>Classe</strong>: <code>BatterySim</code>
 <strong>Tipo</strong>: <code>time-based</code></p>
 <h3 id="meta_2">META<a class="headerlink" href="#meta_2" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="s2">&quot;api_version&quot;</span><span class="p">:</span> <span class="s2">&quot;3.0&quot;</span><span class="p">,</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;time-based&quot;</span><span class="p">,</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="s2">&quot;Battery&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>            <span class="s2">&quot;public&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;kw_rated&quot;</span><span class="p">,</span> <span class="s2">&quot;kwh_rated&quot;</span><span class="p">,</span> <span class="s2">&quot;kwh_stored&quot;</span><span class="p">,</span> <span class="s2">&quot;pct_reserve&quot;</span><span class="p">,</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>                        <span class="s2">&quot;pct_eff_charge&quot;</span><span class="p">,</span> <span class="s2">&quot;pct_eff_discharge&quot;</span><span class="p">,</span> <span class="s2">&quot;pct_idling_kw&quot;</span><span class="p">,</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>                        <span class="s2">&quot;kva_rated&quot;</span><span class="p">],</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>            <span class="s2">&quot;attrs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;P_ref&quot;</span><span class="p">,</span> <span class="s2">&quot;Q_ref&quot;</span><span class="p">,</span> <span class="s2">&quot;P_out&quot;</span><span class="p">,</span> <span class="s2">&quot;Q_out&quot;</span><span class="p">,</span> <span class="s2">&quot;SoC&quot;</span><span class="p">,</span> <span class="s2">&quot;State&quot;</span><span class="p">],</span>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>        <span class="p">}</span>
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="p">}</span>
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="p">}</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="s2">&quot;api_version&quot;</span><span class="p">:</span> <span class="s2">&quot;3.0&quot;</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;time-based&quot;</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="s2">&quot;Battery&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>            <span class="s2">&quot;public&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;kw_rated&quot;</span><span class="p">,</span> <span class="s2">&quot;kwh_rated&quot;</span><span class="p">,</span> <span class="s2">&quot;kwh_stored&quot;</span><span class="p">,</span> <span class="s2">&quot;pct_reserve&quot;</span><span class="p">,</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>                        <span class="s2">&quot;pct_eff_charge&quot;</span><span class="p">,</span> <span class="s2">&quot;pct_eff_discharge&quot;</span><span class="p">,</span> <span class="s2">&quot;pct_idling_kw&quot;</span><span class="p">,</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>                        <span class="s2">&quot;kva_rated&quot;</span><span class="p">],</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>            <span class="s2">&quot;attrs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;P_ref&quot;</span><span class="p">,</span> <span class="s2">&quot;Q_ref&quot;</span><span class="p">,</span> <span class="s2">&quot;P_out&quot;</span><span class="p">,</span> <span class="s2">&quot;Q_out&quot;</span><span class="p">,</span> <span class="s2">&quot;SoC&quot;</span><span class="p">,</span> <span class="s2">&quot;State&quot;</span><span class="p">],</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>        <span class="p">}</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="p">}</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="p">}</span>
 </span></code></pre></div>
 <h3 id="parametros-de-criacao_2">Parâmetros de criação<a class="headerlink" href="#parametros-de-criacao_2" title="Permanent link">&para;</a></h3>
 <table>
@@ -4156,19 +4195,19 @@ controle.</p>
 <strong>Classe</strong>: <code>BatteryControllerSim</code>
 <strong>Tipo</strong>: <code>time-based</code></p>
 <h3 id="meta_3">META<a class="headerlink" href="#meta_3" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="s2">&quot;api_version&quot;</span><span class="p">:</span> <span class="s2">&quot;3.0&quot;</span><span class="p">,</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;time-based&quot;</span><span class="p">,</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="s2">&quot;Controller&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>            <span class="s2">&quot;public&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;target_battery&quot;</span><span class="p">,</span> <span class="s2">&quot;kw_rated&quot;</span><span class="p">,</span> <span class="s2">&quot;charge_trigger&quot;</span><span class="p">,</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>                        <span class="s2">&quot;discharge_trigger&quot;</span><span class="p">,</span> <span class="s2">&quot;pct_charge&quot;</span><span class="p">,</span> <span class="s2">&quot;pct_discharge&quot;</span><span class="p">,</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>                        <span class="s2">&quot;time_charge_trigger&quot;</span><span class="p">],</span>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>            <span class="s2">&quot;attrs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;SoC_in&quot;</span><span class="p">,</span> <span class="s2">&quot;curve_value&quot;</span><span class="p">,</span> <span class="s2">&quot;P_ref&quot;</span><span class="p">,</span> <span class="s2">&quot;Q_ref&quot;</span><span class="p">],</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>        <span class="p">}</span>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="p">}</span>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="p">}</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="s2">&quot;api_version&quot;</span><span class="p">:</span> <span class="s2">&quot;3.0&quot;</span><span class="p">,</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;time-based&quot;</span><span class="p">,</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="s2">&quot;Controller&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>            <span class="s2">&quot;public&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;target_battery&quot;</span><span class="p">,</span> <span class="s2">&quot;kw_rated&quot;</span><span class="p">,</span> <span class="s2">&quot;charge_trigger&quot;</span><span class="p">,</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>                        <span class="s2">&quot;discharge_trigger&quot;</span><span class="p">,</span> <span class="s2">&quot;pct_charge&quot;</span><span class="p">,</span> <span class="s2">&quot;pct_discharge&quot;</span><span class="p">,</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>                        <span class="s2">&quot;time_charge_trigger&quot;</span><span class="p">],</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>            <span class="s2">&quot;attrs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;SoC_in&quot;</span><span class="p">,</span> <span class="s2">&quot;curve_value&quot;</span><span class="p">,</span> <span class="s2">&quot;P_ref&quot;</span><span class="p">,</span> <span class="s2">&quot;Q_ref&quot;</span><span class="p">],</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>        <span class="p">}</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="p">}</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="p">}</span>
 </span></code></pre></div>
 <h3 id="atributos_3">Atributos<a class="headerlink" href="#atributos_3" title="Permanent link">&para;</a></h3>
 <table>
@@ -4213,27 +4252,36 @@ controle.</p>
 <strong>Classe</strong>: <code>RegulatorSimulator</code>
 <strong>Tipo</strong>: <code>time-based</code></p>
 <h3 id="meta_4">META<a class="headerlink" href="#meta_4" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="s2">&quot;api_version&quot;</span><span class="p">:</span> <span class="s2">&quot;3.0&quot;</span><span class="p">,</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;time-based&quot;</span><span class="p">,</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="s2">&quot;RegController&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>            <span class="s2">&quot;public&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;vreg&quot;</span><span class="p">,</span> <span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;pt_ratio&quot;</span><span class="p">,</span> <span class="s2">&quot;ct_primary&quot;</span><span class="p">,</span> <span class="s2">&quot;R&quot;</span><span class="p">,</span> <span class="s2">&quot;X&quot;</span><span class="p">,</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>                        <span class="s2">&quot;delay&quot;</span><span class="p">,</span> <span class="s2">&quot;tap_delay&quot;</span><span class="p">,</span> <span class="s2">&quot;tap_ini&quot;</span><span class="p">],</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>            <span class="s2">&quot;attrs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;v_meas&quot;</span><span class="p">,</span> <span class="s2">&quot;i_meas&quot;</span><span class="p">,</span> <span class="s2">&quot;tap_cmd&quot;</span><span class="p">],</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>        <span class="p">}</span>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="p">}</span>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="p">}</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="s2">&quot;api_version&quot;</span><span class="p">:</span> <span class="s2">&quot;3.0&quot;</span><span class="p">,</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;time-based&quot;</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="s2">&quot;RegController&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>            <span class="s2">&quot;public&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;vreg&quot;</span><span class="p">,</span> <span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;pt_ratio&quot;</span><span class="p">,</span> <span class="s2">&quot;ct_primary&quot;</span><span class="p">,</span> <span class="s2">&quot;R&quot;</span><span class="p">,</span> <span class="s2">&quot;X&quot;</span><span class="p">,</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>                        <span class="s2">&quot;delay&quot;</span><span class="p">,</span> <span class="s2">&quot;tap_delay&quot;</span><span class="p">,</span> <span class="s2">&quot;tap_ini&quot;</span><span class="p">],</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>            <span class="s2">&quot;attrs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;v_meas&quot;</span><span class="p">,</span> <span class="s2">&quot;i_meas&quot;</span><span class="p">,</span> <span class="s2">&quot;tap_cmd&quot;</span><span class="p">],</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>        <span class="p">}</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="p">}</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="p">}</span>
 </span></code></pre></div>
 <h3 id="init_2">init()<a class="headerlink" href="#init_2" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">time_resolution</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">time_resolution</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 </span></code></pre></div>
 <p><code>verbose=True</code> imprime a tensão, a corrente e o tap de cada regulador a cada
 passo. Fica desligado por padrão, porque com vários reguladores a saída enche o
 terminal:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">reg_sim</span> <span class="o">=</span> <span class="n">world</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="s2">&quot;RegControl&quot;</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="n">STEP_SIZE</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">reg_sim</span> <span class="o">=</span> <span class="n">world</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="s2">&quot;RegControl&quot;</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="n">STEP_SIZE</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Inicie o controlador no tap real</p>
+<p>O controlador guarda a própria posição de tap e a envia como <code>tap_cmd</code> <strong>a
+cada passo</strong>, sem ler a do circuito. Criado com <code>tap_ini=0</code> num alimentador
+cujo <code>.dss</code> declara outro tap, ele o troca por 0 já no primeiro passo. Passe
+o tap que o adaptador reporta:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">reg_sim</span><span class="o">.</span><span class="n">RegController</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">tap_ini</span><span class="o">=</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;tap_ini&quot;</span><span class="p">])</span>
+</span></code></pre></div>
+</div>
 <h3 id="atributos_4">Atributos<a class="headerlink" href="#atributos_4" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4271,22 +4319,22 @@ terminal:</p>
 <strong>Classe</strong>: <code>Collector</code>
 <strong>Tipo</strong>: <code>event-based</code></p>
 <h3 id="meta_5">META<a class="headerlink" href="#meta_5" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="s2">&quot;api_version&quot;</span><span class="p">:</span> <span class="s2">&quot;3.0&quot;</span><span class="p">,</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;event-based&quot;</span><span class="p">,</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>        <span class="s2">&quot;Monitor&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>            <span class="s2">&quot;public&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>            <span class="s2">&quot;any_inputs&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[],</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>            <span class="s2">&quot;attrs&quot;</span><span class="p">:</span> <span class="p">[],</span>
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>        <span class="p">}</span>
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="p">}</span>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="p">}</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="s2">&quot;api_version&quot;</span><span class="p">:</span> <span class="s2">&quot;3.0&quot;</span><span class="p">,</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;event-based&quot;</span><span class="p">,</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>        <span class="s2">&quot;Monitor&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>            <span class="s2">&quot;public&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>            <span class="s2">&quot;any_inputs&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">[],</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>            <span class="s2">&quot;attrs&quot;</span><span class="p">:</span> <span class="p">[],</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>        <span class="p">}</span>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>    <span class="p">}</span>
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="p">}</span>
 </span></code></pre></div>
 <h3 id="init_3">init()<a class="headerlink" href="#init_3" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">time_resolution</span><span class="p">,</span> <span class="n">start_date</span><span class="p">,</span> <span class="n">date_format</span><span class="p">,</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>         <span class="n">output_file</span><span class="p">,</span> <span class="n">print_results</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">time_resolution</span><span class="p">,</span> <span class="n">start_date</span><span class="p">,</span> <span class="n">date_format</span><span class="p">,</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>         <span class="n">output_file</span><span class="p">,</span> <span class="n">print_results</span><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -4346,8 +4394,8 @@ preserva o que já mediu.</p>
 <strong>Classe</strong>: <code>CSV</code>
 <strong>Tipo</strong>: <code>hybrid</code> (definido dinamicamente)</p>
 <h3 id="init_4">init()<a class="headerlink" href="#init_4" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">time_resolution</span><span class="p">,</span> <span class="n">sim_start</span><span class="p">,</span> <span class="n">datafile</span><span class="p">,</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>         <span class="n">date_format</span><span class="p">,</span> <span class="n">continuous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">time_resolution</span><span class="p">,</span> <span class="n">sim_start</span><span class="p">,</span> <span class="n">datafile</span><span class="p">,</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>         <span class="n">date_format</span><span class="p">,</span> <span class="n">continuous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -4405,7 +4453,7 @@ preserva o que já mediu.</p>
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="18 de outubro de 2026 21:03:46 UTC">18 de outubro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="19 de outubro de 2026 01:23:50 UTC">19 de outubro de 2026</span>
   </span>
 
     

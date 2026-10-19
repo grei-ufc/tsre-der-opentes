@@ -2841,7 +2841,7 @@
 
 <h1 id="testes">Testes<a class="headerlink" href="#testes" title="Permanent link">&para;</a></h1>
 <h2 id="visao-geral">Visão geral<a class="headerlink" href="#visao-geral" title="Permanent link">&para;</a></h2>
-<p>O projeto usa <strong>pytest</strong>, com 17 arquivos e 617 casos de teste (contando parametrização; rodando <code>uv run --no-sync python -m pytest tests/ -v</code> neste ambiente: 616 passed, 1 skipped).</p>
+<p>O projeto usa <strong>pytest</strong>, com 17 arquivos e 639 casos de teste (contando parametrização; rodando <code>uv run --no-sync python -m pytest tests/ -v</code> neste ambiente: 638 passed, 1 skipped).</p>
 <p>Duas categorias, misturadas entre os arquivos:</p>
 <ul>
 <li><strong>Testes de domínio</strong> — instanciam a classe diretamente (<code>OpenDSSBattery</code>, <code>InverterModel</code>, <code>VR_Model</code>, <code>SmartInverterModel</code>, <code>map_to_phases</code>), sem fixture, sem mosaik, sem OpenDSS.</li>
@@ -2928,13 +2928,13 @@
 </tr>
 <tr>
 <td><code>test_element_specs.py</code></td>
-<td>126</td>
+<td>133</td>
 <td>Sim</td>
 <td><code>opendss.element_specs</code> (registro declarativo) + <code>api_opendss.OpenDSSSimulator</code></td>
 </tr>
 <tr>
 <td><code>test_error_handling.py</code></td>
-<td>29</td>
+<td>40</td>
 <td>Sim</td>
 <td>Propagação de erro no wrapper e no adaptador OpenDSS</td>
 </tr>
@@ -2964,7 +2964,7 @@
 </tr>
 <tr>
 <td><code>test_wrapper_layers.py</code></td>
-<td>17</td>
+<td>18</td>
 <td>Sim</td>
 <td>Composição em mixins do wrapper (<code>_engine</code>/<code>_reader</code>/<code>_writer</code>)</td>
 </tr>
@@ -3271,8 +3271,8 @@
 </tr>
 <tr>
 <td><code>TestReadersDoNotMutate</code></td>
-<td>3</td>
-<td>Uma leitura (<code>get_circuit_info</code>) nunca chama <code>run_dss</code>; escrita limpa o cache</td>
+<td>4</td>
+<td>Uma leitura (<code>get_circuit_info</code>) nunca chama <code>run_dss</code>, e reporta as mesmas classes em qualquer circuito; escrita limpa o cache</td>
 </tr>
 </tbody>
 </table>
@@ -3454,8 +3454,8 @@
 </tr>
 <tr>
 <td><code>TestStorage</code></td>
-<td>5</td>
-<td>SoC lido e aplicado corretamente, com clamp em <code>[0, 1]</code>; Storage monofásico reporta na própria fase</td>
+<td>6</td>
+<td>SoC lido e aplicado corretamente, com clamp em <code>[0, 1]</code>; o SoC acompanha a potência a cada passo; Storage monofásico reporta na própria fase</td>
 </tr>
 <tr>
 <td><code>TestExtraInfoIsolation</code></td>
@@ -3481,6 +3481,11 @@
 <td><code>TestGeneratorVoltageBand</code></td>
 <td>2</td>
 <td>Abaixo do <code>Vminpu</code> declarado, a potência comandada é a entregue; a faixa declarada continua reportada</td>
+</tr>
+<tr>
+<td><code>TestRegulatorsAreFrozen</code></td>
+<td>6</td>
+<td>Taps declarados no <code>.dss</code> sobrevivem ao carregamento e à criação e são reportados em <code>tap_ini</code>; o controle nativo não os move, nem na solução do construtor; um comando externo os move e permanece; ler os dados dos reguladores não os altera</td>
 </tr>
 </tbody>
 </table>
@@ -3530,6 +3535,16 @@ circuito ativo.</p>
 <td><code>TestPvSystemsLoadWithIdealConversion</code></td>
 <td>5</td>
 <td>O carregamento troca a conversão DC/AC nativa dos PVSystems por uma ideal: a potência comandada sai igual (abaixo do <code>%cutin</code> declarado, a 60 °C, já na solução do construtor e depois de recompilar), e as curvas declaradas continuam reportadas</td>
+</tr>
+<tr>
+<td><code>TestEngineErrorsAfterLoading</code></td>
+<td>6</td>
+<td>Caixas de diálogo do OpenDSS ligadas só durante a compilação; depois dela, todo comando recusado é detectado pelo código do motor (<code>Unknown parameter</code>, <code>Unknown Command</code>, <code>... not found</code>, valor inválido) e passa pelo <code>fail()</code></td>
+</tr>
+<tr>
+<td><code>TestFailOnErrorFromTheScenario</code></td>
+<td>5</td>
+<td><code>fail_on_error</code> chega do <code>init()</code> ao wrapper e está na META; com <code>False</code>, o passo que não converge segue e fica marcado no <code>Circuit</code></td>
 </tr>
 </tbody>
 </table>
@@ -3766,7 +3781,7 @@ circuito ativo.</p>
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="18 de outubro de 2026 21:03:46 UTC">18 de outubro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="19 de outubro de 2026 01:23:50 UTC">19 de outubro de 2026</span>
   </span>
 
     

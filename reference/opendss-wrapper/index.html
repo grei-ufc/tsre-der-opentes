@@ -3556,13 +3556,22 @@ nada avisando.</p>
 por <code>0.0001</code>. A potência escrita por <code>set_pvsystem_pq</code> é a que sai: sem isso o
 OpenDSS aplicaria a eficiência e o derating térmico sobre um valor que já os
 inclui, e desligaria o inversor abaixo de 20 % do kVA.</p>
-<p>Pelo mesmo motivo, todo Generator tem a faixa de tensão aberta para
+<p>Também a cada compilação, antes da primeira solução, o controle automático de
+todo RegControl é travado (<code>MaxTapChange=0</code>), sem mexer na posição: os taps
+ficam no que o <code>.dss</code> declara até um controlador externo mudá-los por
+<code>set_tap</code>.</p>
+<p>As caixas de diálogo do OpenDSS ficam ligadas só durante a compilação — aqui e
+em <code>redirect()</code> —, para que um erro no meio do <code>.dss</code> apareça. Fora dela ficam
+desligadas, e os erros de comando chegam a <code>run_command</code> como código e texto.</p>
+<p>Pelo mesmo motivo das curvas, todo Generator tem a faixa de tensão aberta para
 <code>Vminpu=0.001</code> e <code>Vmaxpu=10</code>: fora da faixa declarada o OpenDSS o troca por uma
 impedância constante, e a potência entregue deixa de ser a comandada.</p>
 <p>Um wrapper atende a <strong>um</strong> circuito: o motor OpenDSS é único no processo, então
 compilar um segundo circuito substituiria o primeiro. Passar uma lista de
 caminhos levanta <code>TypeError</code>; arquivos auxiliares vão nos <code>Redirect</code> do master.</p>
-<p>Detecta automaticamente quais classes de elementos existem no circuito: <code>Load</code>, <code>PVSystem</code>, <code>Generator</code>, <code>Storage</code>.</p>
+<p>A cada solução roda o <code>UpdateStorage</code>, que integra a energia das baterias no
+passo — em snapshot o motor não o faz sozinho. Sem bateria o comando não faz
+nada.</p>
 <hr />
 <h3 id="comandos-fundamentais">Comandos fundamentais<a class="headerlink" href="#comandos-fundamentais" title="Permanent link">&para;</a></h3>
 <h4 id="run_commandcmd"><code>run_command(cmd)</code><a class="headerlink" href="#run_commandcmd" title="Permanent link">&para;</a></h4>
@@ -3585,7 +3594,11 @@ caminhos levanta <code>TypeError</code>; arquivos auxiliares vão nos <code>Redi
 </tr>
 </tbody>
 </table>
-<p>Levanta <code>OpenDSSException</code> em caso de erro (quando <code>fail_on_error=True</code>).</p>
+<p>Levanta <code>OpenDSSException</code> em caso de erro (quando <code>fail_on_error=True</code>).
+O erro é detectado pelo código do motor (<code>errorinterface.error_code</code>), e a
+mensagem traz o código e o texto: <code>Status (cmd): [OpenDSS 580] Unknown
+parameter ...</code>. A descrição do erro (<code>error_desc</code>) não é lida: no
+<code>py-dss-interface</code> 2.3.0 ela derruba o processo.</p>
 <h4 id="redirectfilename"><code>redirect(filename)</code><a class="headerlink" href="#redirectfilename" title="Permanent link">&para;</a></h4>
 <p>Compila um arquivo <code>.dss</code> específico.</p>
 <h4 id="run_dssno_controlsfalse"><code>run_dss(no_controls=False)</code><a class="headerlink" href="#run_dssno_controlsfalse" title="Permanent link">&para;</a></h4>
@@ -3832,7 +3845,7 @@ valor que sai em todos eles. Ver o aviso em
 <h4 id="get_tapname"><code>get_tap(name)</code><a class="headerlink" href="#get_tapname" title="Permanent link">&para;</a></h4>
 <p>Retorna a posição atual do tap (inteiro).</p>
 <h4 id="get_all_regulators_info"><code>get_all_regulators_info()</code><a class="headerlink" href="#get_all_regulators_info" title="Permanent link">&para;</a></h4>
-<p>Delega para <code>opendss_regulator.py</code>. Retorna lista de dicts com dados estáticos de todos os RegControls.</p>
+<p>Delega para <code>opendss_regulator.py</code>. Retorna lista de dicts com dados estáticos de todos os RegControls. Só lê: <code>tap_ini</code> é o tap no momento da leitura, e chamar o método não mexe nos taps.</p>
 <h4 id="get_regulator_measurementsreg_info"><code>get_regulator_measurements(reg_info)</code><a class="headerlink" href="#get_regulator_measurementsreg_info" title="Permanent link">&para;</a></h4>
 <p>Delega para <code>opendss_regulator.py</code>. Retorna dict com <code>v</code> (tensão complexa), <code>i</code> (corrente complexa), <code>tap</code> (int).</p>
 <hr />
@@ -3906,7 +3919,7 @@ os trocar pelos ideais — e não os que o motor usa de fato.</p>
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="18 de outubro de 2026 21:03:46 UTC">18 de outubro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="19 de outubro de 2026 01:23:50 UTC">19 de outubro de 2026</span>
   </span>
 
     
