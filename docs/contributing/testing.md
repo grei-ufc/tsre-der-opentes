@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O projeto usa **pytest**, com 17 arquivos e 633 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 632 passed, 1 skipped).
+O projeto usa **pytest**, com 17 arquivos e 639 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 638 passed, 1 skipped).
 
 Duas categorias, misturadas entre os arquivos:
 
@@ -40,7 +40,7 @@ uv run --no-sync python -m pytest tests/ -v --tb=long
 | `test_webvis_server.py` | 12 | Não³ | Arquivos estáticos e ciclo de vida do servidor da visualização |
 | `test_opendss_visualization.py` | 13 | Não | Presets e `attach_webvis`, com dublês no lugar do webvis e do OpenDSS |
 | `test_collector.py` | 18 | Não | Alinhamento das colunas do CSV de resultados (`collector.Collector`) |
-| `test_element_specs.py` | 127 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
+| `test_element_specs.py` | 133 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
 | `test_error_handling.py` | 40 | Sim | Propagação de erro no wrapper e no adaptador OpenDSS |
 | `test_opendss_entities.py` | 37 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
 | `test_opendss_phase_reads.py` | 23 | Sim | Leitura por fase do wrapper (`opendss_wrapper.py`) |
@@ -187,6 +187,7 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | `TestGeneratorDispatch` | 9 | `P_set`/`Q_set` chegam iguais; `P_set` sozinho segue o `pf` declarado (da placa, não do motor); `P_mult` escala `kW` e `kvar`, preservando até `pf` adiantado; fora de [0, 1] ou junto de `P_set` interrompe |
 | `TestGeneratorFollowsItsShape` | 4 | Sem entrada, o gerador segue a curva `daily` do `.dss`; a entrada externa vence a curva; sem curva, mantém o último despacho |
 | `TestGeneratorVoltageBand` | 2 | Abaixo do `Vminpu` declarado, a potência comandada é a entregue; a faixa declarada continua reportada |
+| `TestRegulatorsAreFrozen` | 6 | Taps declarados no `.dss` sobrevivem ao carregamento e à criação e são reportados em `tap_ini`; o controle nativo não os move, nem na solução do construtor; um comando externo os move e permanece; ler os dados dos reguladores não os altera |
 
 !!! warning "Ordem importa neste arquivo"
     `TestGenerationInPerUnit` vem **antes** de `TestStorage`: a fixture das

@@ -321,6 +321,17 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
     é um `PVSystem` — não tem solução, e o fluxo diverge em vez de convergir
     devagar.
 
+!!! info "Reguladores: taps só por controlador externo"
+    O controle automático dos `RegControl` do OpenDSS é travado ao carregar o
+    circuito (`MaxTapChange=0`), antes da primeira solução. Os taps ficam na
+    posição que o `.dss` declara durante todo o estudo, a menos que um
+    controlador externo os comande pelo atributo `tap`; um tap comandado
+    permanece até o próximo comando.
+
+    A posição declarada aparece em `extra_info["tap_ini"]` de cada `RegControl`.
+    Até esta versão o adaptador zerava os taps ao criar as entidades, e o
+    `tap_ini` era sempre 0.
+
 !!! info "Caixas de diálogo do OpenDSS"
     No Windows, o OpenDSS abre uma caixa de diálogo a cada comando recusado, e
     ela trava a execução até alguém clicar — com ou sem `fail_on_error`. O
@@ -623,6 +634,16 @@ terminal:
 ```python
 reg_sim = world.start("RegControl", step_size=STEP_SIZE, verbose=True)
 ```
+
+!!! warning "Inicie o controlador no tap real"
+    O controlador guarda a própria posição de tap e a envia como `tap_cmd` **a
+    cada passo**, sem ler a do circuito. Criado com `tap_ini=0` num alimentador
+    cujo `.dss` declara outro tap, ele o troca por 0 já no primeiro passo. Passe
+    o tap que o adaptador reporta:
+
+    ```python
+    reg_sim.RegController(..., tap_ini=info["tap_ini"])
+    ```
 
 ### Atributos
 

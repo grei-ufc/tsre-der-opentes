@@ -133,7 +133,7 @@ def connect_regulators(world, dss_sim, reg_sim, children):
             X=info.get("X", 0),
             delay=info["delay"],
             tap_delay=info["tap_delay"],
-            tap_ini=0,
+            tap_ini=info["tap_ini"],
         )
 
         # Medição -> controlador (um passo atrás, para quebrar o laço algébrico)

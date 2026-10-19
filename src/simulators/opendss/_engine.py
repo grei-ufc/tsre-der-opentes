@@ -12,7 +12,7 @@ import os
 import pathlib
 from typing import Any
 
-from . import opendss_generator, opendss_pv
+from . import opendss_generator, opendss_pv, opendss_regulator
 from ._types import OpenDSSException
 
 
@@ -128,13 +128,15 @@ class EngineMixin:
         """Ajustes que todo ``Compile`` desfaz e que, por isso, seguem cada um.
 
         O ``Compile`` do OpenDSS repõe o critério de convergência no padrão e
-        traz de volta o que o ``.dss`` declara para PVSystems e Generators.
-        Reunidos aqui para que :meth:`compile_circuit` e :meth:`redirect` não
-        possam divergir sobre o que reaplicar.
+        traz de volta o que o ``.dss`` declara para PVSystems, Generators e
+        RegControls. Reunidos aqui para que :meth:`compile_circuit` e
+        :meth:`redirect` não possam divergir sobre o que reaplicar.
         """
         self.apply_solution_settings()
         self._idealize_pvsystems()
         self._relax_generators()
+        # Antes da primeira solução: os taps só mudam por controlador externo.
+        opendss_regulator.freeze_regulators(self.dss)
 
     def apply_solution_settings(self) -> None:
         """(Re)aplica ``tolerance`` e ``max_iterations`` ao motor.

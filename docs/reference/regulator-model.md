@@ -38,7 +38,7 @@ VR_Model(
 | `LDC_X` | `float` | 0 | Reatância da compensação de queda de linha (Ohms) |
 | `tap_max` | `int` | 16 | Posição máxima do tap |
 | `tap_min` | `int` | -16 | Posição mínima do tap |
-| `tap_ini` | `int` | 0 | Posição inicial do tap |
+| `tap_ini` | `int` | 0 | Posição inicial do tap. Use o tap do circuito, `extra_info["tap_ini"]` do `RegControl`: o modelo envia a sua posição a cada passo, e começar de outra troca o tap declarado no `.dss` |
 
 ## Método principal
 

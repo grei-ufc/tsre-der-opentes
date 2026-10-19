@@ -97,7 +97,7 @@ def run_scenario():
                     X=info.get("X", 0),
                     delay=info["delay"],
                     tap_delay=info["tap_delay"],
-                    tap_ini=0,
+                    tap_ini=tap_ini,
                 )
 
                 # B. Encontrar a entidade correspondente no OpenDSS

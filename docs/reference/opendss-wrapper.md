@@ -30,6 +30,11 @@ por `0.0001`. A potência escrita por `set_pvsystem_pq` é a que sai: sem isso o
 OpenDSS aplicaria a eficiência e o derating térmico sobre um valor que já os
 inclui, e desligaria o inversor abaixo de 20 % do kVA.
 
+Também a cada compilação, antes da primeira solução, o controle automático de
+todo RegControl é travado (`MaxTapChange=0`), sem mexer na posição: os taps
+ficam no que o `.dss` declara até um controlador externo mudá-los por
+`set_tap`.
+
 As caixas de diálogo do OpenDSS ficam ligadas só durante a compilação — aqui e
 em `redirect()` —, para que um erro no meio do `.dss` apareça. Fora dela ficam
 desligadas, e os erros de comando chegam a `run_command` como código e texto.
@@ -337,7 +342,7 @@ Retorna a posição atual do tap (inteiro).
 
 #### `get_all_regulators_info()`
 
-Delega para `opendss_regulator.py`. Retorna lista de dicts com dados estáticos de todos os RegControls.
+Delega para `opendss_regulator.py`. Retorna lista de dicts com dados estáticos de todos os RegControls. Só lê: `tap_ini` é o tap no momento da leitura, e chamar o método não mexe nos taps.
 
 #### `get_regulator_measurements(reg_info)`
 

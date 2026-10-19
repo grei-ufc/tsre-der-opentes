@@ -5,6 +5,7 @@ These tests hold that line: every declared attribute must actually be produced
 (outputs) or accepted (inputs) by the simulator.
 """
 
+import datetime as dt
 import math
 import pathlib
 import sys
@@ -26,7 +27,7 @@ from simulators.opendss.element_specs import (
     single_value,
     sum_values,
 )
-from simulators.opendss.opendss_wrapper import OpenDSSException
+from simulators.opendss.opendss_wrapper import OpenDSS, OpenDSSException
 
 DATA_DIR = (pathlib.Path(__file__).parent.parent / "data" / "13Bus").resolve()
 MASTER = DATA_DIR / "run_ieee13_cosim_pv_5min.dss"
@@ -1394,3 +1395,92 @@ class TestGeneratorVoltageBand:
 
         assert info["vminpu"] == pytest.approx(0.99)
         assert info["vmaxpu"] == pytest.approx(1.1)
+
+
+# As posições publicadas do IEEE13. No IEEE13Nodeckt.dss elas estão dentro de um
+# comentário de bloco, então lá o tap declarado é o neutro.
+DECLARED_TAPS_CIRCUIT = """\
+Redirect "{master}"
+Transformer.Reg1.Taps=[1.0 1.0625]
+Transformer.Reg2.Taps=[1.0 1.05]
+Transformer.Reg3.Taps=[1.0 1.06875]
+"""
+DECLARED_TAPS = {"reg1": 10, "reg2": 8, "reg3": 11}
+
+
+@pytest.fixture(scope="module")
+def reg_sim(tmp_path_factory):
+    """IEEE13 com taps declarados fora do neutro; no fim, como as demais fixtures."""
+    master = DATA_DIR / "IEEE13Nodeckt.dss"
+    if not master.exists():
+        pytest.skip(f"IEEE13 fixture not found at {master}")
+
+    path = tmp_path_factory.mktemp("taps") / "taps.dss"
+    path.write_text(DECLARED_TAPS_CIRCUIT.format(master=master.as_posix()))
+
+    simulator = OpenDSSSimulator()
+    simulator.init("DSS-0", 1.0, topofile=str(path), step_size=300)
+    if simulator.dss_wrapper.dss.circuit.num_buses == 0:
+        pytest.skip("IEEE13 failed to compile (check the OpenDSS DataPath)")
+
+    simulator.create(1, "Grid")
+    simulator.setup_done()
+    return simulator
+
+
+def _taps(sim):
+    return {name: sim.dss_wrapper.get_tap(name) for name in DECLARED_TAPS}
+
+
+class TestRegulatorsAreFrozen:
+    """Os taps só mudam por controlador externo; até lá, ficam no que o `.dss` declara.
+
+    O controle automático do OpenDSS é travado no carregamento, antes da
+    primeira solução. Antes, o travamento ficava numa função de leitura, chamada
+    no `create`, que ainda zerava os taps: o tap declarado virava o neutro, e a
+    solução do construtor saía com o controle nativo agindo.
+    """
+
+    def test_declared_taps_survive_loading_and_creation(self, reg_sim):
+        assert _taps(reg_sim) == DECLARED_TAPS
+
+    def test_extra_info_reports_the_declared_tap(self, reg_sim):
+        """É o valor com que o cenário inicia o controlador externo."""
+        tap_ini = {info["name"]: info["tap_ini"] for info in reg_sim.detected_regulators}
+
+        assert tap_ini == DECLARED_TAPS
+
+    def test_the_native_control_does_not_move_them(self, reg_sim):
+        """Uma queda grande de carga, que o RegControl corrigiria mexendo no tap."""
+        for time, mult in ((300, 0.1), (600, 1.0)):
+            reg_sim.step(time, {"Load-671": {"S_mult": {"csv": mult}}}, 300)
+
+            assert _taps(reg_sim) == DECLARED_TAPS
+
+    def test_an_external_command_moves_them_and_it_sticks(self, reg_sim):
+        reg_sim.step(900, {"RegControl-reg1": {"tap": {"ctrl": 5}}}, 300)
+        reg_sim.step(1200, {}, 300)
+
+        assert _taps(reg_sim)["reg1"] == 5
+        assert _taps(reg_sim)["reg2"] == DECLARED_TAPS["reg2"]
+
+    def test_reading_the_info_does_not_touch_them(self, reg_sim):
+        reg_sim.step(1500, {"RegControl-reg2": {"tap": {"ctrl": 3}}}, 300)
+        reg_sim.dss_wrapper.get_all_regulators_info()
+
+        assert _taps(reg_sim)["reg2"] == 3
+
+    def test_the_constructor_solve_does_not_move_them(self):
+        """A trava vem antes da primeira solução, e não no `create`.
+
+        No IEEE13 sem as posições publicadas o tap declarado é o neutro, e o
+        controle nativo o levaria a 9, 6 e 9 já na solução do construtor. Por
+        último na classe: compila outro circuito no motor compartilhado.
+        """
+        wrapper = OpenDSS(
+            topofile=str(DATA_DIR / "IEEE13Nodeckt.dss"),
+            time_step=dt.timedelta(seconds=300),
+            start_time=dt.datetime(2025, 1, 1),
+        )
+
+        assert [wrapper.get_tap(name) for name in DECLARED_TAPS] == [0, 0, 0]

@@ -11,17 +11,44 @@ from typing import Any
 from ._types import OpenDSSException
 
 
+def freeze_regulators(dss: Any) -> None:
+    """Trava o controle automático de todo RegControl, sem mexer no tap.
+
+    Os taps só mudam por um controlador externo, pelo atributo ``tap`` do
+    adaptador. ``MaxTapChange=0`` impede o laço de controle do OpenDSS de
+    movê-los a cada solução, e a posição fica a que o ``.dss`` declara até um
+    comando externo mudá-la.
+
+    Até esta versão o travamento acontecia dentro de
+    :func:`get_all_regulators_info`, que além disso zerava os taps: a primeira
+    solução, no construtor, ainda saía com o controle nativo agindo, e um tap
+    declarado no ``.dss`` era trocado pelo neutro.
+
+    Args:
+        dss: Active ``py_dss_interface.DSS`` instance.
+    """
+    if not dss.regcontrols.count:
+        return
+
+    for name in dss.regcontrols.names:
+        dss.regcontrols.name = name
+        dss.regcontrols.max_tap_change = 0
+
+
 def get_all_regulators_info(dss: Any) -> list[dict[str, Any]]:
     """Detect every RegControl and return its static data.
 
-    Includes topology information (Transformer, Winding, Bus, Phase).
+    Includes topology information (Transformer, Winding, Bus, Phase). Só lê:
+    não trava nem move os taps — isso é de :func:`freeze_regulators`, no
+    carregamento do circuito.
 
     Args:
         dss: Active ``py_dss_interface.DSS`` instance.
 
     Returns:
         List of dictionaries, one per detected regulator. Empty if the circuit
-        has no ``RegControl``.
+        has no ``RegControl``. ``tap_ini`` é o tap no momento da leitura; na
+        criação das entidades, o declarado no ``.dss``.
     """
     reg_list: list[dict[str, Any]] = []
 
@@ -30,8 +57,6 @@ def get_all_regulators_info(dss: Any) -> list[dict[str, Any]]:
 
     for name in dss.regcontrols.names:
         dss.regcontrols.name = name
-        dss.regcontrols.max_tap_change = 0
-        dss.regcontrols.tap_number = 0
 
         info: dict[str, Any] = {
             "name": name,
@@ -45,7 +70,7 @@ def get_all_regulators_info(dss: Any) -> list[dict[str, Any]]:
             "tap_delay": dss.regcontrols.tap_delay,
             "trafo": dss.regcontrols.transformer,
             "winding": dss.regcontrols.winding,
-            "tap_ini": 0,
+            "tap_ini": dss.regcontrols.tap_number,
         }
 
         # Resolve o barramento alvo a partir do transformer
