@@ -32,20 +32,20 @@ END_TIME = N_PASSOS * STEP_SIZE
 # ==============================================================================
 SIM_CONFIG = {
     "DSS": {
-        "connect": "localhost:5671",
+        "connect": "localhost:5771",
     },
-    "PVSimulator": {"connect": "localhost:5678"},
+    "PVSimulator": {"connect": "localhost:5778"},
     "InverterSim": {
-        "connect": "localhost:5677"  # Porta 5677 = inverter-std
+        "connect": "localhost:5777"  # Porta 5777 = inverter-std
     },
     "CSV_Irr": {
-        "connect": "localhost:5675"  # Porta 5675 = csv-data-1
+        "connect": "localhost:5775"  # Porta 5775 = csv-data-1
     },
     "CSV_Temp": {
-        "connect": "localhost:5676"  # Porta 5676 = csv-data-2
+        "connect": "localhost:5776"  # Porta 5776 = csv-data-2
     },
     "Collector": {
-        "connect": "localhost:5673",
+        "connect": "localhost:5773",
     },
 }
 
