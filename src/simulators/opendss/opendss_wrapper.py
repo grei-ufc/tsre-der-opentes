@@ -31,7 +31,7 @@ from ._types import (
     SolutionSnapshot,
 )
 from ._writer import WriterMixin
-from .graph_model import serialize_graph
+from .graph_model import NetworkGraph, serialize_graph
 from .topology_builder import build_graph
 
 __all__ = [
@@ -140,7 +140,7 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin):
 
         self.print(f"Compiled Circuit: {self.dss.circuit.name}")
 
-    def grafo_tsdq(self, output_path):
+    def grafo_tsdq(self, output_path) -> NetworkGraph:
         """
         Exporta o grafo do circuito em formato JSON.
 
@@ -151,8 +151,8 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin):
         Padrão utilizado na plataforma `tsdq-dataview-opentes`
 
         Returns:
-            O :class:`~.graph_model.NetworkGraph` exportado, para quem quiser
-            inspecioná-lo sem reler o arquivo.
+            O grafo exportado, para quem quiser inspecioná-lo sem reler o
+            arquivo.
         """
 
         grafo = build_graph(self.dss)
