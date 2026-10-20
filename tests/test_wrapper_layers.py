@@ -5,6 +5,7 @@ circuit, writers must invalidate the cache, and the public API must stay flat
 so existing scenarios and notebooks keep working.
 """
 
+import ast
 import datetime as dt
 import inspect
 import pathlib
@@ -232,3 +233,233 @@ class TestReadersDoNotMutate:
         dss.set_property("Reg1", "vreg", 125.0, element="RegControl")
 
         assert dss._snapshot.bus_vmag_pu is None
+
+
+SIMULATORS = pathlib.Path(__file__).parent.parent / "src" / "simulators"
+
+# Código que fica na frente da fachada: o adaptador mosaik e o registry. Os
+# módulos por dispositivo (opendss_pv, opendss_bus...) e o topology_builder
+# recebem o motor, mas quem os chama é a própria fachada: ficam atrás dela.
+FRONT_OF_FACADE = ("opendss/api_opendss.py", "opendss/element_specs.py")
+
+# Ferramenta avulsa que gera arquivos .dss antes de qualquer co-simulação.
+STANDALONE_TOOLS = ("util/pv_creator.py",)
+
+
+def _facade_bypasses(path):
+    """Acessos ``<algo>.dss_wrapper.dss`` num arquivo, como ``arquivo:linha``."""
+    tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+    linhas = sorted(
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute)
+        and node.attr == "dss"
+        and isinstance(node.value, ast.Attribute)
+        and node.value.attr == "dss_wrapper"
+    )
+    return [f"{path.name}:{linha}" for linha in linhas]
+
+
+def _imports_the_engine_library(path):
+    tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+    modulos = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modulos.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            modulos.add(node.module)
+    return any(modulo.split(".")[0] == "py_dss_interface" for modulo in modulos)
+
+
+class TestFacadeIsNotBypassed:
+    """A regra do AGENTS.md, verificada: só a fachada fala com o motor.
+
+    Cada acesso que passa por cima dela perde as regras que ela aplica — o erro
+    conferido pelo código do motor, a invalidação do cache — e espalha pelo
+    adaptador as peculiaridades do `py_dss_interface`, que deveriam ter uma casa
+    só. Enquanto a regra era só texto, seis acessos assim se acumularam.
+    """
+
+    def test_the_adapter_and_the_registry_go_through_the_facade(self):
+        vazamentos = [
+            acesso
+            for arquivo in FRONT_OF_FACADE
+            for acesso in _facade_bypasses(SIMULATORS / arquivo)
+        ]
+
+        assert vazamentos == [], (
+            f"acesso ao motor por cima da fachada; crie um método no wrapper: {vazamentos}"
+        )
+
+    def test_no_simulator_talks_to_the_engine_library(self):
+        """Fora do pacote opendss, ninguém importa o `py_dss_interface`."""
+        infratores = [
+            path.relative_to(SIMULATORS).as_posix()
+            for path in sorted(SIMULATORS.rglob("*.py"))
+            if path.relative_to(SIMULATORS).parts[0] not in ("opendss", "old")
+            and path.relative_to(SIMULATORS).as_posix() not in STANDALONE_TOOLS
+            and _imports_the_engine_library(path)
+        ]
+
+        assert infratores == []
+
+
+class TestFacadeReaders:
+    """Leituras que o adaptador fazia por cima da fachada e agora pede a ela."""
+
+    def test_circuit_summary(self, dss):
+        summary = dss.get_circuit_summary()
+
+        assert summary["name"] == "ieee13nodeckt"
+        assert summary["num_buses"] == len(dss.get_all_buses())
+        assert summary["num_nodes"] >= summary["num_buses"]
+        assert summary["tolerance"] == pytest.approx(1e-4)
+        assert summary["max_iterations"] == 15
+
+    def test_solution_state_after_a_solve(self, dss):
+        dss.run_dss()
+        converged, iterations = dss.get_solution_state()
+
+        assert converged is True
+        assert iterations > 0
+
+    def test_buses_info_covers_every_bus(self, dss):
+        info = dss.get_all_buses_info()
+
+        assert list(info) == list(dss.get_all_buses())
+        assert all(i["num_nodes"] == len(i["nodes"]) for i in info.values())
+
+    def test_buses_info_reports_phases_and_coordinates(self, dss):
+        info = dss.get_all_buses_info()
+
+        assert sorted(info["675"]["nodes"]) == [1, 2, 3]
+        assert info["611"]["nodes"] == [3]
+        # O IEEE13 carrega as coordenadas no próprio .dss.
+        assert info["650"]["coord_defined"] is True
+        assert info["650"]["kv_base"] > 0
+
+    def test_the_topology_reads_buses_the_same_way(self, dss):
+        """Adaptador e grafo partem da mesma leitura; antes eram dois códigos."""
+        from simulators.opendss.topology_builder import build_graph
+
+        info = dss.get_all_buses_info()
+        grafo = build_graph(dss.dss)
+
+        for nome, dados in info.items():
+            no = grafo.nodes[nome.lower()]
+            assert no.metadata["kv_base"] == dados["kv_base"]
+            assert no.metadata["nodes"] == dados["nodes"]
+            assert no.metadata["coord_defined"] == dados["coord_defined"]
+
+
+class TestLoadShapes:
+    """As peculiaridades das curvas resolvidas na fachada, e não no adaptador."""
+
+    def test_a_curve_of_the_circuit(self, dss):
+        shape = dss.get_loadshape("loadshape1_5min")
+
+        assert shape["npts"] == 288 == len(shape["p_mult"])
+        assert shape["interval_s"] == pytest.approx(300.0)
+        assert shape["use_actual"] is False
+
+    @pytest.mark.parametrize(
+        ("declaracao", "segundos"),
+        [
+            pytest.param("sinterval=300", 300.0, id="segundos"),
+            pytest.param("minterval=5", 300.0, id="minutos"),
+            pytest.param("interval=2", 7200.0, id="horas"),
+        ],
+    )
+    def test_the_interval_is_found_in_any_unit(self, dss, declaracao, segundos):
+        dss.run_command(f"New Loadshape.u_{segundos:g} npts=3 {declaracao} mult=[0.1 0.2 0.3]")
+
+        assert dss.get_loadshape(f"u_{segundos:g}")["interval_s"] == pytest.approx(segundos)
+
+    def test_explicit_hours_have_no_interval(self, dss):
+        """Com pontos por hora, não há intervalo: quem consome decide o que usar."""
+        dss.run_command("New Loadshape.horas npts=3 interval=0 hour=[0 1 3] mult=[0.1 0.2 0.3]")
+
+        assert dss.get_loadshape("horas")["interval_s"] is None
+
+    def test_the_reactive_falls_back_to_the_active(self, dss):
+        dss.run_command("New Loadshape.so_p npts=3 sinterval=60 mult=[0.1 0.2 0.3]")
+        dss.run_command(
+            "New Loadshape.com_q npts=3 sinterval=60 mult=[0.1 0.2 0.3] qmult=[0.5 0.5 0.5]"
+        )
+
+        assert dss.get_loadshape("so_p")["q_mult"] == pytest.approx([0.1, 0.2, 0.3])
+        assert dss.get_loadshape("com_q")["q_mult"] == pytest.approx([0.5, 0.5, 0.5])
+
+    def test_a_missing_curve_is_refused(self, dss):
+        """Pedir uma curva inexistente mantinha a anterior ativa, e lia a dela."""
+        dss.get_loadshape("loadshape1_5min")
+
+        with pytest.raises(OpenDSSException, match="nao existe"):
+            dss.get_loadshape("nao_existe")
+
+    @staticmethod
+    def _motor_falso(p_mult, npts, q_mult=()):
+        from types import SimpleNamespace
+
+        loadshapes = SimpleNamespace(
+            name="falsa",
+            p_mult=list(p_mult),
+            q_mult=list(q_mult),
+            npts=npts,
+            s_interval=60.0,
+            min_interval=0.0,
+            hr_interval=0.0,
+            use_actual=0,
+        )
+        return SimpleNamespace(loadshapes=loadshapes)
+
+    def test_npts_beyond_the_vector_is_reconciled(self, capsys):
+        """O motor completa com zeros pela linha de comando; por arquivo, não."""
+        from simulators.opendss.opendss_loadshape import read_loadshape
+
+        shape = read_loadshape(self._motor_falso([0.1, 0.2, 0.3], npts=5), "falsa")
+
+        assert shape["npts"] == 3
+        assert "declara npts=5" in capsys.readouterr().out
+
+    def test_an_empty_curve_is_refused(self):
+        """Quem indexa a curva por `% npts` dividiria por zero."""
+        from simulators.opendss.opendss_loadshape import read_loadshape
+
+        with pytest.raises(OpenDSSException, match="nao tem pontos"):
+            read_loadshape(self._motor_falso([], npts=0), "falsa")
+
+
+class TestBusCoords:
+    """`load_buscoords`: o comando passa pela fachada, e não por cima dela."""
+
+    def test_a_missing_file_warns_and_is_not_sent(self, dss, tmp_path, capsys):
+        assert dss.load_buscoords(tmp_path / "nao_existe.csv") is False
+        assert "nao encontrado" in capsys.readouterr().out
+
+    def test_a_valid_file_sets_the_coordinates(self, dss, tmp_path):
+        arquivo = tmp_path / "coords.csv"
+        arquivo.write_text("650, 7.5, 9.5\n")
+
+        assert dss.load_buscoords(arquivo) is True
+        info = dss.get_all_buses_info()["650"]
+        assert (info["x"], info["y"]) == (7.5, 9.5)
+
+    def test_a_relative_path_is_taken_from_the_working_dir(self, dss, tmp_path, monkeypatch):
+        """A existência é conferida no diretório de trabalho, e é dele o arquivo lido."""
+        (tmp_path / "rel.csv").write_text("650, 1.5, 2.5\n")
+        monkeypatch.chdir(tmp_path)
+
+        dss.load_buscoords("rel.csv")
+        info = dss.get_all_buses_info()["650"]
+        assert (info["x"], info["y"]) == (1.5, 2.5)
+
+    def test_malformed_content_passes_without_error(self, dss, tmp_path):
+        """O motor não confere o conteúdo: limitação dele, medida e registrada."""
+        antes = dss.get_all_buses_info()["650"]
+        arquivo = tmp_path / "ruim.csv"
+        arquivo.write_text("isto nao e coordenada\n650; abc; xyz\n")
+
+        assert dss.load_buscoords(arquivo) is True
+        depois = dss.get_all_buses_info()["650"]
+        assert (depois["x"], depois["y"]) == (antes["x"], antes["y"])

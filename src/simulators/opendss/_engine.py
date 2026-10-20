@@ -231,6 +231,40 @@ class EngineMixin:
             self.dss.text(f'compile "{filename}"')
         self._after_compile()
 
+    def load_buscoords(self, path: str | os.PathLike) -> bool:
+        """Carrega um arquivo de coordenadas de barras no circuito compilado.
+
+        Vários alimentadores de teste do IEEE trazem o arquivo sem carregá-lo
+        no ``.dss`` mestre; sem ele as coordenadas ficam zeradas, o que só
+        apareceria depois, como um desenho empilhado na origem.
+
+        O caminho é resolvido contra o diretório de trabalho, o mesmo em que a
+        existência é conferida, e chega absoluto ao motor e ao aviso.
+
+        Um arquivo inexistente vira aviso, e não erro: as coordenadas servem ao
+        desenho, e o estudo não depende delas. O **conteúdo**, o motor não
+        confere — medido: um arquivo malformado ou vazio passa sem código de
+        erro e não muda coordenada nenhuma. O comando segue por
+        :meth:`run_command`, de modo que um erro que o motor acuse interrompe.
+
+        Args:
+            path: Caminho do arquivo de coordenadas (``barra, x, y`` por linha).
+
+        Returns:
+            ``True`` se o arquivo foi enviado ao motor; ``False`` se não existe.
+        """
+        path = pathlib.Path(path).resolve()
+
+        if not path.exists():
+            print(
+                f"[OpenTES][AVISO] Arquivo de coordenadas '{path}' nao encontrado; "
+                "as barras ficarao sem coordenadas."
+            )
+            return False
+
+        self.run_command(f'Buscoords "{path}"')
+        return True
+
     def run_dss(self, no_controls: bool = False) -> None:
         """Resolve o fluxo de potência e confere se a solução convergiu.
 

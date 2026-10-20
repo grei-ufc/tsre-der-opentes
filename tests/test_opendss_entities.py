@@ -363,3 +363,26 @@ class TestBackwardCompatibility:
     def test_get_extra_info_covers_every_entity(self, grid, children):
         sim, _ = grid
         assert set(sim.get_extra_info()) == {c["eid"] for c in children}
+
+
+class TestBusCoordsParameter:
+    """`buscoords=` do `init()`, sem teste até aqui.
+
+    No fim do arquivo: compila outro circuito no motor compartilhado.
+    """
+
+    def test_the_coordinates_reach_the_bus_entities(self, tmp_path):
+        master = DATA_DIR / "IEEE13Nodeckt.dss"
+        if not master.exists():
+            pytest.skip("IEEE13 fixture not found")
+        coords = tmp_path / "coords.csv"
+        coords.write_text("650, 11.0, 22.0\n")
+
+        sim = OpenDSSSimulator()
+        sim.init("DSS-0", 1.0, topofile=str(master), step_size=300, buscoords=str(coords))
+        sim.create(1, "Grid")
+        info = sim.get_extra_info()["Bus-650"]
+
+        assert (info["x"], info["y"]) == (11.0, 22.0)
+        assert info["coord_defined"] is True
+        assert sim.get_bus_positions()["Bus-650"] == (11.0, 22.0)

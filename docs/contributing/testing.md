@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O projeto usa **pytest**, com 17 arquivos e 640 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 639 passed, 1 skipped).
+O projeto usa **pytest**, com 17 arquivos e 661 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 660 passed, 1 skipped).
 
 Duas categorias, misturadas entre os arquivos:
 
@@ -42,11 +42,11 @@ uv run --no-sync python -m pytest tests/ -v --tb=long
 | `test_collector.py` | 18 | Não | Alinhamento das colunas do CSV de resultados (`collector.Collector`) |
 | `test_element_specs.py` | 127 | Sim | `opendss.element_specs` (registro declarativo) + `api_opendss.OpenDSSSimulator` |
 | `test_error_handling.py` | 43 | Sim | Propagação de erro no wrapper e no adaptador OpenDSS |
-| `test_opendss_entities.py` | 37 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
+| `test_opendss_entities.py` | 38 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
 | `test_opendss_phase_reads.py` | 23 | Sim | Leitura por fase do wrapper (`opendss_wrapper.py`) |
 | `test_opendss_snapshot.py` | 19 | Sim | Cache de leituras do wrapper |
 | `test_topology_builder.py` | 46 | Sim | `opendss.topology_builder.build_graph` |
-| `test_wrapper_layers.py` | 18 | Sim | Composição em mixins do wrapper (`_engine`/`_reader`/`_writer`) |
+| `test_wrapper_layers.py` | 36 | Sim | Composição em mixins do wrapper (`_engine`/`_reader`/`_writer`) |
 | `test_scenario_smoke.py` | 3 | Sim | Um cenário de ponta a ponta, com CSV de saída |
 
 ¹ Métodos de teste (não casos parametrizados — vários métodos rodam mais de um caso via `@pytest.mark.parametrize`).
@@ -135,6 +135,10 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | `TestPowerTotal` | 3 | Total de potência bate com a soma das fases; terminais opostos de uma linha têm sinais opostos |
 | `TestCompileIsRobust` | 4 | Construir o wrapper não muda o diretório de trabalho do processo; caminho relativo resolve contra o diretório do chamador; arquivo ausente levanta erro em vez de compilar um circuito vazio |
 | `TestReadersDoNotMutate` | 4 | Uma leitura (`get_circuit_info`) nunca chama `run_dss`, e reporta as mesmas classes em qualquer circuito; escrita limpa o cache |
+| `TestFacadeIsNotBypassed` | 2 | Teste de arquitetura: o adaptador e o registry não acessam `dss_wrapper.dss`, e nenhum simulador fora do pacote `opendss` importa o `py_dss_interface` |
+| `TestFacadeReaders` | 5 | Resumo do circuito, estado da solução e dados das barras pela fachada; o grafo da topologia lê as barras do mesmo jeito |
+| `TestLoadShapes` | 7 | Curvas pela fachada: intervalo em s/min/h ou `None`, reativa que cai para a ativa, `npts` conciliado; curva inexistente ou vazia é recusada |
+| `TestBusCoords` | 4 | `load_buscoords`: arquivo ausente avisa; válido aplica as coordenadas; caminho relativo vem do diretório de trabalho; conteúdo malformado passa sem erro (limitação do motor) |
 
 #### `test_opendss_snapshot.py`
 
@@ -169,6 +173,7 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | `TestCreateGuards` | 2 | `Grid` não pode ser criado duas vezes; outros modelos são rejeitados em `create()` |
 | `TestExtraInfoMatchesTheEngine` | 2 | Barra/nós/segundo terminal em `extra_info` batem com o que o `cktelement` do engine reporta |
 | `TestBackwardCompatibility` | 4 | `get_detected_pvsystems`/`_regulators`/`_storages` e os mapas por eid, usados por cenários existentes, continuam funcionando |
+| `TestBusCoordsParameter` | 1 | O parâmetro `buscoords=` do `init()` leva as coordenadas às entidades `Bus` |
 
 #### `test_element_specs.py`
 

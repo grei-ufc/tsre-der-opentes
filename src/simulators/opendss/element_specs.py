@@ -321,13 +321,13 @@ def read_circuit(sim, name: str, attrs: Iterable[str], spec: ModelSpec) -> dict[
     """
     attrs = list(attrs)
     result: dict[str, Any] = {}
-    solution = sim.dss_wrapper.dss.solution
 
-    if "converged" in attrs:
-        # O motor devolve int (0/1); o cenário recebe o booleano.
-        result["converged"] = bool(solution.converged)
-    if "iterations" in attrs:
-        result["iterations"] = solution.iterations
+    if "converged" in attrs or "iterations" in attrs:
+        converged, iterations = sim.dss_wrapper.get_solution_state()
+        if "converged" in attrs:
+            result["converged"] = converged
+        if "iterations" in attrs:
+            result["iterations"] = iterations
 
     if "P_mw" in attrs or "Q_mvar" in attrs:
         p_kw, q_kvar = sim.dss_wrapper.get_circuit_power()

@@ -14,6 +14,7 @@ from .graph_model import (
     NetworkGraph,
     NetworkNode,
 )
+from .opendss_bus import get_all_buses_info
 
 # Ordem de precedência ao classificar uma barra que atende a mais de um
 # critério (uma barra com carga e PV é classificada como 'pv').
@@ -362,12 +363,11 @@ def add_nodes(graph, dss, attachments, elements=()):
     """
     attached_by_bus = index_by_bus(elements)
 
-    for bus in dss.circuit.buses_names:
+    for bus, info in get_all_buses_info(dss).items():
         bus_id = _bus_name(bus)
-        dss.circuit.set_active_bus(bus)
         # Sem coordenada no BusCoords, o OpenDSS reporta (0, 0). Esse zero não é
         # uma posição, e quem desenhasse a barra ali a poria na origem.
-        has_coords = bool(dss.bus.coord_defined)
+        has_coords = info["coord_defined"]
 
         graph.add_node(
             NetworkNode(
@@ -375,11 +375,11 @@ def add_nodes(graph, dss, attachments, elements=()):
                 label=bus,
                 node_type=get_node_type(bus_id, attachments),
                 metadata={
-                    "kv_base": dss.bus.kv_base,
-                    "num_nodes": dss.bus.num_nodes,
-                    "nodes": list(dss.bus.nodes),
-                    "x": dss.bus.x if has_coords else None,
-                    "y": dss.bus.y if has_coords else None,
+                    "kv_base": info["kv_base"],
+                    "num_nodes": info["num_nodes"],
+                    "nodes": info["nodes"],
+                    "x": info["x"] if has_coords else None,
+                    "y": info["y"] if has_coords else None,
                     "coord_defined": has_coords,
                     # Toda barra traz a chave, mesmo vazia: o consumidor
                     # itera sem antes checar se ela existe.

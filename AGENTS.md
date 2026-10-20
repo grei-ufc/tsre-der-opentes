@@ -47,6 +47,8 @@ uv add <package>
 │       │   ├── opendss_pv.py        # PVSystem operations (standalone functions)
 │       │   ├── opendss_storage.py   # Storage operations
 │       │   ├── opendss_generator.py # Generator reads + voltage band relaxed on load
+│       │   ├── opendss_bus.py       # Bus reads (shared with topology_builder)
+│       │   ├── opendss_loadshape.py # LoadShape reads, engine quirks resolved
 │       │   ├── opendss_regulator.py # Regulator operations
 │       │   ├── _utils.py            # Shared helpers (to_3phase, extract_3phase_pq)
 │       │   ├── topology_builder.py  # Circuit graph builder
@@ -97,7 +99,7 @@ uv add <package>
 
 - `mosaik/` is a gitignored local clone — never edit framework code there for project changes.
 - Scenarios are standalone scripts, not importable modules. Each defines its own `SIM_CONFIG` and `run_scenario()`.
-- The `opendss/opendss_wrapper.py` is the single source of truth for all OpenDSS interactions. Do not call `py_dss_interface` directly from simulators.
+- The `opendss/opendss_wrapper.py` is the single source of truth for all OpenDSS interactions. Do not call `py_dss_interface` directly from simulators, and do not reach past the facade with `dss_wrapper.dss` from the adapter or the registry — add a method to the wrapper instead. `tests/test_wrapper_layers.py::TestFacadeIsNotBypassed` enforces both.
 - Tests: `uv run --no-sync python -m pytest tests/ -v`. Lint: `uv run ruff check`. Format: `uv run ruff format`.
 
 ## OpenDER (smart inverter) gotchas

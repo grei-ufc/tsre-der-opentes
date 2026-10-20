@@ -77,13 +77,29 @@ parameter ...`. A descrição do erro (`error_desc`) não é lida: no
 
 Compila um arquivo `.dss` específico.
 
+#### `load_buscoords(path)`
+
+Carrega um arquivo de coordenadas de barras (`barra, x, y` por linha) no
+circuito compilado. É o que o parâmetro `buscoords` do adaptador usa.
+
+- Arquivo inexistente: aviso, e devolve `False` — as coordenadas servem ao
+  desenho, e o estudo não depende delas.
+- Arquivo presente: o comando segue por `run_command`, com a detecção de erro
+  do motor, e devolve `True`. O caminho é resolvido contra o diretório de
+  trabalho.
+
+!!! warning "O motor não confere o conteúdo"
+    Medido: um arquivo malformado ou vazio passa sem código de erro e não muda
+    coordenada nenhuma.
+
 #### `run_dss(no_controls=False)`
 
 Executa a solução do fluxo de potência e **confere se ela convergiu**.
 
 - `no_controls=False` (default): executa `Solve`
 - `no_controls=True`: executa `SolveNoControl`
-- Se existem elementos Storage, chama `UpdateStorage` após a solução
+- Depois da solução, sempre chama `UpdateStorage`, que integra a energia das
+  baterias no passo; sem bateria o comando não faz nada
 
 !!! warning "Um solve truncado não se denuncia sozinho"
     Parar no limite de iterações devolve tensões que **não resolvem o circuito**
@@ -163,9 +179,25 @@ dss.get_total_power("PVSystem")  # soma de todos os PVSystems
 
 #### `get_circuit_info()`
 
-Executa fluxo de potência e retorna um dicionário com o resumo completo.
+Retorna um dicionário com o resumo da **última solução** — não resolve o
+circuito; resolva antes com `run_dss()`.
 
-**Retorno**: `dict[str, float]` com chaves como `Total P/MW`, `Total Loss P/MW`, `Load P/MW`, `PVSystem P/MW`, etc.
+**Retorno**: `dict[str, float]` com os totais do circuito e das perdas, e os de
+cada classe (`Load`, `PV`, `Generator`, `Storage`), com zero para as ausentes.
+
+#### `get_circuit_summary()`
+
+Dados estáticos do circuito compilado e os ajustes do solucionador.
+
+**Retorno**: `dict` com `name`, `num_buses`, `num_nodes`, `tolerance` e
+`max_iterations`. É o `extra_info` da entidade `Circuit` do adaptador.
+
+#### `get_solution_state()`
+
+Se a última solução convergiu, e em quantas iterações. Lido do motor, e não do
+cache.
+
+**Retorno**: `tuple[bool, int]` — `(converged, iterations)`.
 
 ---
 
@@ -174,6 +206,16 @@ Executa fluxo de potência e retorna um dicionário com o resumo completo.
 #### `get_all_buses()`
 
 **Retorno**: `list[str]` — lista de nomes de todas as barras.
+
+#### `get_all_buses_info()`
+
+Dados estáticos de todas as barras, na ordem do circuito. É a mesma leitura que
+o grafo da topologia faz (`opendss_bus.read_bus_info`).
+
+**Retorno**: `dict[str, dict]` — por barra, `kv_base`, `nodes`, `num_nodes`,
+`x`, `y` e `coord_defined`. As coordenadas saem cruas: sem `BusCoords` o motor
+reporta (0, 0), e só o `coord_defined` distingue esse zero de uma barra que fica
+de fato na origem.
 
 #### `get_bus_vmag_pu(bus)`
 
@@ -391,6 +433,26 @@ O despacho passa por `set_power(name, p, q, element="Generator")`.
 #### `get_all_storages_info()`
 
 Delega para `opendss_storage.py`. Retorna dict de todos os Storages com: `kw_rated`, `kwh_rated`, `kwh_stored`, `pct_reserve`, eficiências, etc.
+
+---
+
+### Curvas (LoadShape)
+
+#### `get_loadshape(name)`
+
+Delega para `opendss_loadshape.py`. Retorna os multiplicadores de uma
+LoadShape com as peculiaridades do motor já resolvidas:
+
+| Chave | Conteúdo |
+|---|---|
+| `p_mult`, `q_mult` | Multiplicadores; `q_mult` repete `p_mult` quando a curva não declara reativa |
+| `npts` | Número de pontos, já conciliado com o vetor que o motor de fato entrega |
+| `interval_s` | Intervalo entre pontos em segundos, buscado em s, min e h; `None` com pontos explícitos por hora (`interval=0`). Sem declaração, o OpenDSS assume 1 h |
+| `use_actual` | Se os valores são absolutos, e não multiplicadores |
+
+Levanta `OpenDSSException` se a curva não existe — a interface do motor
+manteria ativa a curva anterior e devolveria os pontos dela — ou não tem
+pontos.
 
 ---
 

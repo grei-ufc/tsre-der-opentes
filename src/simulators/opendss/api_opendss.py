@@ -1,7 +1,6 @@
 import copy
 import datetime
 import math
-from pathlib import Path
 
 import mosaik_api_v3
 
@@ -277,33 +276,12 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         )
 
         if buscoords is not None:
-            self._load_buscoords(buscoords)
+            self.dss_wrapper.load_buscoords(buscoords)
 
         if output_graph_path is not None:
             self.dss_wrapper.grafo_tsdq(output_graph_path)
 
         return self.meta
-
-    def _load_buscoords(self, buscoords):
-        """Carrega um arquivo de coordenadas de barras no circuito compilado.
-
-        O OpenDSS aceita o comando sem reclamar de arquivo inexistente e deixa
-        as coordenadas zeradas, o que só apareceria depois, como um desenho
-        empilhado na origem. Por isso o arquivo é conferido aqui.
-
-        Args:
-            buscoords: Caminho do arquivo de coordenadas.
-        """
-        path = Path(buscoords)
-
-        if not path.exists():
-            print(
-                f"[OpenTES][AVISO] Arquivo de coordenadas '{path}' nao encontrado; "
-                "as barras ficarao sem coordenadas."
-            )
-            return
-
-        self.dss_wrapper.dss.text(f'Buscoords "{path}"')
 
     def create(self, num, model, **model_params):
         if model != "Grid":
@@ -414,48 +392,17 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
         cenário possa registrar se cada passo convergiu — ver
         :func:`~.element_specs.read_circuit`.
         """
-        dss = self.dss_wrapper.dss
-        self._add_child(
-            "Circuit-0",
-            "Circuit",
-            dss.circuit.name,
-            rel=[],
-            extra_info={
-                "name": dss.circuit.name,
-                "num_buses": dss.circuit.num_buses,
-                "num_nodes": dss.circuit.num_nodes,
-                # Os ajustes em vigor, para o cenário registrar contra que
-                # critério as tensões do estudo foram resolvidas.
-                "tolerance": dss.solution.tolerance,
-                "max_iterations": dss.solution.max_iterations,
-            },
-        )
+        summary = self.dss_wrapper.get_circuit_summary()
+        self._add_child("Circuit-0", "Circuit", summary["name"], rel=[], extra_info=summary)
 
     def _add_buses(self):
-        dss = self.dss_wrapper.dss
-
-        for name in self.dss_wrapper.get_all_buses():
+        for name, info in self.dss_wrapper.get_all_buses_info().items():
             eid = f"Bus-{name}"
             self._bus_eids[name.lower()] = eid
 
-            dss.circuit.set_active_bus(name)
-            self._add_child(
-                eid,
-                "Bus",
-                name,
-                rel=[],
-                extra_info={
-                    "name": name,
-                    "kv_base": dss.bus.kv_base,
-                    "nodes": list(dss.bus.nodes),
-                    "num_nodes": dss.bus.num_nodes,
-                    "x": dss.bus.x,
-                    "y": dss.bus.y,
-                    # Sem o flag, uma barra sem coordenada é indistinguível de
-                    # uma barra que fica de fato na origem.
-                    "coord_defined": bool(dss.bus.coord_defined),
-                },
-            )
+            # As coordenadas ficam cruas, com o flag ao lado: sem ele, uma barra
+            # sem coordenada é indistinguível de uma que fica de fato na origem.
+            self._add_child(eid, "Bus", name, rel=[], extra_info={"name": name, **info})
 
     def _add_loads(self):
         loads_df = self.dss_wrapper.get_all_elements("Load")
@@ -583,7 +530,8 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             self._add_child(eid, "Transformer", name, rel=rel, extra_info=info)
 
     def _add_regulators(self):
-        if self.dss_wrapper.dss.regcontrols.count == 0:
+        regulators = self.dss_wrapper.get_all_regulators_info()
+        if not regulators:
             return
 
         # Os transformadores já existem (_create_grid os cria antes). Nomes em
@@ -592,7 +540,7 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
             self.entity_map[eid].lower(): eid for eid in self._eids_by_type.get("Transformer", [])
         }
 
-        for info in self.dss_wrapper.get_all_regulators_info():
+        for info in regulators:
             name = info["name"]
             eid = f"RegControl-{name}"
             info["eid_dss"] = eid
@@ -834,44 +782,20 @@ class OpenDSSSimulator(mosaik_api_v3.Simulator):
     def _cache_loadshape(self, shape_name):
         """Lê uma LoadShape uma vez e guarda seus multiplicadores.
 
+        As peculiaridades do motor — ``npts`` maior que o vetor, intervalo em
+        s/min/h, curva inexistente — ficam na fachada; ver
+        :meth:`~._reader.ReaderMixin.get_loadshape`. Aqui fica só a política do
+        adaptador: uma curva sem intervalo declarado anda no passo da simulação.
+
         Se a leitura falhar, o perfil fica ausente do cache e ``step()`` deixa
         os elementos que o usam parados no valor nominal — daí o aviso dizer a
         consequência, e não só o erro.
         """
         try:
-            self.dss_wrapper.dss.loadshapes.name = shape_name
-            p_mult = list(self.dss_wrapper.dss.loadshapes.p_mult)
-            q_mult = list(self.dss_wrapper.dss.loadshapes.q_mult)
-            npts = self.dss_wrapper.dss.loadshapes.npts
-
-            # O npts declarado pode passar do array realmente entregue pelo
-            # motor. Ajustar aqui, uma vez, evita um IndexError por passo — e
-            # o fallback silencioso para o indice 0 que ele provocava.
-            if len(p_mult) < npts:
-                print(
-                    f"[OpenTES][AVISO] LoadShape '{shape_name}' declara npts={npts} "
-                    f"mas entregou {len(p_mult)} pontos; usando {len(p_mult)}."
-                )
-                npts = len(p_mult)
-
-            if not q_mult or len(q_mult) < npts:
-                q_mult = p_mult
-
-            interval = self.dss_wrapper.dss.loadshapes.s_interval
-            if interval == 0:
-                interval = self.dss_wrapper.dss.loadshapes.min_interval * 60
-            if interval == 0:
-                interval = self.dss_wrapper.dss.loadshapes.hr_interval * 3600
-            if interval == 0:
-                interval = self.step_size
-
-            self.shape_data_cache[shape_name] = {
-                "p_mult": p_mult,
-                "q_mult": q_mult,
-                "interval_s": interval,
-                "npts": npts,
-                "use_actual": bool(self.dss_wrapper.dss.loadshapes.use_actual),
-            }
+            shape = self.dss_wrapper.get_loadshape(shape_name)
+            if shape["interval_s"] is None:
+                shape["interval_s"] = self.step_size
+            self.shape_data_cache[shape_name] = shape
 
         except Exception as exc:
             print(

@@ -8,13 +8,16 @@ nao custa nova ida ao motor. Resolva o fluxo antes de ler.
 from __future__ import annotations
 
 import math
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import py_dss_interface
 
 from . import (
+    opendss_bus,
     opendss_generator,
+    opendss_loadshape,
     opendss_pv,
     opendss_regulator,
     opendss_storage,
@@ -33,6 +36,14 @@ class ReaderMixin:
     def get_all_buses(self) -> list[str]:
         """Returns a list of all bus names in the circuit."""
         return self.dss.circuit.buses_names
+
+    def get_all_buses_info(self) -> dict[str, dict[str, Any]]:
+        """Dados estáticos de todas as barras: tensão base, nós e coordenadas.
+
+        A mesma leitura que o grafo da topologia faz; ver
+        :func:`~.opendss_bus.read_bus_info`.
+        """
+        return opendss_bus.get_all_buses_info(self.dss)
 
     def get_all_elements(self, element: str = "Load") -> pd.DataFrame:
         """
@@ -503,6 +514,41 @@ class ReaderMixin:
         """Gets the PT Ratio of a CapControl."""
         self.set_element(name, "CapControl")
         return self.dss.capcontrols.pt_ratio
+
+    def get_loadshape(self, name: str) -> dict[str, Any]:
+        """Multiplicadores, número de pontos e intervalo de uma LoadShape.
+
+        Ver :func:`~.opendss_loadshape.read_loadshape`, que concilia o ``npts``
+        com o vetor real e recusa uma curva inexistente ou vazia.
+        """
+        return opendss_loadshape.read_loadshape(self.dss, name)
+
+    def get_circuit_summary(self) -> dict[str, Any]:
+        """Dados estáticos do circuito compilado e os ajustes do solucionador.
+
+        Returns:
+            Dict com ``name``, ``num_buses``, ``num_nodes``, ``tolerance`` e
+            ``max_iterations`` — os ajustes em vigor, para o cenário registrar
+            contra que critério as tensões do estudo foram resolvidas.
+        """
+        return {
+            "name": self.dss.circuit.name,
+            "num_buses": self.dss.circuit.num_buses,
+            "num_nodes": self.dss.circuit.num_nodes,
+            "tolerance": self.dss.solution.tolerance,
+            "max_iterations": self.dss.solution.max_iterations,
+        }
+
+    def get_solution_state(self) -> tuple[bool, int]:
+        """Se a última solução convergiu, e em quantas iterações.
+
+        Lido do motor, e não do cache: são dois escalares de uma chamada só.
+
+        Returns:
+            Tupla ``(converged, iterations)``. O motor devolve ``converged``
+            como inteiro (0/1); aqui ele já sai booleano.
+        """
+        return bool(self.dss.solution.converged), self.dss.solution.iterations
 
     def get_circuit_power(self) -> tuple[float, float]:
         """
