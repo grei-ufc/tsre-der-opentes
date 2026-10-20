@@ -156,7 +156,7 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | RegControl | `tap` | `int` | Posição do tap (-16 a +16) |
 | Storage | `P_set` | `float` | Potência ativa solicitada (kW) |
 | Storage | `Q_set` | `float` | Potência reativa solicitada (kvar) |
-| Storage | `SoC_set` | `float` | SoC alvo (%) |
+| Storage | `SoC_set` | `float` | SoC alvo em pu, de 0 a 1 (limitado a essa faixa) |
 | PVSystem | `P_des` | `float` | Potência ativa desejada (kW) |
 | PVSystem | `Q_des` | `float` | Potência reativa desejada (kvar) |
 | Switch | `is_open` | `bool` | `True` abre a chave, `False` fecha |
@@ -198,7 +198,7 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | PVSystem | `P1_pu..P3_pu` | `float` | Geração por fase em pu da parcela da fase (`Pmpp / fases`) |
 | Storage | `P_act` | `float` | Potência ativa atual (kW) |
 | Storage | `Q_act` | `float` | Potência reativa atual (kvar) |
-| Storage | `SoC` | `float` | Estado de carga (%) |
+| Storage | `SoC` | `float` | Estado de carga em pu, de 0 a 1 |
 | Generator | `P_meas` | `float` | Potência ativa entregue (kW), positiva gerando |
 | Generator | `Q_meas` | `float` | Potência reativa entregue (kvar) |
 | Generator | `P1..P3`, `Q1..Q3`, `I1_A..I3_A` | `float` | Por fase; `NaN` na fase que o gerador não tem |

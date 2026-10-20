@@ -22,16 +22,16 @@ Cada container:
 
 | Serviço | Porta | Módulo |
 |---|---|---|
-| `opendss` | 5671 | `simulators.opendss.api_opendss` |
-| `battery` | 5672 | `simulators.battery.battery_sim` |
-| `collector` | 5673 | `simulators.collector.collector` |
-| `controller` | 5674 | `simulators.controller.controller_sim` |
-| `csv-data-1` | 5675 | `simulators.collector.csv_sim_pandas` |
-| `csv-data-2` | 5676 | `simulators.collector.csv_sim_pandas` |
-| `inverter-std` | 5677 | `simulators.inverter.inverter_simulator` |
-| `pv-panel` | 5678 | `simulators.pv.pv_panel_simulator` |
-| `regulator` | 5679 | `simulators.controller.regulator_control` |
-| `smart-inverter` | 5680 | `simulators.inverter.smart_inverter_simulator` |
+| `opendss` | 5771 | `simulators.opendss.api_opendss` |
+| `battery` | 5772 | `simulators.battery.battery_sim` |
+| `collector` | 5773 | `simulators.collector.collector` |
+| `controller` | 5774 | `simulators.controller.controller_sim` |
+| `csv-data-1` | 5775 | `simulators.collector.csv_sim_pandas` |
+| `csv-data-2` | 5776 | `simulators.collector.csv_sim_pandas` |
+| `inverter-std` | 5777 | `simulators.inverter.inverter_simulator` |
+| `pv-panel` | 5778 | `simulators.pv.pv_panel_simulator` |
+| `regulator` | 5779 | `simulators.controller.regulator_control` |
+| `smart-inverter` | 5780 | `simulators.inverter.smart_inverter_simulator` |
 
 ## Passo 1: Construir a imagem
 
@@ -93,12 +93,12 @@ docker compose down
 
 ```python
 SIM_CONFIG = {
-    "DSS":         {"connect": "localhost:5671"},
-    "PVSimulator": {"connect": "localhost:5678"},
-    "InverterSim": {"connect": "localhost:5677"},  # padrão
-    "CSV_Irr":     {"connect": "localhost:5675"},
-    "CSV_Temp":    {"connect": "localhost:5676"},
-    "Collector":   {"connect": "localhost:5673"},
+    "DSS":         {"connect": "localhost:5771"},
+    "PVSimulator": {"connect": "localhost:5778"},
+    "InverterSim": {"connect": "localhost:5777"},  # padrão
+    "CSV_Irr":     {"connect": "localhost:5775"},
+    "CSV_Temp":    {"connect": "localhost:5776"},
+    "Collector":   {"connect": "localhost:5773"},
 }
 ```
 
@@ -106,12 +106,12 @@ SIM_CONFIG = {
 
 ```python
 SIM_CONFIG = {
-    "DSS":         {"connect": "localhost:5671"},
-    "PVSimulator": {"connect": "localhost:5678"},
-    "InverterSim": {"connect": "localhost:5680"},  # smart
-    "CSV_Irr":     {"connect": "localhost:5675"},
-    "CSV_Temp":    {"connect": "localhost:5676"},
-    "Collector":   {"connect": "localhost:5673"},
+    "DSS":         {"connect": "localhost:5771"},
+    "PVSimulator": {"connect": "localhost:5778"},
+    "InverterSim": {"connect": "localhost:5780"},  # smart
+    "CSV_Irr":     {"connect": "localhost:5775"},
+    "CSV_Temp":    {"connect": "localhost:5776"},
+    "Collector":   {"connect": "localhost:5773"},
 }
 ```
 

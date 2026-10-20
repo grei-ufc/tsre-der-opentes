@@ -42,15 +42,21 @@ uv add <package>
 ├── src/
 │   └── simulators/          # Mosaik adapters (api_v3) + domain models
 │       ├── opendss/         # OpenDSS wrapper, adapters, and helpers
-│       │   ├── opendss_wrapper.py   # Core OpenDSS interface via py-dss-interface
-│       │   ├── api_opendss.py       # Mosaik adapter wrapping opendss_wrapper
-│       │   ├── opendss_pv.py        # PVSystem operations (standalone functions)
+│       │   ├── opendss_wrapper.py   # The facade: single access point to the engine
+│       │   ├── _engine.py           # Facade layer: compile, solve, errors, load-time adjustments
+│       │   ├── _reader.py           # Facade layer: reads (buses, elements, circuit, curves)
+│       │   ├── _writer.py           # Facade layer: writes (power, properties, taps, switches)
+│       │   ├── _types.py            # OpenDSSException and the solution cache
+│       │   ├── api_opendss.py       # Mosaik adapter (entities, curve loop, step)
+│       │   ├── element_specs.py     # Model registry: META, input routing and reads derive from it
+│       │   ├── opendss_pv.py        # PVSystem ops; ideal DC/AC conversion applied on load
 │       │   ├── opendss_storage.py   # Storage operations
 │       │   ├── opendss_generator.py # Generator reads + voltage band relaxed on load
 │       │   ├── opendss_bus.py       # Bus reads (shared with topology_builder)
 │       │   ├── opendss_loadshape.py # LoadShape reads, engine quirks resolved
-│       │   ├── opendss_regulator.py # Regulator operations
-│       │   ├── _utils.py            # Shared helpers (to_3phase, extract_3phase_pq)
+│       │   ├── opendss_regulator.py # Regulator reads + native tap control frozen on load
+│       │   ├── opendss_transformer.py # Transformer reads
+│       │   ├── _utils.py            # Phase helpers (map_to_phases, sum_phases, ABSENT=NaN)
 │       │   ├── topology_builder.py  # Circuit graph builder
 │       │   └── graph_model.py       # Graph data classes
 │       ├── inverter/        # Smart inverter (IEEE 1547 via OpenDER)
@@ -89,9 +95,9 @@ uv add <package>
 
 - **All simulators use mosaik API v3** (`mosaik_api_v3`, `api_version: '3.0'`). Do not use `mosaik_api` (v2).
 - **Every simulator module** must have a `META` dict with `api_version`, `type`, and `models`. See `simulators/inverter/inverter_simulator.py` for the minimal pattern.
-- **Docker containers** run simulators with `--remote 0.0.0.0:<port>`. Each container maps to a fixed port (5671-5680). The scenario script connects via `connect: 'localhost:PORT'`.
+- **Docker containers** run simulators with `--remote 0.0.0.0:<port>`. Each container maps to a fixed port (5771-5780). The scenario script connects via `connect: 'localhost:PORT'`.
 - **PYTHONPATH** is set to `/app/src` in Docker; locally, use `uv run` from project root.
-- **Sign convention**: OpenDSS generation is negative. The codebase inverts signs at the adapter boundary (see `extract_3phase_pq(sign=-1)`).
+- **Sign convention**: OpenDSS generation is negative. The codebase inverts signs at the adapter boundary, through the `sign=-1` of `phase_attr_map` in `element_specs.py` (PVSystem, Storage, Generator).
 - **SIM_CONFIG paths** in scenarios must use the full sub-package path, e.g. `'python': 'simulators.opendss.api_opendss:OpenDSSSimulator'`.
 - **Data files** live in `data/` at project root (not inside `src/`). Docker mounts `./data:/app/data`.
 
@@ -101,6 +107,23 @@ uv add <package>
 - Scenarios are standalone scripts, not importable modules. Each defines its own `SIM_CONFIG` and `run_scenario()`.
 - The `opendss/opendss_wrapper.py` is the single source of truth for all OpenDSS interactions. Do not call `py_dss_interface` directly from simulators, and do not reach past the facade with `dss_wrapper.dss` from the adapter or the registry — add a method to the wrapper instead. `tests/test_wrapper_layers.py::TestFacadeIsNotBypassed` enforces both.
 - Tests: `uv run --no-sync python -m pytest tests/ -v`. Lint: `uv run ruff check`. Format: `uv run ruff format`.
+- **One engine per process.** Every `py_dss_interface.DSS()` shares the same
+  OpenDSS engine: compiling a second circuit silently replaces the first. In the
+  test suite a module-scoped fixture compiles one circuit, so a test that
+  compiles another one must go at the **end** of its file — placed earlier, the
+  tests after it read the wrong circuit without failing.
+- **The wrapper prepares the circuit on every compile** (`_after_compile`, before
+  the first solve): PVSystems get ideal DC/AC conversion, Generators get an open
+  voltage band, RegControls get their native control frozen (taps only change
+  through the adapter's `tap` input; the declared position is kept). The
+  values the `.dss` declared stay in `extra_info`. Do not undo these from a
+  scenario.
+- **Engine errors are detected by code**, not by text: `run_command` reads
+  `errorinterface.error_code` right after each command. Never read
+  `errorinterface.error_desc` — in py-dss-interface 2.3.0 it segfaults. OpenDSS
+  dialog boxes are on only while a `.dss` compiles.
+- **py-dss-interface returns `['None']` (a string) for an empty class**, not an
+  empty list. Check `.count`, or compare with `"NONE"`.
 
 ## OpenDER (smart inverter) gotchas
 

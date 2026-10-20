@@ -24,15 +24,55 @@ uv sync
 
 ## Erros do OpenDSS
 
-### `OpenDSSException: Error executing command`
+### `OpenDSSException: Status (...): [OpenDSS 580] Unknown parameter ...`
 
-**Causa**: Comando DSS inválido ou arquivo `.dss` com erro.
+**Causa**: O motor recusou um comando. A mensagem traz o código e o texto do
+OpenDSS — por exemplo `580` (parâmetro inexistente), `302` (comando
+inexistente), `303` (valor inválido) ou `180` (algo citado no comando não
+existe, como um `linecode`).
 
-**Solução**:
+**Solução**: O texto diz o que foi recusado. Se o comando veio de um
+controlador, confira a unidade e o tipo do valor; se veio do `.dss`, corrija o
+arquivo. Com `fail_on_error=False` a mensagem é só impressa e a simulação
+segue.
 
-1. Verifique se o arquivo `.dss` existe no caminho especificado
-2. Verifique se o circuito compila corretamente no OpenDSS standalone
-3. Verifique se os LoadShapes estão definidos
+### `OpenDSSException: A solucao nao convergiu em N iteracoes ...`
+
+**Causa**: O fluxo de potência parou no limite de iterações sem convergir — as
+tensões desse passo não resolvem o circuito. É comum no primeiro passo depois
+do setup, numa manobra de chave ou num salto grande de carga.
+
+**Solução**: Aumente `max_iterations` no `init()` do adaptador. Se preferir não
+perder a execução por um passo ruim, use `fail_on_error=False` e registre o
+atributo `converged` do modelo `Circuit`. Ilhar geração sem referência de
+tensão (abrir a chave que isola uma barra alimentada só por um PV) não tem
+solução: aí o fluxo diverge, e mais iterações não ajudam.
+
+### Uma caixa de diálogo do OpenDSS aparece ao iniciar
+
+**Causa**: Há um erro no `.dss` compilado. As caixas de diálogo do OpenDSS
+ficam ligadas **só durante a compilação**, de propósito: o motor informa por
+texto apenas o erro da última linha do arquivo, e um erro no meio dele só
+aparece pela caixa.
+
+**Solução**: Leia a mensagem da caixa, corrija o `.dss` e clique para seguir.
+Durante a simulação as caixas ficam desligadas e os erros chegam como
+`OpenDSSException`.
+
+### `[OpenTES][ERRO] Falha ao ler a LoadShape '...'`
+
+**Causa**: Uma carga ou gerador declara `daily`/`yearly` com uma curva que não
+existe no circuito, ou que não tem pontos.
+
+**Solução**: Corrija o nome da curva no `.dss`. Enquanto isso, o elemento fica
+parado no valor nominal durante todo o estudo — é o que o aviso diz.
+
+### Gerador injeta reativa que não foi declarada
+
+**Causa**: Um `Generator` sem `pf` no `.dss` usa o padrão do OpenDSS, `pf=0.88`.
+O despacho por `P_set` ou `P_mult` acompanha esse fator.
+
+**Solução**: Declare `pf=1` no `.dss` se o gerador não deve injetar reativa.
 
 ### `FileNotFoundError` para arquivos `.dss`
 
@@ -53,12 +93,15 @@ ls data/123Bus/run_ieee123_cosim_pv_5min.dss
 **Solução**: Verifique o `docker-compose.yml`. O serviço deve executar:
 
 ```yaml
-command: python -m simulators.opendss.api_opendss --remote 0.0.0.0:5671
+command: python -m simulators.opendss.api_opendss --remote 0.0.0.0:5771
 ```
 
-### Cenário não conecta em `localhost:5671`
+### Cenário não conecta em `localhost:5771`
 
-**Causa**: Containers não estão rodando ou portas conflitantes.
+**Causa**: Containers não estão rodando, portas conflitantes, ou o cenário
+aponta para a faixa antiga (5671–5680). No Windows, o WinNAT e o Hyper-V
+reservam faixas de portas de forma aleatória — foi por isso que os simuladores
+passaram para 5771–5780.
 
 **Solução**:
 
@@ -67,12 +110,27 @@ command: python -m simulators.opendss.api_opendss --remote 0.0.0.0:5671
 docker compose ps
 
 # Verificar portas
-netstat -an | findstr 5671  # Windows
-ss -tlnp | grep 5671        # Linux
+netstat -an | findstr 5771  # Windows
+ss -tlnp | grep 5771        # Linux
+
+# Windows: faixas reservadas pelo sistema
+netsh interface ipv4 show excludedportrange protocol=tcp
 
 # Reiniciar
 docker compose down
 docker compose up -d
+```
+
+### `docker build` falha com `"/output": not found`
+
+**Causa**: O `Dockerfile` copia a pasta `output/`, que o git ignora — num clone
+novo ela ainda não existe.
+
+**Solução**: Crie a pasta antes de construir a imagem:
+
+```bash
+mkdir output
+docker build -t opentes-simulador .
 ```
 
 ### Resultado não aparece no host
@@ -105,9 +163,24 @@ sudo chown -R $USER:$USER output/
 
 ### Tap do regulador não muda
 
-**Causa**: Tensão dentro da faixa morta ou atraso de controle não expirou.
+**Causa**: O controle automático dos reguladores do OpenDSS fica **travado** ao
+carregar o circuito: os taps só mudam por um controlador externo. Sem um
+`RegController` conectado, o tap fica na posição declarada no `.dss` o estudo
+inteiro. Com o controlador conectado, a tensão pode estar dentro da faixa morta,
+ou o atraso de controle ainda não expirou.
 
-**Solução**: Verifique `Vref`, `db`, `Td_ctrl` e a tensão medida.
+**Solução**: Conecte um `RegController` a cada regulador (ver
+[Configurar Regulador](configure-regulator.md)) e verifique `Vref`, `db`,
+`Td_ctrl` e a tensão medida.
+
+### O tap pula para 0 no primeiro passo
+
+**Causa**: O `RegController` foi criado com `tap_ini=0` num alimentador que
+declara outro tap. Ele envia a própria posição a cada passo, sem ler a do
+circuito.
+
+**Solução**: Crie o controlador com `tap_ini=info["tap_ini"]`, o tap que o
+adaptador reporta no `extra_info` do `RegControl`.
 
 ## Lentidão
 
@@ -123,10 +196,13 @@ sudo chown -R $USER:$USER output/
 
 Alguns cenários imprimem progresso. Para debug adicional, adicione `print()` no `step()` do adaptador desejado.
 
-### Rodar testes unitários
+### Rodar os testes
 
 ```bash
 uv run --no-sync python -m pytest tests/ -v
 ```
 
-Testes isolam os modelos de domínio (bateria, inversor, regulador) sem OpenDSS.
+A suíte tem dois tipos de teste: os de domínio (bateria, inversor, regulador),
+que rodam sem OpenDSS, e os de integração, que compilam circuitos IEEE reais.
+Os de integração precisam do motor; no Linux, isso exige a engine compilada (ver
+o README). Veja [Testes](../contributing/testing.md).

@@ -61,7 +61,7 @@ Cada adaptador implementa a API v3 do mosaik (`mosaik_api_v3.Simulator`) e expõ
 
 | Adaptador | Tipo | Modelo(s) |
 |---|---|---|
-| `opendss/api_opendss.py` | time-based | Grid, Load, Line, Bus, RegControl, Storage, PVSystem |
+| `opendss/api_opendss.py` | time-based | Grid, Circuit, Bus, Load, Line, Switch, Transformer, RegControl, Storage, PVSystem, Generator |
 | `inverter/smart_inverter_simulator.py` | time-based | Inverter (com ou sem OpenDER) |
 | `battery/battery_sim.py` | time-based | Battery |
 | `controller/controller_sim.py` | time-based | Controller |
@@ -80,15 +80,30 @@ Os demais adaptadores (`battery_sim.py`, `pv_panel_simulator.py`, `controller_si
 
 ### 3. Wrapper OpenDSS
 
-`opendss_wrapper.py` é a **única interface** com o motor OpenDSS. Todos os módulos que precisam interagir com o circuito passam por ele.
+`opendss_wrapper.py` é a **única interface** com o motor OpenDSS — uma
+*fachada*, no sentido do padrão de projeto. Todos os módulos que precisam
+interagir com o circuito passam por ele. A classe `OpenDSS` compõe três camadas
+por herança (`_engine`, `_reader`, `_writer`), para que a API pública continue
+plana, e delega a leitura de cada tipo de dispositivo a módulos que ficam atrás
+dela (`opendss_pv`, `opendss_storage`, `opendss_generator`, `opendss_bus`,
+`opendss_loadshape`, `opendss_regulator`, `opendss_transformer`).
 
 Responsabilidades:
 
-- Compilar arquivos `.dss`
-- Resolver fluxo de potência (snapshot)
-- Ler e escrever tensões, correntes, potências
-- Controlar elementos (tap, potência de PV/Storage)
-- Detectar tipos de elementos no circuito
+- Compilar arquivos `.dss`, com as caixas de diálogo do OpenDSS ligadas só
+  durante a compilação
+- Preparar o circuito a cada compilação: conversão ideal dos PVSystems, faixa
+  de tensão aberta dos Generators, controle nativo dos reguladores travado
+- Resolver fluxo de potência (snapshot), conferir a convergência e integrar a
+  energia das baterias
+- Ler e escrever tensões, correntes, potências, servindo as leituras de um
+  cache por solução
+- Controlar elementos (tap, chave, potência de carga, PV, bateria e gerador)
+- Detectar os erros do motor pelo código que ele registra, e encaminhá-los pelo
+  `fail_on_error`
+
+A regra é verificada: `tests/test_wrapper_layers.py::TestFacadeIsNotBypassed`
+falha se o adaptador ou o registry acessarem o motor por cima da fachada.
 
 ### 4. Cenários
 
@@ -133,12 +148,12 @@ Cada adaptador roda em um container Docker com `--remote 0.0.0.0:<porta>`. `SIM_
 
 ```python
 SIM_CONFIG = {
-    "DSS": {"connect": "localhost:5671"},
+    "DSS": {"connect": "localhost:5771"},
 }
 ```
 
 ## Convenção de sinais
 
-O OpenDSS retorna potência de geração com sinal **negativo**. O adaptador inverte os sinais na fronteira usando `extract_3phase_pq(sign=-1)`, para que os demais módulos trabalhem com valores positivos para geração.
+O OpenDSS retorna potência de geração com sinal **negativo**. O adaptador inverte os sinais na fronteira, pelo `sign=-1` declarado no registry (`phase_attr_map` em `element_specs.py`), para que os demais módulos trabalhem com valores positivos para geração.
 
 Consulte [Convenção de Sinais](sign-convention.md) para detalhes.

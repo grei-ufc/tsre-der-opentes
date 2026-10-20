@@ -115,13 +115,24 @@ O `step_size` define o intervalo entre passos de simulação. Nos cenários dest
 
 A simulação avança em **snapshot**: a cada passo, o OpenDSS resolve o fluxo de potência para o instante correspondente.
 
+!!! warning "O tempo do mosaik é em segundos"
+    O adaptador OpenDSS trata o `time` que o mosaik passa ao `step` como
+    segundos — é assim que acha o ponto das curvas e devolve o próximo
+    instante (`time + step_size`). O `time_resolution` recebido no `init()`
+    é guardado, mas não usado: mantenha o padrão do mosaik, `1.0`. A
+    visualização web também só suporta esse valor.
+
 ## OpenDSS
 
 [OpenDSS](https://www.epri.com/pages/sa/opendss) é um motor de simulação de sistemas de distribuição elétrica desenvolvido pelo EPRI. Ele:
 
 - Resolve fluxo de potência em regime permanente (snapshot)
 - Suporta elementos trifásicos e monofásicos
-- Oferece controle nativo de PVSystem, Storage, RegControl
+- Oferece controle nativo de PVSystem, Storage, RegControl — neste projeto,
+  parte dele é neutralizada ao carregar o circuito: a conversão DC/AC do
+  PVSystem vira ideal e o controle automático do RegControl fica travado,
+  porque esses papéis são dos simuladores externos (ver
+  [Decisões de Projeto](design-decisions.md))
 - É acessado via `py-dss-interface` (wrapper Python)
 
 Neste projeto, o OpenDSS é a **fonte de verdade** para o estado da rede elétrica. Os demais simuladores enviam comandos (potência, tap) e recebem medições (tensão, corrente).

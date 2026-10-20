@@ -11,9 +11,12 @@ O motor de fluxo de potência é o [OpenDSS](https://www.epri.com/pages/sa/opend
 - Simular sistemas fotovoltaicos com modelos de irradiância e temperatura
 - Testar inversores com controle IEEE 1547 (Volt-Var, Volt-Watt, fator de potência fixo)
 - Simular armazenamento de energia (baterias) com estados de carga/descarga/idling
+- Despachar geradores (`Generator`) por potência ou por curva, inclusive a curva declarada no `.dss`
+- Mover cargas, PVs, baterias e geradores por curvas de multiplicadores vindas de CSV
 - Controlar reguladores de tensão com compensação de queda de linha
 - Executar cenários localmente ou em containers Docker
-- Coletar resultados em CSV para análise
+- Coletar resultados em CSV para análise, incluindo o estado de convergência de cada passo
+- Exportar a topologia da rede em JSON e acompanhar a simulação num mapa no navegador
 - Validar co-simulação contra OpenDSS puro com erros praticamente nulos
 
 ## Casos de teste suportados

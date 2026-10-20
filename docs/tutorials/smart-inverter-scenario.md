@@ -110,11 +110,11 @@ uv run --no-sync python scenarios/scenario_13bus_smart_pv_docker.py
 
 ## Configuração do smart inverter no Docker
 
-O smart inverter roda na porta **5680** (não 5677 como o padrão):
+O smart inverter roda na porta **5780** (não 5777 como o padrão):
 
 ```python
 SIM_CONFIG = {
-    "InverterSim": {"connect": "localhost:5680"},  # smart inverter
+    "InverterSim": {"connect": "localhost:5780"},  # smart inverter
 }
 ```
 
@@ -122,5 +122,5 @@ No `docker-compose.yml`, o serviço `smart-inverter` usa:
 
 ```yaml
 smart-inverter:
-  command: python -m simulators.inverter.smart_inverter_simulator --remote 0.0.0.0:5680
+  command: python -m simulators.inverter.smart_inverter_simulator --remote 0.0.0.0:5780
 ```

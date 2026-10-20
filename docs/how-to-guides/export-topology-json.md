@@ -62,7 +62,7 @@ indexa pelo campo `id` de cada item.
         "x": 400.0,
         "y": 250.0,
         "coord_defined": true,
-        "attached": { "pv": ["pv_pv-4"], "storage": [] }
+        "attached": { "pv": ["pv_pv-4"], "storage": [], "generator": [] }
       }
     }
   ],
@@ -147,6 +147,7 @@ Olhando só o tipo da barra, três PVs monofásicos são indistinguíveis de um
 |---|---|
 | `pv` | PVSystem |
 | `storage` | Storage |
+| `generator` | Generator — entra só em `elements` e no `attached`; não muda o `node_type` da barra |
 
 O campo `bus` usa a mesma normalização de `node.id` (minúsculas, sem sufixo de
 nós), então o join elemento → barra é direto. Para o caminho inverso, cada

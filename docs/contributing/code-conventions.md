@@ -25,7 +25,7 @@ import pandas as pd
 
 # 3. Módulos do projeto
 from simulators.opendss.opendss_wrapper import OpenDSS
-from simulators.opendss._utils import extract_3phase_pq
+from simulators.opendss._utils import sum_phases
 ```
 
 ## Adaptadores mosaik
@@ -84,8 +84,17 @@ if __name__ == "__main__":
 ## OpenDSS
 
 - Nunca chame `py_dss_interface` diretamente
-- Use sempre `opendss_wrapper.py` como interface
-- A convencional de sinais é invertida na fronteira (`sign=-1`)
+- Use sempre `opendss_wrapper.py` como interface — a fachada
+- No adaptador e no registry, não acesse `dss_wrapper.dss`: se falta uma
+  operação, crie um método na fachada (ou uma função num módulo atrás dela,
+  como `opendss_pv.py`, delegada pelo `_reader`/`_writer`).
+  `tests/test_wrapper_layers.py::TestFacadeIsNotBypassed` reprova a violação
+- Comandos ao motor passam por `run_command`, que detecta o erro pelo código
+  do OpenDSS; não leia `errorinterface.error_desc`, que derruba o processo no
+  `py-dss-interface` 2.3.0
+- Classe vazia no `py-dss-interface` devolve `['None']`, e não uma lista vazia:
+  confira `.count` ou compare com `"NONE"`
+- A convenção de sinais é invertida na fronteira (`sign=-1` no registry)
 
 ## Cenários
 
@@ -102,9 +111,27 @@ if __name__ == "__main__":
   - **Domínio**: instancia o modelo diretamente, sem fixture, sem OpenDSS
   - **Integração**: fixture de módulo compila um circuito IEEE real e usa `pytest.skip(...)` se o arquivo `.dss` ou o motor não estiverem disponíveis
 - `monkeypatch` (da própria biblioteca pytest) é usado nos testes de integração para simular falhas do engine — não há biblioteca de mocking externa
+- **Um motor por processo.** Todas as instâncias de `py_dss_interface.DSS()`
+  compartilham o mesmo motor: um teste que compila outro circuito substitui o da
+  fixture de módulo. Ponha esses testes **no fim do arquivo**, como fazem os de
+  `test_element_specs.py`; antes, os testes seguintes leriam o circuito errado
+  sem falhar
+- Teste de regressão de um defeito: confira que ele **falha** com o
+  comportamento antigo (por exemplo, com `monkeypatch` reproduzindo o código
+  anterior), e não só que passa com o novo
 
 ## Erros
 
 - Use `except Exception:` em vez de `except:` (bare except)
 - Levante exceções específicas quando possível
 - `OpenDSSException` para erros do wrapper
+- Três níveis de reação, conforme a natureza do problema:
+    - **Erro de uso** (elemento ou propriedade inexistente, multiplicador fora
+      da faixa): levanta sempre, com `raise`
+    - **Erro do motor** (comando recusado, fluxo que não convergiu): passa por
+      `self.fail()`, que levanta ou só imprime conforme `fail_on_error`
+    - **Situação suspeita que não invalida o estudo**: aviso
+      `[OpenTES][AVISO]` impresso, que diz a consequência e não só o erro
+- Prefira falhar alto a seguir em silêncio: numa co-simulação, uma falha
+  silenciosa produz um dia inteiro de dados errados sem nada no resultado que a
+  denuncie

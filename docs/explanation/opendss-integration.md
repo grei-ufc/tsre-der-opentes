@@ -7,6 +7,14 @@ O OpenDSS é o motor de fluxo de potência que simula a rede elétrica. Neste pr
 !!! warning "Regra importante"
     Nunca chame `py_dss_interface` diretamente dos simuladores. Use sempre `opendss_wrapper.py` como interface.
 
+    O wrapper segue o padrão de projeto **Fachada** (*Facade*, de *Design
+    Patterns*, Gamma et al., 1994): uma interface única e simples na frente de
+    um subsistema complexo. Os módulos por dispositivo (`opendss_pv`,
+    `opendss_bus`, `opendss_loadshape`...) recebem o motor, mas quem os chama é
+    a própria fachada: ficam atrás dela. O adaptador e o registry não podem
+    acessar `dss_wrapper.dss` — o teste
+    `tests/test_wrapper_layers.py::TestFacadeIsNotBypassed` garante isso.
+
 ## Compilação do circuito
 
 Quando o adaptador OpenDSS é iniciado, ele compila o arquivo `.dss` master que define o circuito:
@@ -14,8 +22,8 @@ Quando o adaptador OpenDSS é iniciado, ele compila o arquivo `.dss` master que 
 ```python
 # Em api_opendss.py → init()
 dss = OpenDSS(topofile="data/123Bus/run_ieee123_cosim_pv_5min.dss",
-              time_step=300,
-              start_time="2026-01-01 00:00:00")
+              time_step=datetime.timedelta(seconds=300),
+              start_time=datetime.datetime(2025, 1, 1))
 ```
 
 !!! warning "Um circuito por processo"
@@ -27,44 +35,65 @@ dss = OpenDSS(topofile="data/123Bus/run_ieee123_cosim_pv_5min.dss",
 
 O wrapper:
 
-1. Instancia `py_dss_interface.DSS()`
-2. Compila o master file (que pode redirecionar para outros `.dss`)
-3. Detecta quais classes de elementos existem (`Load`, `PVSystem`, `Generator`, `Storage`)
-4. Configura o modo de solução (`Snap` ou `Daily`)
-5. Define o passo de tempo e a hora inicial
+1. Instancia `py_dss_interface.DSS()`, capturando antes o diretório de
+   trabalho — o construtor da biblioteca o muda para o `DataPath` do motor
+2. Confere se o arquivo existe e compila o master (que pode redirecionar para
+   outros `.dss`), com as **caixas de diálogo do OpenDSS ligadas só durante a
+   compilação**: o `Redirect` informa apenas o erro da última linha do arquivo,
+   e um erro no meio dele só aparece pela caixa
+3. Prepara o circuito, a cada compilação e antes da primeira solução:
+    - reaplica `tolerance` e `max_iterations`, que o `Compile` repõe no padrão;
+    - troca a conversão DC/AC de todo PVSystem por uma ideal (curvas de
+      eficiência e de temperatura planas, `%cutin`/`%cutout` quase nulos);
+    - abre a faixa `Vminpu`/`Vmaxpu` de todo Generator;
+    - trava o controle automático de todo RegControl (`MaxTapChange=0`), sem
+      mexer na posição do tap
+
+    O que o `.dss` declara (curvas, faixa, tap) continua disponível no
+    `extra_info` das entidades. Ver [Decisões de Projeto](design-decisions.md).
+4. Põe o motor em modo *snapshot* e ajusta a hora inicial
+5. Resolve uma primeira vez e define o passo de tempo
 
 ## Auto-descoberta de elementos
 
-O adaptador `api_opendss.py` descobre automaticamente todos os elementos do circuito:
+O adaptador `api_opendss.py` descobre automaticamente todos os elementos do
+circuito, sempre pela fachada (`get_all_buses_info()`,
+`get_all_pvsystems_info()`, `get_all_generators_info()`,
+`get_all_regulators_info()`, ...). Para cada um cria uma entidade mosaik filha
+do `Grid`, nesta ordem: `Circuit`, `Bus`, `Load`, `Line`/`Switch`,
+`Transformer`, `RegControl`, `Storage`, `PVSystem` e `Generator`.
 
-```python
-# Detecta PVSystems
-pvsystems = dss_wrapper.get_all_pvsystems_info()
-
-# Detecta Regulators
-regulators = dss_wrapper.get_all_regulators_info()
-
-# Detecta Storages
-storages = dss_wrapper.get_all_storages_info()
-```
-
-Para cada elemento detectado, entidades mosaik são criadas automaticamente.
+Cargas e geradores que declaram curva (`daily`/`yearly`) têm a curva lida uma
+vez, por `get_loadshape()`, para o laço de curvas do passo.
 
 ## Resolução do fluxo de potência
 
-A cada passo de simulação, o adaptador:
+A cada passo de simulação (`step`), o adaptador:
 
-1. Processa os inputs recebidos (tap, P/Q de PV e Storage)
-2. Atualiza perfis de carga (LoadShapes)
-3. Chama `dss_wrapper.run_dss()` que resolve o snapshot
-4. Extrai os resultados para cada elemento (tensões, correntes, potências)
+1. **Aplica as entradas** (`_apply_inputs`): para cada atributo recebido, o
+   agregador declarado no registry reduz os valores dos simuladores conectados
+   a um só (soma, para potências; valor único, para tap, chave e
+   multiplicadores), confere a faixa declarada e entrega ao escritor do modelo,
+   que traduz em chamadas à fachada (`set_power`, `set_pvsystem_pq`,
+   `set_tap`, ...). Cada escrita esvazia o cache da solução e edita o elemento
+   no motor — sem resolver nada ainda.
+2. **Reproduz as curvas do `.dss`**: em snapshot o motor ignora as curvas
+   `daily`/`yearly`, então o adaptador aplica o ponto do instante a cargas e
+   geradores — exceto os que receberam qualquer entrada externa no passo, que
+   tem precedência.
+3. **Resolve uma única vez**, com `run_dss()`: esvazia o cache, chama
+   `solve()`, roda o `UpdateStorage` (que integra a energia das baterias no
+   passo) e confere a convergência.
 
-O comando `run_dss()` executa internamente:
+Os resultados não são lidos no `step`: o mosaik os pede depois, no
+`get_data()`, e o leitor de cada modelo os serve do cache da solução, indo ao
+motor numa leitura em bloco só na primeira vez. Ler nunca resolve o circuito.
 
-```
-Solve          # Se não há Storage
-SolveNoControl  # Se há Storage (para controle manual)
-```
+!!! note "Uma solução por passo — do lado do adaptador"
+    Dentro do `solve()`, o fluxo é iterativo, e o laço de controle do motor
+    pode repeti-lo se algum controle agir. Os reguladores estão travados, mas
+    outros controles declarados no `.dss` (como `CapControl`) continuam
+    automáticos.
 
 ## Extração de dados trifásicos
 
@@ -124,8 +153,8 @@ attr_map=phase_attr_map(
 | `Ploss_kw`, `Qloss_kvar` | Perda total do elemento, lida do motor |
 | `Loading1_pct`..`Loading3_pct` | Corrente em % da ampacidade da linha (fora do `attr_map`; ver adiante) |
 
-O `sign=-1` de PVSystem e Storage inverte a convenção do OpenDSS, em que gerar
-é potência negativa. O `scale` é aplicado só aos totais: é assim que `P_out_mw`
+O `sign=-1` de PVSystem, Storage e Generator inverte a convenção do OpenDSS,
+em que gerar é potência negativa. O `scale` é aplicado só aos totais: é assim que `P_out_mw`
 da carga sai em MW a partir dos kW do motor.
 
 As perdas dos elementos série entram pelo mesmo mapa, com os parâmetros
@@ -192,7 +221,10 @@ pelo outro lado, e o comando falharia sem nada acusando.
 
 ## Controle de PVSystem
 
-O adaptador aceita `P_des` e `Q_des` de entidades externas (inversores) e aplica ao OpenDSS:
+O adaptador aceita `P_des` e `Q_des` em kW/kvar, de um simulador de inversor,
+ou `P_mult` de 0 a 1 sobre o `Pmpp` da placa, de uma curva (com a reativa vinda
+do `pf` declarado, `Q = P·tan(acos(pf))`). Os dois caminhos são exclusivos.
+Ambos chegam ao OpenDSS por:
 
 ```python
 # Em opendss_pv.py
@@ -204,7 +236,9 @@ Internamente:
 - Se `P_des > 0.001`: define `PMPP = abs(P_des)`, `Irradiance = 1.0`, `kvar = q_des`
 - Se `P_des <= 0.001`: define `Irradiance = 0.0` (desliga o PV)
 
-Isso sobrepõe o controle nativo do OpenDSS, permitindo que o inversor mosaik controle a geração.
+O PVSystem não tem propriedade `kW`: a saída é calculada de `Pmpp` e
+irradiância. Por isso a escrita de potência genérica, `set_power`, recusa
+PVSystem e aponta para `set_pvsystem_pq`.
 
 Para que o `PMPP` escrito seja a potência injetada, o carregamento do circuito
 troca as curvas de eficiência (`EffCurve`) e de derating térmico (`P-TCurve`) de
@@ -230,11 +264,24 @@ comandada seja a entregue mesmo com a tensão fora de 0,9–1,1 pu.
 
 ## Controle de Storage
 
-Para elementos Storage, o adaptador aceita `P_set`, `Q_set` e `SoC_set`:
+Para elementos Storage, o adaptador aceita `P_set`/`Q_set` em kW/kvar, ou
+`P_mult` de −1 a 1 sobre a potência nominal (negativo carrega), além de
+`SoC_set`:
 
 - `P_set > 0`: descarga (modo gerador)
 - `P_set < 0`: carga (modo motor)
 - O wrapper calcula automaticamente o estado (`Charging`, `Discharging`, `Idling`)
+- `SoC_set` força o estado de carga, para o padrão em que um modelo de bateria
+  externo é dono da física e o elemento do OpenDSS só o espelha
+
+!!! warning "Limitações conhecidas"
+    - Um `Q_set` sem `P_set` no mesmo passo é **descartado sem aviso**: a
+      escrita da bateria só acontece quando há potência ativa.
+    - O `setup_done()` resolve o circuito antes do primeiro passo, e o
+      `UpdateStorage` dessa solução integra um passo de energia. Uma bateria
+      declarada carregando ou descarregando no `.dss` começa o estudo com um
+      passo a menos (ou a mais) de energia. Baterias declaradas `IDLING`, ou
+      comandadas pelo cenário, não são afetadas.
 
 ## Controle de Regulador
 
@@ -244,18 +291,31 @@ O adaptador aceita `tap` (posição inteira de -16 a +16) e o aplica ao RegContr
 dss_wrapper.set_tap(name, tap, max_tap=16)
 ```
 
+O controle automático dos reguladores do OpenDSS é **travado no carregamento**
+(`MaxTapChange=0`): os taps ficam na posição que o `.dss` declara durante todo
+o estudo e só mudam por um controlador externo, e o tap comandado permanece até
+o próximo comando. A posição declarada aparece em `extra_info["tap_ini"]` — é
+com ela que o cenário deve iniciar o controlador externo, que envia a própria
+posição a cada passo. Ver [Configurar Regulador](../how-to-guides/configure-regulator.md).
+
 ## Topologia do circuito
 
 O módulo `topology_builder.py` constrói um grafo topológico a partir do circuito compilado:
 
 ```python
-from simulators.opendss.topology_builder import build_graph
-
-graph = build_graph(dss_wrapper)
+# Pela fachada: monta o grafo, grava o JSON e devolve o grafo
+graph = dss_wrapper.grafo_tsdq("output/topologia.json")
 # graph.nodes: dict[str, NetworkNode]
 # graph.edges: dict[str, NetworkEdge]
+# graph.elements: dict[str, NetworkElement]
 ```
 
-Cada nó é classificado como: `refbus`, `virtual_bus`, `regulator_bus`, `pv`, `load`, `transformer_bus` ou `bus`.
+Cada nó é classificado, nesta ordem de precedência, como: `refbus`,
+`regulator_bus`, `pv`, `storage`, `load`, `transformer_bus` ou `bus`. Os
+elementos ligados a uma só barra — PVSystems, Storages e Generators — entram no
+vetor `elements` e no índice `attached` de cada barra; o gerador não muda o tipo
+da barra.
 
-A exportação para JSON pode ser ativada passando `output_graph_path` ao iniciar o adaptador.
+A exportação para JSON pode ser ativada passando `output_graph_path` ao iniciar
+o adaptador, ou de forma avulsa por `util.topologia.exportar_topologia`, que
+também passa pela fachada.

@@ -69,8 +69,9 @@ uv run --no-sync python scenarios/cenariodocker.py
 
 Observações importantes:
 
-- Os containers expõem portas TCP fixas (por exemplo `5671` para o `opendss`) para o handshake com o Mosaik. O cenário conecta-se em `localhost:<porta>`.
-- Volumes principais montados: `./src:/app/src` e `./output:/app/output`. Os resultados gerados dentro do container em `/app/output` aparecem no host em `output/`.
+- Os containers expõem portas TCP fixas (por exemplo `5771` para o `opendss`) para o handshake com o Mosaik. O cenário conecta-se em `localhost:<porta>`.
+- Volumes montados: `./src:/app/src` em todos os serviços; `./data:/app/data` nos que leem circuitos e curvas (`opendss`, `battery`, `csv-data-*`); `./output:/app/output` no `collector`. Os resultados gravados pelo coletor em `/app/output` aparecem no host em `output/`.
+- Num clone novo, crie a pasta `output/` antes do `docker build`: o `Dockerfile` a copia, e o git a ignora.
 - Arquivo de saída principal do cenário 123Bus: `output/result_run_ieee123_cosim_pv_5min.csv`.
 
 ### Execução em segundo plano - Preferencialmente, execute dessa forma

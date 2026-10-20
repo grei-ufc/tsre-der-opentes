@@ -87,3 +87,31 @@ O `BatteryControllerSim` segue a lógica padrão do OpenDSS:
 | `Q_out` | saída | Potência reativa efetiva (kvar) |
 | `SoC` | saída | Estado de carga (0–100%) |
 | `State` | saída | `"Charging"`, `"Discharging"` ou `"Idling"` |
+
+## Do lado do OpenDSS
+
+A bateria do OpenDSS (`Storage` no `.dss`) vira uma entidade `Storage-<nome>`
+do adaptador, que aceita dois caminhos de comando — nunca os dois juntos:
+
+| Atributo | Faixa | Efeito |
+|---|---|---|
+| `P_set`, `Q_set` | kW, kvar | Potência absoluta. Positivo descarrega, negativo carrega; o estado (`Charging`, `Discharging`, `Idling`) sai do sinal |
+| `P_mult` | −1 a 1 | Multiplicador da potência nominal (`kWrated`); a reativa vem do `pf` declarado |
+| `SoC_set` | 0 a 1 | Força o estado de carga, para o modelo externo ser o dono da física e o elemento do OpenDSS só o espelhar |
+
+A cada passo, depois do fluxo de potência, o adaptador roda o `UpdateStorage`,
+que integra a energia da bateria no intervalo — em modo *snapshot* o motor não
+o faz sozinho. O estado de carga sai no atributo `SoC`.
+
+!!! warning "Limitações conhecidas"
+    - **`Q_set` sozinho é descartado.** Se no passo chegar `Q_set` sem
+      `P_set`, nada é escrito, sem aviso. Conecte as duas grandezas juntas,
+      como no exemplo acima.
+    - **Bateria declarada ativa perde um passo antes do início.** O
+      `setup_done()` resolve o circuito antes do primeiro passo, e o
+      `UpdateStorage` dessa solução já integra um passo de energia. Só afeta
+      baterias declaradas carregando ou descarregando no `.dss`; as declaradas
+      `IDLING`, ou comandadas pelo cenário, começam no SoC declarado.
+    - **O `kvarMax` padrão do OpenDSS não acompanha o tamanho da bateria**
+      (uma de 200 kW sai com teto de 25 kvar), e o excedente de reativa é
+      cortado. O adaptador avisa na criação; declare `kvarMax` no `.dss`.

@@ -21,22 +21,22 @@ flowchart LR
     end
 
     subgraph Containers["Containers Docker"]
-        DSS["opendss<br/>:5671"]
-        PV["pv-panel<br/>:5678"]
-        InvC["inverter<br/>:5677"]
-        CSV1["csv-1<br/>:5675"]
-        CSV2["csv-2<br/>:5676"]
-        CollC["collector<br/>:5673"]
+        DSS["opendss<br/>:5771"]
+        PV["pv-panel<br/>:5778"]
+        InvC["inverter<br/>:5777"]
+        CSV1["csv-1<br/>:5775"]
+        CSV2["csv-2<br/>:5776"]
+        CollC["collector<br/>:5773"]
     end
 
     Output["output/result_run_ieee123_cosim_pv_5min.csv"]
 
-    Cenario -->|localhost:5671| DSS
-    Cenario -->|localhost:5678| PV
-    Cenario -->|localhost:5677| InvC
-    Cenario -->|localhost:5675| CSV1
-    Cenario -->|localhost:5676| CSV2
-    Cenario -->|localhost:5673| CollC
+    Cenario -->|localhost:5771| DSS
+    Cenario -->|localhost:5778| PV
+    Cenario -->|localhost:5777| InvC
+    Cenario -->|localhost:5775| CSV1
+    Cenario -->|localhost:5776| CSV2
+    Cenario -->|localhost:5773| CollC
     CollC -.->|grava| Output
 ```
 
@@ -109,7 +109,7 @@ Para o cenário com inversor smart (13-bus):
 uv run --no-sync python scenarios/scenario_13bus_smart_pv_docker.py
 ```
 
-Este cenário usa a porta 5680 (smart-inverter) em vez de 5677 (inverter-std).
+Este cenário usa a porta 5780 (smart-inverter) em vez de 5777 (inverter-std).
 
 ## Solução de problemas
 
@@ -120,7 +120,7 @@ Verifique se o entrypoint está correto no `docker-compose.yml`. O serviço `ope
 ### Cenário não conecta
 
 1. Verifique se os containers estão rodando: `docker compose ps`
-2. Verifique as portas: `netstat -an | findstr 5671`
+2. Verifique as portas: `netstat -an | findstr 5771`
 3. Execute o cenário **depois** que os containers estiverem `Up`
 
 ### Resultado não aparece no host

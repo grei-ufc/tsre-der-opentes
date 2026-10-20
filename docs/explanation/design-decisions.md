@@ -1,10 +1,23 @@
 # Decisões de Projeto
 
-## Wrapper único para OpenDSS
+## Wrapper único para OpenDSS (fachada)
 
-**Decisão**: `opendss_wrapper.py` é a única interface com `py_dss_interface`.
+**Decisão**: `opendss_wrapper.py` é a única interface com `py_dss_interface` —
+o padrão de projeto *Fachada* (Gamma et al., 1994). O adaptador e o registry
+pedem tudo a ela por métodos nomeados; os módulos por dispositivo ficam atrás
+dela.
 
-**Motivo**: Centraliza a interação com o motor OpenDSS, facilitando manutenção e evitando chamadas inconsistentes ao DSS em diferentes partes do código.
+**Motivo**: Centraliza a interação com o motor OpenDSS. As regras que a
+fachada aplica — detecção de erro pelo código do motor, invalidação do cache,
+contorno das peculiaridades da biblioteca (a lista `['None']` para classe vazia,
+o `error_desc` que derruba o processo) — valem em um lugar só, e uma mudança na
+biblioteca se resolve ali.
+
+**Verificação**: enquanto a regra era só texto, seis pontos do adaptador
+passaram por cima dela. Hoje `tests/test_wrapper_layers.py::TestFacadeIsNotBypassed`
+analisa o código e falha se o adaptador ou o registry acessarem
+`dss_wrapper.dss`, ou se algum simulador fora do pacote `opendss` importar o
+`py_dss_interface`.
 
 **Trade-off**: Todas as operações passam pelo wrapper, mesmo as simples. Isso adiciona uma camada de indireção, mas garante consistência.
 
@@ -24,17 +37,20 @@
 
 **Trade-off**: Adiciona overhead de rede para cada passo de simulação. Para cenários pequenos, o modo local é mais eficiente.
 
-## Portas fixas (5671–5680)
+## Portas fixas (5771–5780)
 
-**Decisão**: Cada tipo de simulador tem uma porta TCP fixa.
+**Decisão**: Cada tipo de simulador tem uma porta TCP fixa, na faixa 5771–5780.
 
-**Motivo**: Simplifica a configuração do `docker-compose.yml` e do `SIM_CONFIG` nos cenários.
+**Motivo**: Simplifica a configuração do `docker-compose.yml` e do `SIM_CONFIG`
+nos cenários. A faixa era 5671–5680 e foi movida porque, no Windows, o WinNAT e
+o Hyper-V reservam faixas de portas de forma aleatória, o que travava a
+inicialização dos contêineres e corrompia as conexões.
 
 **Trade-off**: Não é possível rodar dois containers do mesmo tipo simultaneamente sem ajustar portas.
 
 ## Inversão de sinais na fronteira
 
-**Decisão**: O OpenDSS retorna geração negativa; a inversão acontece em `extract_3phase_pq(sign=-1)`.
+**Decisão**: O OpenDSS retorna geração negativa; a inversão acontece no registry, pelo `sign=-1` do `phase_attr_map` de PVSystem, Storage e Generator.
 
 **Motivo**: Mantém a convenção do OpenDSS inalterada internamente, e presenta valores intuitivos (positivos para geração) aos demais módulos.
 
@@ -102,6 +118,82 @@ funções de rede. `inverter_simulator.py` é um shim.
 modelo — nenhum expunha a superfície completa. A `META` agora é derivada dos
 registros de entrada e saída, como em `opendss/element_specs.py`, de modo que um
 atributo não pode ser declarado sem o código que o implementa.
+
+## A potência comandada é a entregue
+
+**Decisão**: Ao compilar o circuito, o wrapper troca a conversão DC/AC de todo
+PVSystem por uma ideal (curvas de eficiência e de temperatura planas,
+`%cutin`/`%cutout` de 0,0001) e abre a faixa `Vminpu`/`Vmaxpu` de todo Generator
+(0,001–10 pu). Não há opção para desligar.
+
+**Motivo**: Na co-simulação, a potência chega ao OpenDSS já calculada — pelo
+inversor modelado em outro simulador, ou por uma curva. O modelo nativo do
+PVSystem ainda a multiplicaria pela eficiência e pelo derating térmico e
+desligaria o inversor abaixo de 20 % do kVA; fora da faixa de tensão, o
+Generator vira impedância constante (medido: 100 kW comandados a 0,97 pu, com
+`Vminpu=0.99`, saíam 96 kW). Em ambos os casos a injeção sairia diferente da
+comandada, sem nada avisando.
+
+**Trade-off**: Quem quiser as perdas de conversão as modela fora do OpenDSS. As
+curvas, os limiares e a faixa declarados no `.dss` continuam no `extra_info`,
+para isso.
+
+## Taps só por controlador externo
+
+**Decisão**: O controle automático de todo RegControl é travado ao compilar
+(`MaxTapChange=0`), antes da primeira solução, sem mexer na posição do tap. O
+tap declarado no `.dss` vale até um controlador externo comandá-lo pelo
+atributo `tap`.
+
+**Motivo**: A regulação de tensão é objeto de estudo — os controladores ficam
+em Python, fora do motor. Com o controle nativo ativo, os dois disputariam o
+tap. Antes, o travamento ficava numa função de leitura chamada na criação das
+entidades, que além disso zerava os taps, e a solução do construtor ainda saía
+com o controle nativo agindo.
+
+**Trade-off**: Um cenário sem controlador de tap roda com os taps fixos na
+posição declarada. O controlador externo precisa ser iniciado com o tap real
+(`tap_ini=info["tap_ini"]`), porque envia a própria posição a cada passo.
+
+## Falhar alto, com saída para "seguir e marcar"
+
+**Decisão**: Erros do motor — comando recusado, fluxo que não convergiu —
+interrompem a simulação por padrão. O parâmetro `fail_on_error=False` do
+`init()` troca a interrupção por uma mensagem, e o estado de cada passo fica no
+atributo `converged` do modelo `Circuit`. Erros de uso (elemento ou propriedade
+inexistente, multiplicador fora da faixa) interrompem sempre.
+
+**Motivo**: Numa co-simulação, uma falha silenciosa produz um dia inteiro de
+dados sutilmente errados, sem nada no resultado que a denuncie. Quem prefere
+não perder a execução inteira por um passo ruim tem um caminho explícito, e o
+resultado registra quais instantes não podem ser levados a sério.
+
+## Caixas de diálogo só na compilação; erro pelo código do motor
+
+**Decisão**: As caixas de diálogo do OpenDSS (`AllowForms`) ficam ligadas só
+enquanto um `.dss` compila. Fora disso, o `run_command` detecta o erro pelo
+código que o motor registra (`errorinterface.error_code`), e não pela palavra
+"error" no texto.
+
+**Motivo**: No Windows, a caixa trava a execução até alguém clicar, com ou sem
+`fail_on_error`. Desligá-la de vez, porém, silenciaria erros de digitação no
+meio de um `.dss`: o `Redirect` informa só o erro da última linha executada. E a
+maioria das mensagens de erro do motor não contém a palavra "error" —
+`Unknown parameter` (580), `Unknown Command` (302), `... not found` (180)
+passavam como aviso.
+
+**Trade-off**: Um erro no `.dss` ao carregar ainda espera um clique — numa
+execução sem ninguém olhando, no Windows, ela fica parada ali.
+
+## Resumir a barra fica com quem consome
+
+**Decisão**: O modelo `Bus` expõe só as tensões e os ângulos por fase. Os
+agregados (`V_min_pu`, `V_max_pu`, `V_mean_pu`, `V_unb_pct`) foram removidos.
+
+**Motivo**: Nasceram para colorir o mapa de calor da visualização, mas ela
+passou a reduzir as três fases por conta própria, e nada mais os consumia. A
+fase ausente é `NaN`, então qualquer redução precisa ignorá-la — o que
+`numpy.nanmin`/`nanmean` já fazem.
 
 ## Dados de estações solares reais
 

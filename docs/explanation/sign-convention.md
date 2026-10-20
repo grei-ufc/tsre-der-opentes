@@ -11,34 +11,41 @@ Para os demais módulos do projeto (inversor, bateria, controladores), é mais n
 
 ## Solução implementada
 
-A inversão de sinais acontece na **fronteira** do adaptador OpenDSS, usando a função `extract_3phase_pq()` com `sign=-1`:
+A inversão de sinais acontece na **fronteira** do adaptador OpenDSS, e é
+declarada no registry de modelos (`element_specs.py`): o `phase_attr_map` de
+cada modelo recebe um `sign`, aplicado às potências por fase e aos totais.
 
 ```python
-# Em _utils.py
-def extract_3phase_pq(dss_wrapper, name, element, attrs, sign=-1, line_bus=1):
-    """
-    Extrai P, Q e correntes trifásicas de um elemento.
-    O parâmetro 'sign' inverte o sinal: sign=-1 converte geração negativa
-    do OpenDSS para valores positivos.
-    """
+# Em element_specs.py → MODEL_SPECS["Generator"] (igual em PVSystem e Storage)
+attr_map=phase_attr_map(
+    p=("P1", "P2", "P3"),
+    q=("Q1", "Q2", "Q3"),
+    p_total=("P_meas",),
+    q_total=("Q_meas",),
+    sign=-1,     # injeção na rede é positiva para o cenário
+)
 ```
 
 Onde é aplicado:
 
-| Elemento | Onde no código | Efeito |
+| Elemento | Atributos | Efeito |
 |---|---|---|
-| PVSystem | `api_opendss.py` → `get_data()` | P/Q aparecem positivos para geração |
-| Storage | `api_opendss.py` → `get_data()` | P/Q aparecem positivos para descarga |
+| PVSystem | `P1..P3`, `Q1..Q3`, `P_meas`, `Q_meas`, `P_pu` | P/Q aparecem positivos para geração |
+| Storage | `P1..P3`, `Q1..Q3`, `P_act`, `Q_act` | P/Q aparecem positivos para descarga |
+| Generator | `P1..P3`, `Q1..Q3`, `P_meas`, `Q_meas` | P/Q aparecem positivos para geração |
+| Circuit | `P_mw`, `Q_mvar` | O total visto pela subestação sai positivo quando o alimentador consome |
+
+As correntes são magnitudes e não recebem sinal.
 
 ## Fluxo do sinal
 
 ```
-OpenDSS: P_gen = -5 kW  →  extract_3phase_pq(sign=-1): P_act = 5 kW  →  Inversor: P_ac = 5 kW
+OpenDSS: P_gen = -5 kW  →  registry (sign=-1): P_meas = 5 kW  →  cenário: P_meas = 5 kW
 ```
 
-## Paraelementos de carga
+## Para elementos de carga
 
-Elementos de carga (Load) não passam por `extract_3phase_pq`. Seus valores são extraídos diretamente:
+Elementos de carga (Load) mantêm a convenção nativa, `sign=1`.
 
 O atributo `P_out_mw` da carga é declarado no registry, e o fator de escala faz a
 conversão de kW para MW:

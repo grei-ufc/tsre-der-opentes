@@ -15,6 +15,7 @@ Todos os cenários estão em `scenarios/`. Cada um é um script standalone.
 | `opendss_scenario_123bus_smart_pv.py` | IEEE 123-bus | Local | PV | Smart (Volt-Var) | 300s | `output/result_run_ieee123_cosim_smart_pv_5min.csv` |
 | `cenariodocker.py` | IEEE 123-bus | **Docker** | PV | Padrão | 300s | `output/result_run_ieee123_cosim_pv_5min.csv` |
 | `scenario_13bus_smart_pv_docker.py` | IEEE 13-bus | **Docker** | PV | Smart | 300s | `output/result_run_ieee13_cosim_pv_5min.csv` |
+| `scenario_13bus_pv_all_data.py` | IEEE 13-bus | **Docker** | PV | Smart | 300s | `output/result_run_ieee13_cosim_pv_5min.csv`, com todas as barras, + topologia JSON |
 | `base_scenario.py` | LV-rural (pandapower) | Local | PV (legado) | Controller VV/VW | 60s | `output/base_scenario.csv` |
 | `opendss_scenario_13bus_web.py` | IEEE 13-bus | Local | Nenhum | — | 600s | visualização em `http://127.0.0.1:8000/` |
 | `opendss_scenario_34bus_web.py` | IEEE 34-bus | Local | Regulador | — | 300s | visualização em `http://127.0.0.1:8000/` |
@@ -116,11 +117,11 @@ Os cenários Docker definem `SIM_CONFIG` com chaves `"connect"`:
 
 ```python
 SIM_CONFIG = {
-    "DSS":         {"connect": "localhost:5671"},
-    "PVSimulator": {"connect": "localhost:5678"},
-    "InverterSim": {"connect": "localhost:5677"},
-    "CSV_Irr":     {"connect": "localhost:5675"},
-    "CSV_Temp":    {"connect": "localhost:5676"},
-    "Collector":   {"connect": "localhost:5673"},
+    "DSS":         {"connect": "localhost:5771"},
+    "PVSimulator": {"connect": "localhost:5778"},
+    "InverterSim": {"connect": "localhost:5777"},
+    "CSV_Irr":     {"connect": "localhost:5775"},
+    "CSV_Temp":    {"connect": "localhost:5776"},
+    "Collector":   {"connect": "localhost:5773"},
 }
 ```
