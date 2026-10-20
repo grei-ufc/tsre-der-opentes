@@ -1959,10 +1959,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#paraelementos-de-carga" class="md-nav__link">
+  <a href="#para-elementos-de-carga" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Paraelementos de carga
+        Para elementos de carga
       
     </span>
   </a>
@@ -2329,10 +2329,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#paraelementos-de-carga" class="md-nav__link">
+  <a href="#para-elementos-de-carga" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Paraelementos de carga
+        Para elementos de carga
       
     </span>
   </a>
@@ -2438,42 +2438,56 @@
 </ul>
 <p>Para os demais módulos do projeto (inversor, bateria, controladores), é mais natural trabalhar com valores positivos para geração.</p>
 <h2 id="solucao-implementada">Solução implementada<a class="headerlink" href="#solucao-implementada" title="Permanent link">&para;</a></h2>
-<p>A inversão de sinais acontece na <strong>fronteira</strong> do adaptador OpenDSS, usando a função <code>extract_3phase_pq()</code> com <code>sign=-1</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Em _utils.py</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_3phase_pq</span><span class="p">(</span><span class="n">dss_wrapper</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="n">attrs</span><span class="p">,</span> <span class="n">sign</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">line_bus</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="sd">    Extrai P, Q e correntes trifásicas de um elemento.</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="sd">    O parâmetro &#39;sign&#39; inverte o sinal: sign=-1 converte geração negativa</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="sd">    do OpenDSS para valores positivos.</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="sd">    &quot;&quot;&quot;</span>
+<p>A inversão de sinais acontece na <strong>fronteira</strong> do adaptador OpenDSS, e é
+declarada no registry de modelos (<code>element_specs.py</code>): o <code>phase_attr_map</code> de
+cada modelo recebe um <code>sign</code>, aplicado às potências por fase e aos totais.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Em element_specs.py → MODEL_SPECS[&quot;Generator&quot;] (igual em PVSystem e Storage)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">attr_map</span><span class="o">=</span><span class="n">phase_attr_map</span><span class="p">(</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">p</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;P1&quot;</span><span class="p">,</span> <span class="s2">&quot;P2&quot;</span><span class="p">,</span> <span class="s2">&quot;P3&quot;</span><span class="p">),</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">q</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Q1&quot;</span><span class="p">,</span> <span class="s2">&quot;Q2&quot;</span><span class="p">,</span> <span class="s2">&quot;Q3&quot;</span><span class="p">),</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">p_total</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;P_meas&quot;</span><span class="p">,),</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">q_total</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Q_meas&quot;</span><span class="p">,),</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">sign</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>     <span class="c1"># injeção na rede é positiva para o cenário</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>Onde é aplicado:</p>
 <table>
 <thead>
 <tr>
 <th>Elemento</th>
-<th>Onde no código</th>
+<th>Atributos</th>
 <th>Efeito</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>PVSystem</td>
-<td><code>api_opendss.py</code> → <code>get_data()</code></td>
+<td><code>P1..P3</code>, <code>Q1..Q3</code>, <code>P_meas</code>, <code>Q_meas</code>, <code>P_pu</code></td>
 <td>P/Q aparecem positivos para geração</td>
 </tr>
 <tr>
 <td>Storage</td>
-<td><code>api_opendss.py</code> → <code>get_data()</code></td>
+<td><code>P1..P3</code>, <code>Q1..Q3</code>, <code>P_act</code>, <code>Q_act</code></td>
 <td>P/Q aparecem positivos para descarga</td>
+</tr>
+<tr>
+<td>Generator</td>
+<td><code>P1..P3</code>, <code>Q1..Q3</code>, <code>P_meas</code>, <code>Q_meas</code></td>
+<td>P/Q aparecem positivos para geração</td>
+</tr>
+<tr>
+<td>Circuit</td>
+<td><code>P_mw</code>, <code>Q_mvar</code></td>
+<td>O total visto pela subestação sai positivo quando o alimentador consome</td>
 </tr>
 </tbody>
 </table>
+<p>As correntes são magnitudes e não recebem sinal.</p>
 <h2 id="fluxo-do-sinal">Fluxo do sinal<a class="headerlink" href="#fluxo-do-sinal" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>OpenDSS: P_gen = -5 kW  →  extract_3phase_pq(sign=-1): P_act = 5 kW  →  Inversor: P_ac = 5 kW
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>OpenDSS: P_gen = -5 kW  →  registry (sign=-1): P_meas = 5 kW  →  cenário: P_meas = 5 kW
 </span></code></pre></div>
-<h2 id="paraelementos-de-carga">Paraelementos de carga<a class="headerlink" href="#paraelementos-de-carga" title="Permanent link">&para;</a></h2>
-<p>Elementos de carga (Load) não passam por <code>extract_3phase_pq</code>. Seus valores são extraídos diretamente:</p>
+<h2 id="para-elementos-de-carga">Para elementos de carga<a class="headerlink" href="#para-elementos-de-carga" title="Permanent link">&para;</a></h2>
+<p>Elementos de carga (Load) mantêm a convenção nativa, <code>sign=1</code>.</p>
 <p>O atributo <code>P_out_mw</code> da carga é declarado no registry, e o fator de escala faz a
 conversão de kW para MW:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Em element_specs.py → MODEL_SPECS[&quot;Load&quot;]</span>
@@ -2520,7 +2534,7 @@ positivo.</p>
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="18 de setembro de 2026 01:33:37 UTC">18 de setembro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="20 de outubro de 2026 21:14:18 UTC">20 de outubro de 2026</span>
   </span>
 
     

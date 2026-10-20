@@ -1319,6 +1319,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#load_buscoordspath" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        load_buscoords(path)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#run_dssno_controlsfalse" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1412,6 +1423,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#get_circuit_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_circuit_summary()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_solution_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_solution_state()
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1434,6 +1467,17 @@
     <span class="md-ellipsis">
       
         get_all_buses()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_all_buses_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_all_buses_info()
       
     </span>
   </a>
@@ -1778,6 +1822,34 @@
     <span class="md-ellipsis">
       
         get_all_storages_info()
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#curvas-loadshape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Curvas (LoadShape)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Curvas (LoadShape)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get_loadshapename" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_loadshape(name)
       
     </span>
   </a>
@@ -2890,6 +2962,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#load_buscoordspath" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        load_buscoords(path)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#run_dssno_controlsfalse" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2983,6 +3066,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#get_circuit_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_circuit_summary()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_solution_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_solution_state()
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3005,6 +3110,17 @@
     <span class="md-ellipsis">
       
         get_all_buses()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_all_buses_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_all_buses_info()
       
     </span>
   </a>
@@ -3361,6 +3477,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#curvas-loadshape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Curvas (LoadShape)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Curvas (LoadShape)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get_loadshapename" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_loadshape(name)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#topologia" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3601,12 +3745,28 @@ parameter ...</code>. A descrição do erro (<code>error_desc</code>) não é li
 <code>py-dss-interface</code> 2.3.0 ela derruba o processo.</p>
 <h4 id="redirectfilename"><code>redirect(filename)</code><a class="headerlink" href="#redirectfilename" title="Permanent link">&para;</a></h4>
 <p>Compila um arquivo <code>.dss</code> específico.</p>
+<h4 id="load_buscoordspath"><code>load_buscoords(path)</code><a class="headerlink" href="#load_buscoordspath" title="Permanent link">&para;</a></h4>
+<p>Carrega um arquivo de coordenadas de barras (<code>barra, x, y</code> por linha) no
+circuito compilado. É o que o parâmetro <code>buscoords</code> do adaptador usa.</p>
+<ul>
+<li>Arquivo inexistente: aviso, e devolve <code>False</code> — as coordenadas servem ao
+  desenho, e o estudo não depende delas.</li>
+<li>Arquivo presente: o comando segue por <code>run_command</code>, com a detecção de erro
+  do motor, e devolve <code>True</code>. O caminho é resolvido contra o diretório de
+  trabalho.</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">O motor não confere o conteúdo</p>
+<p>Medido: um arquivo malformado ou vazio passa sem código de erro e não muda
+coordenada nenhuma.</p>
+</div>
 <h4 id="run_dssno_controlsfalse"><code>run_dss(no_controls=False)</code><a class="headerlink" href="#run_dssno_controlsfalse" title="Permanent link">&para;</a></h4>
 <p>Executa a solução do fluxo de potência e <strong>confere se ela convergiu</strong>.</p>
 <ul>
 <li><code>no_controls=False</code> (default): executa <code>Solve</code></li>
 <li><code>no_controls=True</code>: executa <code>SolveNoControl</code></li>
-<li>Se existem elementos Storage, chama <code>UpdateStorage</code> após a solução</li>
+<li>Depois da solução, sempre chama <code>UpdateStorage</code>, que integra a energia das
+  baterias no passo; sem bateria o comando não faz nada</li>
 </ul>
 <div class="admonition warning">
 <p class="admonition-title">Um solve truncado não se denuncia sozinho</p>
@@ -3677,12 +3837,29 @@ sair negativa sob acoplamento mútuo forte com correntes desequilibradas.</p>
 </table>
 <p><strong>Retorno</strong>: <code>tuple[float, float]</code> — <code>(P_kW, Q_kvar)</code></p>
 <h4 id="get_circuit_info"><code>get_circuit_info()</code><a class="headerlink" href="#get_circuit_info" title="Permanent link">&para;</a></h4>
-<p>Executa fluxo de potência e retorna um dicionário com o resumo completo.</p>
-<p><strong>Retorno</strong>: <code>dict[str, float]</code> com chaves como <code>Total P/MW</code>, <code>Total Loss P/MW</code>, <code>Load P/MW</code>, <code>PVSystem P/MW</code>, etc.</p>
+<p>Retorna um dicionário com o resumo da <strong>última solução</strong> — não resolve o
+circuito; resolva antes com <code>run_dss()</code>.</p>
+<p><strong>Retorno</strong>: <code>dict[str, float]</code> com os totais do circuito e das perdas, e os de
+cada classe (<code>Load</code>, <code>PV</code>, <code>Generator</code>, <code>Storage</code>), com zero para as ausentes.</p>
+<h4 id="get_circuit_summary"><code>get_circuit_summary()</code><a class="headerlink" href="#get_circuit_summary" title="Permanent link">&para;</a></h4>
+<p>Dados estáticos do circuito compilado e os ajustes do solucionador.</p>
+<p><strong>Retorno</strong>: <code>dict</code> com <code>name</code>, <code>num_buses</code>, <code>num_nodes</code>, <code>tolerance</code> e
+<code>max_iterations</code>. É o <code>extra_info</code> da entidade <code>Circuit</code> do adaptador.</p>
+<h4 id="get_solution_state"><code>get_solution_state()</code><a class="headerlink" href="#get_solution_state" title="Permanent link">&para;</a></h4>
+<p>Se a última solução convergiu, e em quantas iterações. Lido do motor, e não do
+cache.</p>
+<p><strong>Retorno</strong>: <code>tuple[bool, int]</code> — <code>(converged, iterations)</code>.</p>
 <hr />
 <h3 id="barras">Barras<a class="headerlink" href="#barras" title="Permanent link">&para;</a></h3>
 <h4 id="get_all_buses"><code>get_all_buses()</code><a class="headerlink" href="#get_all_buses" title="Permanent link">&para;</a></h4>
 <p><strong>Retorno</strong>: <code>list[str]</code> — lista de nomes de todas as barras.</p>
+<h4 id="get_all_buses_info"><code>get_all_buses_info()</code><a class="headerlink" href="#get_all_buses_info" title="Permanent link">&para;</a></h4>
+<p>Dados estáticos de todas as barras, na ordem do circuito. É a mesma leitura que
+o grafo da topologia faz (<code>opendss_bus.read_bus_info</code>).</p>
+<p><strong>Retorno</strong>: <code>dict[str, dict]</code> — por barra, <code>kv_base</code>, <code>nodes</code>, <code>num_nodes</code>,
+<code>x</code>, <code>y</code> e <code>coord_defined</code>. As coordenadas saem cruas: sem <code>BusCoords</code> o motor
+reporta (0, 0), e só o <code>coord_defined</code> distingue esse zero de uma barra que fica
+de fato na origem.</p>
 <h4 id="get_bus_vmag_pubus"><code>get_bus_vmag_pu(bus)</code><a class="headerlink" href="#get_bus_vmag_pubus" title="Permanent link">&para;</a></h4>
 <p>Módulo da tensão por fase, em pu.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">dss</span><span class="o">.</span><span class="n">get_bus_vmag_pu</span><span class="p">(</span><span class="s2">&quot;675&quot;</span><span class="p">)</span>      <span class="c1"># [0.9835, 1.0553, 0.9758]</span>
@@ -3869,6 +4046,40 @@ os trocar pelos ideais — e não os que o motor usa de fato.</p>
 <h4 id="get_all_storages_info"><code>get_all_storages_info()</code><a class="headerlink" href="#get_all_storages_info" title="Permanent link">&para;</a></h4>
 <p>Delega para <code>opendss_storage.py</code>. Retorna dict de todos os Storages com: <code>kw_rated</code>, <code>kwh_rated</code>, <code>kwh_stored</code>, <code>pct_reserve</code>, eficiências, etc.</p>
 <hr />
+<h3 id="curvas-loadshape">Curvas (LoadShape)<a class="headerlink" href="#curvas-loadshape" title="Permanent link">&para;</a></h3>
+<h4 id="get_loadshapename"><code>get_loadshape(name)</code><a class="headerlink" href="#get_loadshapename" title="Permanent link">&para;</a></h4>
+<p>Delega para <code>opendss_loadshape.py</code>. Retorna os multiplicadores de uma
+LoadShape com as peculiaridades do motor já resolvidas:</p>
+<table>
+<thead>
+<tr>
+<th>Chave</th>
+<th>Conteúdo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>p_mult</code>, <code>q_mult</code></td>
+<td>Multiplicadores; <code>q_mult</code> repete <code>p_mult</code> quando a curva não declara reativa</td>
+</tr>
+<tr>
+<td><code>npts</code></td>
+<td>Número de pontos, já conciliado com o vetor que o motor de fato entrega</td>
+</tr>
+<tr>
+<td><code>interval_s</code></td>
+<td>Intervalo entre pontos em segundos, buscado em s, min e h; <code>None</code> com pontos explícitos por hora (<code>interval=0</code>). Sem declaração, o OpenDSS assume 1 h</td>
+</tr>
+<tr>
+<td><code>use_actual</code></td>
+<td>Se os valores são absolutos, e não multiplicadores</td>
+</tr>
+</tbody>
+</table>
+<p>Levanta <code>OpenDSSException</code> se a curva não existe — a interface do motor
+manteria ativa a curva anterior e devolveria os pontos dela — ou não tem
+pontos.</p>
+<hr />
 <h3 id="topologia">Topologia<a class="headerlink" href="#topologia" title="Permanent link">&para;</a></h3>
 <h4 id="grafo_tsdqoutput_path"><code>grafo_tsdq(output_path)</code><a class="headerlink" href="#grafo_tsdqoutput_path" title="Permanent link">&para;</a></h4>
 <p>Exporta o grafo topológico do circuito para JSON usando <code>topology_builder.build_graph()</code>.</p>
@@ -3888,6 +4099,7 @@ os trocar pelos ideais — e não os que o motor usa de fato.</p>
 </tr>
 </tbody>
 </table>
+<p><strong>Retorno</strong>: o <code>NetworkGraph</code> exportado, para inspecioná-lo sem reler o arquivo.</p>
 <hr />
 <h2 id="excecoes">Exceções<a class="headerlink" href="#excecoes" title="Permanent link">&para;</a></h2>
 <h3 id="opendssexception"><code>OpenDSSException</code><a class="headerlink" href="#opendssexception" title="Permanent link">&para;</a></h3>
@@ -3919,7 +4131,7 @@ os trocar pelos ideais — e não os que o motor usa de fato.</p>
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="19 de outubro de 2026 17:42:57 UTC">19 de outubro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="20 de outubro de 2026 17:42:23 UTC">20 de outubro de 2026</span>
   </span>
 
     

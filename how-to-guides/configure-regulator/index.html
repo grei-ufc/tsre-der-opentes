@@ -1014,10 +1014,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#cenario-de-referencia" class="md-nav__link">
+  <a href="#o-controle-nativo-do-opendss-fica-travado" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Cenário de referência
+        O controle nativo do OpenDSS fica travado
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cenarios-de-referencia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cenários de referência
       
     </span>
   </a>
@@ -2329,10 +2340,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#cenario-de-referencia" class="md-nav__link">
+  <a href="#o-controle-nativo-do-opendss-fica-travado" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Cenário de referência
+        O controle nativo do OpenDSS fica travado
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cenarios-de-referencia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cenários de referência
       
     </span>
   </a>
@@ -2509,18 +2531,50 @@
 <td>-16</td>
 <td>Tap mínimo</td>
 </tr>
+<tr>
+<td><code>tap_ini</code></td>
+<td><code>int</code></td>
+<td>0</td>
+<td>Posição inicial do tap — use a do circuito, <code>extra_info["tap_ini"]</code></td>
+</tr>
 </tbody>
 </table>
-<h2 id="cenario-de-referencia">Cenário de referência<a class="headerlink" href="#cenario-de-referencia" title="Permanent link">&para;</a></h2>
-<p>O cenário <code>opendss_scenario_34bus.py</code> é o único que utiliza o regulador:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--no-sync<span class="w"> </span>python<span class="w"> </span>scenarios/opendss_scenario_34bus.py
+<h2 id="o-controle-nativo-do-opendss-fica-travado">O controle nativo do OpenDSS fica travado<a class="headerlink" href="#o-controle-nativo-do-opendss-fica-travado" title="Permanent link">&para;</a></h2>
+<p>O adaptador OpenDSS trava o controle automático de todos os <code>RegControl</code> ao
+carregar o circuito (<code>MaxTapChange=0</code>), antes da primeira solução. Os taps ficam
+na posição que o <code>.dss</code> declara durante todo o estudo e <strong>só mudam por um
+controlador externo</strong>, como o <code>RegController</code>; o tap comandado permanece até o
+próximo comando.</p>
+<p>Duas consequências:</p>
+<ul>
+<li><strong>Sem controlador, o tap não muda.</strong> Um cenário que não conecta um
+  <code>RegController</code> roda com os reguladores fixos na posição declarada.</li>
+<li><strong>Inicie o controlador no tap real.</strong> O <code>RegController</code> guarda a própria
+  posição e a envia como <code>tap_cmd</code> a cada passo, sem ler a do circuito.
+  Criado com <code>tap_ini=0</code> num alimentador que declara outro tap, ele o troca
+  por 0 já no primeiro passo. O adaptador reporta o tap declarado em
+  <code>extra_info["tap_ini"]</code>:</li>
+</ul>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">dss_sim</span><span class="o">.</span><span class="n">get_detected_regulators</span><span class="p">():</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">ctrl</span> <span class="o">=</span> <span class="n">reg_sim</span><span class="o">.</span><span class="n">RegController</span><span class="p">(</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        <span class="n">vreg</span><span class="o">=</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;vreg&quot;</span><span class="p">],</span> <span class="n">band</span><span class="o">=</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">],</span> <span class="n">pt_ratio</span><span class="o">=</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;pt_ratio&quot;</span><span class="p">],</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="n">ct_primary</span><span class="o">=</span><span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ct_primary&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">R</span><span class="o">=</span><span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;R&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">X</span><span class="o">=</span><span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;X&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n">delay</span><span class="o">=</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;delay&quot;</span><span class="p">],</span> <span class="n">tap_delay</span><span class="o">=</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;tap_delay&quot;</span><span class="p">],</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="n">tap_ini</span><span class="o">=</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;tap_ini&quot;</span><span class="p">],</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">)</span>
 </span></code></pre></div>
-<p>Este cenário:</p>
+<h2 id="cenarios-de-referencia">Cenários de referência<a class="headerlink" href="#cenarios-de-referencia" title="Permanent link">&para;</a></h2>
+<p>Usam o regulador: <code>opendss_scenario_34bus.py</code>, e os cenários com visualização
+<code>opendss_scenario_34bus_web.py</code>, <code>opendss_scenario_123bus_web.py</code> e
+<code>opendss_scenario_123bus_pv_web.py</code>.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--no-sync<span class="w"> </span>python<span class="w"> </span>scenarios/opendss_scenario_34bus.py
+</span></code></pre></div>
+<p>Esses cenários:</p>
 <ol>
-<li>Descobre automaticamente os reguladores do circuito 34-bus</li>
-<li>Cria uma entidade <code>RegController</code> para cada regulador</li>
-<li>Conecta medições de tensão/corrente do OpenDSS ao controlador</li>
-<li>Envia comandos de tap de volta ao OpenDSS</li>
+<li>Descobrem automaticamente os reguladores do circuito</li>
+<li>Criam uma entidade <code>RegController</code> para cada regulador, no tap declarado</li>
+<li>Conectam as medições de tensão e corrente do OpenDSS ao controlador</li>
+<li>Enviam os comandos de tap (<code>tap_cmd</code> → <code>tap</code>) de volta ao OpenDSS</li>
 </ol>
 <h2 id="conexoes-de-feedback">Conexões de feedback<a class="headerlink" href="#conexoes-de-feedback" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
@@ -2529,7 +2583,7 @@
 
     DSS -.-&gt;|"v_meas (time_shifted)"| Reg
     DSS -.-&gt;|"i_meas (time_shifted)"| Reg
-    Reg --&gt;|tap| DSS</code></pre>
+    Reg --&gt;|"tap_cmd → tap"| DSS</code></pre>
 <p>O <code>time_shifted=True</code> é essencial para evitar ciclos causais.</p>
 <h2 id="logica-de-controle">Lógica de controle<a class="headerlink" href="#logica-de-controle" title="Permanent link">&para;</a></h2>
 <ol>
@@ -2562,7 +2616,7 @@
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="26 de agosto de 2026 10:22:22 UTC">26 de agosto de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="20 de outubro de 2026 21:14:18 UTC">20 de outubro de 2026</span>
   </span>
 
     

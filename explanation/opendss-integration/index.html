@@ -2657,13 +2657,20 @@
 <div class="admonition warning">
 <p class="admonition-title">Regra importante</p>
 <p>Nunca chame <code>py_dss_interface</code> diretamente dos simuladores. Use sempre <code>opendss_wrapper.py</code> como interface.</p>
+<p>O wrapper segue o padrão de projeto <strong>Fachada</strong> (<em>Facade</em>, de <em>Design
+Patterns</em>, Gamma et al., 1994): uma interface única e simples na frente de
+um subsistema complexo. Os módulos por dispositivo (<code>opendss_pv</code>,
+<code>opendss_bus</code>, <code>opendss_loadshape</code>...) recebem o motor, mas quem os chama é
+a própria fachada: ficam atrás dela. O adaptador e o registry não podem
+acessar <code>dss_wrapper.dss</code> — o teste
+<code>tests/test_wrapper_layers.py::TestFacadeIsNotBypassed</code> garante isso.</p>
 </div>
 <h2 id="compilacao-do-circuito">Compilação do circuito<a class="headerlink" href="#compilacao-do-circuito" title="Permanent link">&para;</a></h2>
 <p>Quando o adaptador OpenDSS é iniciado, ele compila o arquivo <code>.dss</code> master que define o circuito:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Em api_opendss.py → init()</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">dss</span> <span class="o">=</span> <span class="n">OpenDSS</span><span class="p">(</span><span class="n">topofile</span><span class="o">=</span><span class="s2">&quot;data/123Bus/run_ieee123_cosim_pv_5min.dss&quot;</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>              <span class="n">time_step</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>              <span class="n">start_time</span><span class="o">=</span><span class="s2">&quot;2026-01-01 00:00:00&quot;</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>              <span class="n">time_step</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">300</span><span class="p">),</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>              <span class="n">start_time</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
 </span></code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Um circuito por processo</p>
@@ -2675,43 +2682,72 @@ wrappers passam a ler o mesmo estado. Arquivos auxiliares do alimentador
 </div>
 <p>O wrapper:</p>
 <ol>
-<li>Instancia <code>py_dss_interface.DSS()</code></li>
-<li>Compila o master file (que pode redirecionar para outros <code>.dss</code>)</li>
-<li>Detecta quais classes de elementos existem (<code>Load</code>, <code>PVSystem</code>, <code>Generator</code>, <code>Storage</code>)</li>
-<li>Configura o modo de solução (<code>Snap</code> ou <code>Daily</code>)</li>
-<li>Define o passo de tempo e a hora inicial</li>
+<li>Instancia <code>py_dss_interface.DSS()</code>, capturando antes o diretório de
+   trabalho — o construtor da biblioteca o muda para o <code>DataPath</code> do motor</li>
+<li>Confere se o arquivo existe e compila o master (que pode redirecionar para
+   outros <code>.dss</code>), com as <strong>caixas de diálogo do OpenDSS ligadas só durante a
+   compilação</strong>: o <code>Redirect</code> informa apenas o erro da última linha do arquivo,
+   e um erro no meio dele só aparece pela caixa</li>
+<li>
+<p>Prepara o circuito, a cada compilação e antes da primeira solução:</p>
+<ul>
+<li>reaplica <code>tolerance</code> e <code>max_iterations</code>, que o <code>Compile</code> repõe no padrão;</li>
+<li>troca a conversão DC/AC de todo PVSystem por uma ideal (curvas de
+  eficiência e de temperatura planas, <code>%cutin</code>/<code>%cutout</code> quase nulos);</li>
+<li>abre a faixa <code>Vminpu</code>/<code>Vmaxpu</code> de todo Generator;</li>
+<li>trava o controle automático de todo RegControl (<code>MaxTapChange=0</code>), sem
+  mexer na posição do tap</li>
+</ul>
+<p>O que o <code>.dss</code> declara (curvas, faixa, tap) continua disponível no
+<code>extra_info</code> das entidades. Ver <a href="../design-decisions/">Decisões de Projeto</a>.
+4. Põe o motor em modo <em>snapshot</em> e ajusta a hora inicial
+5. Resolve uma primeira vez e define o passo de tempo</p>
+</li>
 </ol>
 <h2 id="auto-descoberta-de-elementos">Auto-descoberta de elementos<a class="headerlink" href="#auto-descoberta-de-elementos" title="Permanent link">&para;</a></h2>
-<p>O adaptador <code>api_opendss.py</code> descobre automaticamente todos os elementos do circuito:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Detecta PVSystems</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">pvsystems</span> <span class="o">=</span> <span class="n">dss_wrapper</span><span class="o">.</span><span class="n">get_all_pvsystems_info</span><span class="p">()</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Detecta Regulators</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">regulators</span> <span class="o">=</span> <span class="n">dss_wrapper</span><span class="o">.</span><span class="n">get_all_regulators_info</span><span class="p">()</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Detecta Storages</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">storages</span> <span class="o">=</span> <span class="n">dss_wrapper</span><span class="o">.</span><span class="n">get_all_storages_info</span><span class="p">()</span>
-</span></code></pre></div>
-<p>Para cada elemento detectado, entidades mosaik são criadas automaticamente.</p>
+<p>O adaptador <code>api_opendss.py</code> descobre automaticamente todos os elementos do
+circuito, sempre pela fachada (<code>get_all_buses_info()</code>,
+<code>get_all_pvsystems_info()</code>, <code>get_all_generators_info()</code>,
+<code>get_all_regulators_info()</code>, ...). Para cada um cria uma entidade mosaik filha
+do <code>Grid</code>, nesta ordem: <code>Circuit</code>, <code>Bus</code>, <code>Load</code>, <code>Line</code>/<code>Switch</code>,
+<code>Transformer</code>, <code>RegControl</code>, <code>Storage</code>, <code>PVSystem</code> e <code>Generator</code>.</p>
+<p>Cargas e geradores que declaram curva (<code>daily</code>/<code>yearly</code>) têm a curva lida uma
+vez, por <code>get_loadshape()</code>, para o laço de curvas do passo.</p>
 <h2 id="resolucao-do-fluxo-de-potencia">Resolução do fluxo de potência<a class="headerlink" href="#resolucao-do-fluxo-de-potencia" title="Permanent link">&para;</a></h2>
-<p>A cada passo de simulação, o adaptador:</p>
+<p>A cada passo de simulação (<code>step</code>), o adaptador:</p>
 <ol>
-<li>Processa os inputs recebidos (tap, P/Q de PV e Storage)</li>
-<li>Atualiza perfis de carga (LoadShapes)</li>
-<li>Chama <code>dss_wrapper.run_dss()</code> que resolve o snapshot</li>
-<li>Extrai os resultados para cada elemento (tensões, correntes, potências)</li>
+<li><strong>Aplica as entradas</strong> (<code>_apply_inputs</code>): para cada atributo recebido, o
+   agregador declarado no registry reduz os valores dos simuladores conectados
+   a um só (soma, para potências; valor único, para tap, chave e
+   multiplicadores), confere a faixa declarada e entrega ao escritor do modelo,
+   que traduz em chamadas à fachada (<code>set_power</code>, <code>set_pvsystem_pq</code>,
+   <code>set_tap</code>, ...). Cada escrita esvazia o cache da solução e edita o elemento
+   no motor — sem resolver nada ainda.</li>
+<li><strong>Reproduz as curvas do <code>.dss</code></strong>: em snapshot o motor ignora as curvas
+   <code>daily</code>/<code>yearly</code>, então o adaptador aplica o ponto do instante a cargas e
+   geradores — exceto os que receberam qualquer entrada externa no passo, que
+   tem precedência.</li>
+<li><strong>Resolve uma única vez</strong>, com <code>run_dss()</code>: esvazia o cache, chama
+   <code>solve()</code>, roda o <code>UpdateStorage</code> (que integra a energia das baterias no
+   passo) e confere a convergência.</li>
 </ol>
-<p>O comando <code>run_dss()</code> executa internamente:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Solve          # Se não há Storage
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>SolveNoControl  # Se há Storage (para controle manual)
-</span></code></pre></div>
+<p>Os resultados não são lidos no <code>step</code>: o mosaik os pede depois, no
+<code>get_data()</code>, e o leitor de cada modelo os serve do cache da solução, indo ao
+motor numa leitura em bloco só na primeira vez. Ler nunca resolve o circuito.</p>
+<div class="admonition note">
+<p class="admonition-title">Uma solução por passo — do lado do adaptador</p>
+<p>Dentro do <code>solve()</code>, o fluxo é iterativo, e o laço de controle do motor
+pode repeti-lo se algum controle agir. Os reguladores estão travados, mas
+outros controles declarados no <code>.dss</code> (como <code>CapControl</code>) continuam
+automáticos.</p>
+</div>
 <h2 id="extracao-de-dados-trifasicos">Extração de dados trifásicos<a class="headerlink" href="#extracao-de-dados-trifasicos" title="Permanent link">&para;</a></h2>
 <p>O OpenDSS devolve as grandezas de um elemento ordenadas <strong>por condutor</strong>, não
 por fase. Um elemento monofásico ligado em <code>bus.3</code> reporta um único valor, e
 empacotá-lo à esquerda o transformaria na fase 1.</p>
 <p><code>map_to_phases()</code>, em <code>_utils.py</code>, usa os números de nó do elemento
 (<code>cktelement.node_order</code>) para pôr cada valor na posição real:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">map_to_phases</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mf">163.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>   <span class="c1"># -&gt; [nan, nan, 163.5]</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">map_to_phases</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mf">163.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>   <span class="c1"># -&gt; [nan, nan, 163.5]</span>
 </span></code></pre></div>
 <p>O nó <code>0</code> é o neutro e é descartado, assim como nós acima de 3.</p>
 <h3 id="fase-ausente-e-nan-nao-zero">Fase ausente é <code>NaN</code>, não zero<a class="headerlink" href="#fase-ausente-e-nan-nao-zero" title="Permanent link">&para;</a></h3>
@@ -2731,14 +2767,14 @@ ou mostrar os dois, e aí a fase inexistente pareceria uma tensão colapsada.</p
 <h3 id="do-condutor-ao-atributo-mosaik">Do condutor ao atributo mosaik<a class="headerlink" href="#do-condutor-ao-atributo-mosaik" title="Permanent link">&para;</a></h3>
 <p>O <code>attr_map</code> de cada <code>ModelSpec</code> liga o nome do atributo à fonte, ao índice da
 fase e a um fator:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">attr_map</span><span class="o">=</span><span class="n">phase_attr_map</span><span class="p">(</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">p</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;P1&quot;</span><span class="p">,</span> <span class="s2">&quot;P2&quot;</span><span class="p">,</span> <span class="s2">&quot;P3&quot;</span><span class="p">),</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">q</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Q1&quot;</span><span class="p">,</span> <span class="s2">&quot;Q2&quot;</span><span class="p">,</span> <span class="s2">&quot;Q3&quot;</span><span class="p">),</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">i_mag</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;I1_A&quot;</span><span class="p">,</span> <span class="s2">&quot;I2_A&quot;</span><span class="p">,</span> <span class="s2">&quot;I3_A&quot;</span><span class="p">),</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">p_total</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;P_meas&quot;</span><span class="p">,),</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">q_total</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Q_meas&quot;</span><span class="p">,),</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">sign</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>     <span class="c1"># injeção positiva</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">attr_map</span><span class="o">=</span><span class="n">phase_attr_map</span><span class="p">(</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">p</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;P1&quot;</span><span class="p">,</span> <span class="s2">&quot;P2&quot;</span><span class="p">,</span> <span class="s2">&quot;P3&quot;</span><span class="p">),</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">q</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Q1&quot;</span><span class="p">,</span> <span class="s2">&quot;Q2&quot;</span><span class="p">,</span> <span class="s2">&quot;Q3&quot;</span><span class="p">),</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">i_mag</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;I1_A&quot;</span><span class="p">,</span> <span class="s2">&quot;I2_A&quot;</span><span class="p">,</span> <span class="s2">&quot;I3_A&quot;</span><span class="p">),</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">p_total</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;P_meas&quot;</span><span class="p">,),</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">q_total</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Q_meas&quot;</span><span class="p">,),</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">sign</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>     <span class="c1"># injeção positiva</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -2782,8 +2818,8 @@ fase e a um fator:</p>
 </tr>
 </tbody>
 </table>
-<p>O <code>sign=-1</code> de PVSystem e Storage inverte a convenção do OpenDSS, em que gerar
-é potência negativa. O <code>scale</code> é aplicado só aos totais: é assim que <code>P_out_mw</code>
+<p>O <code>sign=-1</code> de PVSystem, Storage e Generator inverte a convenção do OpenDSS,
+em que gerar é potência negativa. O <code>scale</code> é aplicado só aos totais: é assim que <code>P_out_mw</code>
 da carga sai em MW a partir dos kW do motor.</p>
 <p>As perdas dos elementos série entram pelo mesmo mapa, com os parâmetros
 <code>p_loss</code>, <code>q_loss</code>, <code>p_loss_total</code> e <code>q_loss_total</code>. Nem o <code>sign</code> nem o <code>scale</code>
@@ -2834,16 +2870,21 @@ com a corrente em zero, o que pareceria uma chave fechada sem carga.</p>
 os dois. Fechar um só deixaria aberta a chave que outro caminho tivesse aberto
 pelo outro lado, e o comando falharia sem nada acusando.</p>
 <h2 id="controle-de-pvsystem">Controle de PVSystem<a class="headerlink" href="#controle-de-pvsystem" title="Permanent link">&para;</a></h2>
-<p>O adaptador aceita <code>P_des</code> e <code>Q_des</code> de entidades externas (inversores) e aplica ao OpenDSS:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Em opendss_pv.py</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">set_pvsystem_pq</span><span class="p">(</span><span class="n">dss</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">p_des</span><span class="p">,</span> <span class="n">q_des</span><span class="p">)</span>
+<p>O adaptador aceita <code>P_des</code> e <code>Q_des</code> em kW/kvar, de um simulador de inversor,
+ou <code>P_mult</code> de 0 a 1 sobre o <code>Pmpp</code> da placa, de uma curva (com a reativa vinda
+do <code>pf</code> declarado, <code>Q = P·tan(acos(pf))</code>). Os dois caminhos são exclusivos.
+Ambos chegam ao OpenDSS por:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Em opendss_pv.py</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">set_pvsystem_pq</span><span class="p">(</span><span class="n">dss</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">p_des</span><span class="p">,</span> <span class="n">q_des</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Internamente:</p>
 <ul>
 <li>Se <code>P_des &gt; 0.001</code>: define <code>PMPP = abs(P_des)</code>, <code>Irradiance = 1.0</code>, <code>kvar = q_des</code></li>
 <li>Se <code>P_des &lt;= 0.001</code>: define <code>Irradiance = 0.0</code> (desliga o PV)</li>
 </ul>
-<p>Isso sobrepõe o controle nativo do OpenDSS, permitindo que o inversor mosaik controle a geração.</p>
+<p>O PVSystem não tem propriedade <code>kW</code>: a saída é calculada de <code>Pmpp</code> e
+irradiância. Por isso a escrita de potência genérica, <code>set_power</code>, recusa
+PVSystem e aponta para <code>set_pvsystem_pq</code>.</p>
 <p>Para que o <code>PMPP</code> escrito seja a potência injetada, o carregamento do circuito
 troca as curvas de eficiência (<code>EffCurve</code>) e de derating térmico (<code>P-TCurve</code>) de
 todo PVSystem por curvas planas de fator 1, e zera na prática o <code>%cutin</code> e o
@@ -2864,26 +2905,54 @@ laço que move as cargas; uma entrada externa no passo tem precedência. Ao
 carregar o circuito, a faixa <code>Vminpu</code>/<code>Vmaxpu</code> é aberta, para que a potência
 comandada seja a entregue mesmo com a tensão fora de 0,9–1,1 pu.</p>
 <h2 id="controle-de-storage">Controle de Storage<a class="headerlink" href="#controle-de-storage" title="Permanent link">&para;</a></h2>
-<p>Para elementos Storage, o adaptador aceita <code>P_set</code>, <code>Q_set</code> e <code>SoC_set</code>:</p>
+<p>Para elementos Storage, o adaptador aceita <code>P_set</code>/<code>Q_set</code> em kW/kvar, ou
+<code>P_mult</code> de −1 a 1 sobre a potência nominal (negativo carrega), além de
+<code>SoC_set</code>:</p>
 <ul>
 <li><code>P_set &gt; 0</code>: descarga (modo gerador)</li>
 <li><code>P_set &lt; 0</code>: carga (modo motor)</li>
 <li>O wrapper calcula automaticamente o estado (<code>Charging</code>, <code>Discharging</code>, <code>Idling</code>)</li>
+<li><code>SoC_set</code> força o estado de carga, para o padrão em que um modelo de bateria
+  externo é dono da física e o elemento do OpenDSS só o espelha</li>
 </ul>
+<div class="admonition warning">
+<p class="admonition-title">Limitações conhecidas</p>
+<ul>
+<li>Um <code>Q_set</code> sem <code>P_set</code> no mesmo passo é <strong>descartado sem aviso</strong>: a
+  escrita da bateria só acontece quando há potência ativa.</li>
+<li>O <code>setup_done()</code> resolve o circuito antes do primeiro passo, e o
+  <code>UpdateStorage</code> dessa solução integra um passo de energia. Uma bateria
+  declarada carregando ou descarregando no <code>.dss</code> começa o estudo com um
+  passo a menos (ou a mais) de energia. Baterias declaradas <code>IDLING</code>, ou
+  comandadas pelo cenário, não são afetadas.</li>
+</ul>
+</div>
 <h2 id="controle-de-regulador">Controle de Regulador<a class="headerlink" href="#controle-de-regulador" title="Permanent link">&para;</a></h2>
 <p>O adaptador aceita <code>tap</code> (posição inteira de -16 a +16) e o aplica ao RegControl do OpenDSS:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">dss_wrapper</span><span class="o">.</span><span class="n">set_tap</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">tap</span><span class="p">,</span> <span class="n">max_tap</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">dss_wrapper</span><span class="o">.</span><span class="n">set_tap</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">tap</span><span class="p">,</span> <span class="n">max_tap</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
 </span></code></pre></div>
+<p>O controle automático dos reguladores do OpenDSS é <strong>travado no carregamento</strong>
+(<code>MaxTapChange=0</code>): os taps ficam na posição que o <code>.dss</code> declara durante todo
+o estudo e só mudam por um controlador externo, e o tap comandado permanece até
+o próximo comando. A posição declarada aparece em <code>extra_info["tap_ini"]</code> — é
+com ela que o cenário deve iniciar o controlador externo, que envia a própria
+posição a cada passo. Ver <a href="../../how-to-guides/configure-regulator/">Configurar Regulador</a>.</p>
 <h2 id="topologia-do-circuito">Topologia do circuito<a class="headerlink" href="#topologia-do-circuito" title="Permanent link">&para;</a></h2>
 <p>O módulo <code>topology_builder.py</code> constrói um grafo topológico a partir do circuito compilado:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">simulators.opendss.topology_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_graph</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">build_graph</span><span class="p">(</span><span class="n">dss_wrapper</span><span class="p">)</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># graph.nodes: dict[str, NetworkNode]</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># graph.edges: dict[str, NetworkEdge]</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Pela fachada: monta o grafo, grava o JSON e devolve o grafo</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">dss_wrapper</span><span class="o">.</span><span class="n">grafo_tsdq</span><span class="p">(</span><span class="s2">&quot;output/topologia.json&quot;</span><span class="p">)</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># graph.nodes: dict[str, NetworkNode]</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># graph.edges: dict[str, NetworkEdge]</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># graph.elements: dict[str, NetworkElement]</span>
 </span></code></pre></div>
-<p>Cada nó é classificado como: <code>refbus</code>, <code>virtual_bus</code>, <code>regulator_bus</code>, <code>pv</code>, <code>load</code>, <code>transformer_bus</code> ou <code>bus</code>.</p>
-<p>A exportação para JSON pode ser ativada passando <code>output_graph_path</code> ao iniciar o adaptador.</p>
+<p>Cada nó é classificado, nesta ordem de precedência, como: <code>refbus</code>,
+<code>regulator_bus</code>, <code>pv</code>, <code>storage</code>, <code>load</code>, <code>transformer_bus</code> ou <code>bus</code>. Os
+elementos ligados a uma só barra — PVSystems, Storages e Generators — entram no
+vetor <code>elements</code> e no índice <code>attached</code> de cada barra; o gerador não muda o tipo
+da barra.</p>
+<p>A exportação para JSON pode ser ativada passando <code>output_graph_path</code> ao iniciar
+o adaptador, ou de forma avulsa por <code>util.topologia.exportar_topologia</code>, que
+também passa pela fachada.</p>
 
 
 
@@ -2904,7 +2973,7 @@ comandada seja a entregue mesmo com a tensão fora de 0,9–1,1 pu.</p>
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="18 de outubro de 2026 21:03:46 UTC">18 de outubro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="20 de outubro de 2026 21:14:18 UTC">20 de outubro de 2026</span>
   </span>
 
     

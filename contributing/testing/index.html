@@ -2841,7 +2841,7 @@
 
 <h1 id="testes">Testes<a class="headerlink" href="#testes" title="Permanent link">&para;</a></h1>
 <h2 id="visao-geral">Visão geral<a class="headerlink" href="#visao-geral" title="Permanent link">&para;</a></h2>
-<p>O projeto usa <strong>pytest</strong>, com 17 arquivos e 638 casos de teste (contando parametrização; rodando <code>uv run --no-sync python -m pytest tests/ -v</code> neste ambiente: 637 passed, 1 skipped).</p>
+<p>O projeto usa <strong>pytest</strong>, com 17 arquivos e 661 casos de teste (contando parametrização; rodando <code>uv run --no-sync python -m pytest tests/ -v</code> neste ambiente: 660 passed, 1 skipped).</p>
 <p>Duas categorias, misturadas entre os arquivos:</p>
 <ul>
 <li><strong>Testes de domínio</strong> — instanciam a classe diretamente (<code>OpenDSSBattery</code>, <code>InverterModel</code>, <code>VR_Model</code>, <code>SmartInverterModel</code>, <code>map_to_phases</code>), sem fixture, sem mosaik, sem OpenDSS.</li>
@@ -2940,7 +2940,7 @@
 </tr>
 <tr>
 <td><code>test_opendss_entities.py</code></td>
-<td>37</td>
+<td>38</td>
 <td>Sim</td>
 <td>Grafo de entidades mosaik (<code>rel</code>, <code>extra_info</code>) do adaptador OpenDSS</td>
 </tr>
@@ -2958,13 +2958,13 @@
 </tr>
 <tr>
 <td><code>test_topology_builder.py</code></td>
-<td>44</td>
+<td>46</td>
 <td>Sim</td>
 <td><code>opendss.topology_builder.build_graph</code></td>
 </tr>
 <tr>
 <td><code>test_wrapper_layers.py</code></td>
-<td>18</td>
+<td>36</td>
 <td>Sim</td>
 <td>Composição em mixins do wrapper (<code>_engine</code>/<code>_reader</code>/<code>_writer</code>)</td>
 </tr>
@@ -3274,6 +3274,26 @@
 <td>4</td>
 <td>Uma leitura (<code>get_circuit_info</code>) nunca chama <code>run_dss</code>, e reporta as mesmas classes em qualquer circuito; escrita limpa o cache</td>
 </tr>
+<tr>
+<td><code>TestFacadeIsNotBypassed</code></td>
+<td>2</td>
+<td>Teste de arquitetura: o adaptador e o registry não acessam <code>dss_wrapper.dss</code>, e nenhum simulador fora do pacote <code>opendss</code> importa o <code>py_dss_interface</code></td>
+</tr>
+<tr>
+<td><code>TestFacadeReaders</code></td>
+<td>5</td>
+<td>Resumo do circuito, estado da solução e dados das barras pela fachada; o grafo da topologia lê as barras do mesmo jeito</td>
+</tr>
+<tr>
+<td><code>TestLoadShapes</code></td>
+<td>7</td>
+<td>Curvas pela fachada: intervalo em s/min/h ou <code>None</code>, reativa que cai para a ativa, <code>npts</code> conciliado; curva inexistente ou vazia é recusada</td>
+</tr>
+<tr>
+<td><code>TestBusCoords</code></td>
+<td>4</td>
+<td><code>load_buscoords</code>: arquivo ausente avisa; válido aplica as coordenadas; caminho relativo vem do diretório de trabalho; conteúdo malformado passa sem erro (limitação do motor)</td>
+</tr>
 </tbody>
 </table>
 <h4 id="test_opendss_snapshotpy"><code>test_opendss_snapshot.py</code><a class="headerlink" href="#test_opendss_snapshotpy" title="Permanent link">&para;</a></h4>
@@ -3404,6 +3424,11 @@
 <td><code>TestBackwardCompatibility</code></td>
 <td>4</td>
 <td><code>get_detected_pvsystems</code>/<code>_regulators</code>/<code>_storages</code> e os mapas por eid, usados por cenários existentes, continuam funcionando</td>
+</tr>
+<tr>
+<td><code>TestBusCoordsParameter</code></td>
+<td>1</td>
+<td>O parâmetro <code>buscoords=</code> do <code>init()</code> leva as coordenadas às entidades <code>Bus</code></td>
 </tr>
 </tbody>
 </table>
@@ -3598,6 +3623,11 @@ circuito ativo.</p>
 <td>3</td>
 <td>Linha desabilitada não vira aresta; chave aberta permanece, mas marcada</td>
 </tr>
+<tr>
+<td><code>TestStandaloneExport</code></td>
+<td>2</td>
+<td><code>util.topologia.exportar_topologia</code> grava o mesmo grafo da fachada e recusa um arquivo inexistente</td>
+</tr>
 </tbody>
 </table>
 <h4 id="test_webvis_topologypy"><code>test_webvis_topology.py</code><a class="headerlink" href="#test_webvis_topologypy" title="Permanent link">&para;</a></h4>
@@ -3781,7 +3811,7 @@ circuito ativo.</p>
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="19 de outubro de 2026 18:04:11 UTC">19 de outubro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="20 de outubro de 2026 17:42:23 UTC">20 de outubro de 2026</span>
   </span>
 
     

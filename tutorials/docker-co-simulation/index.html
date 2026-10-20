@@ -2690,22 +2690,22 @@
     end
 
     subgraph Containers["Containers Docker"]
-        DSS["opendss&lt;br/&gt;:5671"]
-        PV["pv-panel&lt;br/&gt;:5678"]
-        InvC["inverter&lt;br/&gt;:5677"]
-        CSV1["csv-1&lt;br/&gt;:5675"]
-        CSV2["csv-2&lt;br/&gt;:5676"]
-        CollC["collector&lt;br/&gt;:5673"]
+        DSS["opendss&lt;br/&gt;:5771"]
+        PV["pv-panel&lt;br/&gt;:5778"]
+        InvC["inverter&lt;br/&gt;:5777"]
+        CSV1["csv-1&lt;br/&gt;:5775"]
+        CSV2["csv-2&lt;br/&gt;:5776"]
+        CollC["collector&lt;br/&gt;:5773"]
     end
 
     Output["output/result_run_ieee123_cosim_pv_5min.csv"]
 
-    Cenario --&gt;|localhost:5671| DSS
-    Cenario --&gt;|localhost:5678| PV
-    Cenario --&gt;|localhost:5677| InvC
-    Cenario --&gt;|localhost:5675| CSV1
-    Cenario --&gt;|localhost:5676| CSV2
-    Cenario --&gt;|localhost:5673| CollC
+    Cenario --&gt;|localhost:5771| DSS
+    Cenario --&gt;|localhost:5778| PV
+    Cenario --&gt;|localhost:5777| InvC
+    Cenario --&gt;|localhost:5775| CSV1
+    Cenario --&gt;|localhost:5776| CSV2
+    Cenario --&gt;|localhost:5773| CollC
     CollC -.-&gt;|grava| Output</code></pre>
 <p>Cada container:</p>
 <ol>
@@ -2745,14 +2745,14 @@
 <p>Para o cenário com inversor smart (13-bus):</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--no-sync<span class="w"> </span>python<span class="w"> </span>scenarios/scenario_13bus_smart_pv_docker.py
 </span></code></pre></div>
-<p>Este cenário usa a porta 5680 (smart-inverter) em vez de 5677 (inverter-std).</p>
+<p>Este cenário usa a porta 5780 (smart-inverter) em vez de 5777 (inverter-std).</p>
 <h2 id="solucao-de-problemas">Solução de problemas<a class="headerlink" href="#solucao-de-problemas" title="Permanent link">&para;</a></h2>
 <h3 id="container-sai-com-codigo-0">Container sai com código 0<a class="headerlink" href="#container-sai-com-codigo-0" title="Permanent link">&para;</a></h3>
 <p>Verifique se o entrypoint está correto no <code>docker-compose.yml</code>. O serviço <code>opendss</code> deve executar <code>simulators.opendss.api_opendss</code> com <code>--remote</code>.</p>
 <h3 id="cenario-nao-conecta">Cenário não conecta<a class="headerlink" href="#cenario-nao-conecta" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Verifique se os containers estão rodando: <code>docker compose ps</code></li>
-<li>Verifique as portas: <code>netstat -an | findstr 5671</code></li>
+<li>Verifique as portas: <code>netstat -an | findstr 5771</code></li>
 <li>Execute o cenário <strong>depois</strong> que os containers estiverem <code>Up</code></li>
 </ol>
 <h3 id="resultado-nao-aparece-no-host">Resultado não aparece no host<a class="headerlink" href="#resultado-nao-aparece-no-host" title="Permanent link">&para;</a></h3>
@@ -2782,7 +2782,7 @@
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="26 de agosto de 2026 10:22:14 UTC">26 de agosto de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="20 de outubro de 2026 21:14:18 UTC">20 de outubro de 2026</span>
   </span>
 
     

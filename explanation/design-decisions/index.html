@@ -1954,10 +1954,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#wrapper-unico-para-opendss" class="md-nav__link">
+  <a href="#wrapper-unico-para-opendss-fachada" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Wrapper único para OpenDSS
+        Wrapper único para OpenDSS (fachada)
       
     </span>
   </a>
@@ -1987,10 +1987,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#portas-fixas-56715680" class="md-nav__link">
+  <a href="#portas-fixas-57715780" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Portas fixas (5671–5680)
+        Portas fixas (5771–5780)
       
     </span>
   </a>
@@ -2057,6 +2057,61 @@
     <span class="md-ellipsis">
       
         Um adaptador de inversor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-potencia-comandada-e-a-entregue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A potência comandada é a entregue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#taps-so-por-controlador-externo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Taps só por controlador externo
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#falhar-alto-com-saida-para-seguir-e-marcar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Falhar alto, com saída para "seguir e marcar"
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caixas-de-dialogo-so-na-compilacao-erro-pelo-codigo-do-motor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Caixas de diálogo só na compilação; erro pelo código do motor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resumir-a-barra-fica-com-quem-consome" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resumir a barra fica com quem consome
       
     </span>
   </a>
@@ -2351,10 +2406,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#wrapper-unico-para-opendss" class="md-nav__link">
+  <a href="#wrapper-unico-para-opendss-fachada" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Wrapper único para OpenDSS
+        Wrapper único para OpenDSS (fachada)
       
     </span>
   </a>
@@ -2384,10 +2439,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#portas-fixas-56715680" class="md-nav__link">
+  <a href="#portas-fixas-57715780" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Portas fixas (5671–5680)
+        Portas fixas (5771–5780)
       
     </span>
   </a>
@@ -2454,6 +2509,61 @@
     <span class="md-ellipsis">
       
         Um adaptador de inversor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-potencia-comandada-e-a-entregue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A potência comandada é a entregue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#taps-so-por-controlador-externo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Taps só por controlador externo
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#falhar-alto-com-saida-para-seguir-e-marcar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Falhar alto, com saída para "seguir e marcar"
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caixas-de-dialogo-so-na-compilacao-erro-pelo-codigo-do-motor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Caixas de diálogo só na compilação; erro pelo código do motor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resumir-a-barra-fica-com-quem-consome" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resumir a barra fica com quem consome
       
     </span>
   </a>
@@ -2540,9 +2650,21 @@
 
 
 <h1 id="decisoes-de-projeto">Decisões de Projeto<a class="headerlink" href="#decisoes-de-projeto" title="Permanent link">&para;</a></h1>
-<h2 id="wrapper-unico-para-opendss">Wrapper único para OpenDSS<a class="headerlink" href="#wrapper-unico-para-opendss" title="Permanent link">&para;</a></h2>
-<p><strong>Decisão</strong>: <code>opendss_wrapper.py</code> é a única interface com <code>py_dss_interface</code>.</p>
-<p><strong>Motivo</strong>: Centraliza a interação com o motor OpenDSS, facilitando manutenção e evitando chamadas inconsistentes ao DSS em diferentes partes do código.</p>
+<h2 id="wrapper-unico-para-opendss-fachada">Wrapper único para OpenDSS (fachada)<a class="headerlink" href="#wrapper-unico-para-opendss-fachada" title="Permanent link">&para;</a></h2>
+<p><strong>Decisão</strong>: <code>opendss_wrapper.py</code> é a única interface com <code>py_dss_interface</code> —
+o padrão de projeto <em>Fachada</em> (Gamma et al., 1994). O adaptador e o registry
+pedem tudo a ela por métodos nomeados; os módulos por dispositivo ficam atrás
+dela.</p>
+<p><strong>Motivo</strong>: Centraliza a interação com o motor OpenDSS. As regras que a
+fachada aplica — detecção de erro pelo código do motor, invalidação do cache,
+contorno das peculiaridades da biblioteca (a lista <code>['None']</code> para classe vazia,
+o <code>error_desc</code> que derruba o processo) — valem em um lugar só, e uma mudança na
+biblioteca se resolve ali.</p>
+<p><strong>Verificação</strong>: enquanto a regra era só texto, seis pontos do adaptador
+passaram por cima dela. Hoje <code>tests/test_wrapper_layers.py::TestFacadeIsNotBypassed</code>
+analisa o código e falha se o adaptador ou o registry acessarem
+<code>dss_wrapper.dss</code>, ou se algum simulador fora do pacote <code>opendss</code> importar o
+<code>py_dss_interface</code>.</p>
 <p><strong>Trade-off</strong>: Todas as operações passam pelo wrapper, mesmo as simples. Isso adiciona uma camada de indireção, mas garante consistência.</p>
 <h2 id="api-v3-do-mosaik">API v3 do mosaik<a class="headerlink" href="#api-v3-do-mosaik" title="Permanent link">&para;</a></h2>
 <p><strong>Decisão</strong>: Todos os adaptadores usam <code>mosaik_api_v3</code> com <code>api_version: '3.0'</code>.</p>
@@ -2552,12 +2674,15 @@
 <p><strong>Decisão</strong>: Cada adaptador roda em um container Docker separado, com porta TCP fixa.</p>
 <p><strong>Motivo</strong>: Permite escalar simuladores independentemente, isola falhas e facilita deploy distribuído.</p>
 <p><strong>Trade-off</strong>: Adiciona overhead de rede para cada passo de simulação. Para cenários pequenos, o modo local é mais eficiente.</p>
-<h2 id="portas-fixas-56715680">Portas fixas (5671–5680)<a class="headerlink" href="#portas-fixas-56715680" title="Permanent link">&para;</a></h2>
-<p><strong>Decisão</strong>: Cada tipo de simulador tem uma porta TCP fixa.</p>
-<p><strong>Motivo</strong>: Simplifica a configuração do <code>docker-compose.yml</code> e do <code>SIM_CONFIG</code> nos cenários.</p>
+<h2 id="portas-fixas-57715780">Portas fixas (5771–5780)<a class="headerlink" href="#portas-fixas-57715780" title="Permanent link">&para;</a></h2>
+<p><strong>Decisão</strong>: Cada tipo de simulador tem uma porta TCP fixa, na faixa 5771–5780.</p>
+<p><strong>Motivo</strong>: Simplifica a configuração do <code>docker-compose.yml</code> e do <code>SIM_CONFIG</code>
+nos cenários. A faixa era 5671–5680 e foi movida porque, no Windows, o WinNAT e
+o Hyper-V reservam faixas de portas de forma aleatória, o que travava a
+inicialização dos contêineres e corrompia as conexões.</p>
 <p><strong>Trade-off</strong>: Não é possível rodar dois containers do mesmo tipo simultaneamente sem ajustar portas.</p>
 <h2 id="inversao-de-sinais-na-fronteira">Inversão de sinais na fronteira<a class="headerlink" href="#inversao-de-sinais-na-fronteira" title="Permanent link">&para;</a></h2>
-<p><strong>Decisão</strong>: O OpenDSS retorna geração negativa; a inversão acontece em <code>extract_3phase_pq(sign=-1)</code>.</p>
+<p><strong>Decisão</strong>: O OpenDSS retorna geração negativa; a inversão acontece no registry, pelo <code>sign=-1</code> do <code>phase_attr_map</code> de PVSystem, Storage e Generator.</p>
 <p><strong>Motivo</strong>: Mantém a convenção do OpenDSS inalterada internamente, e presenta valores intuitivos (positivos para geração) aos demais módulos.</p>
 <p><strong>Trade-off</strong>: Quem lê código precisa entender onde a inversão ocorre.</p>
 <h2 id="cenarios-como-scripts-independentes">Cenários como scripts independentes<a class="headerlink" href="#cenarios-como-scripts-independentes" title="Permanent link">&para;</a></h2>
@@ -2605,6 +2730,64 @@ funções de rede. <code>inverter_simulator.py</code> é um shim.</p>
 modelo — nenhum expunha a superfície completa. A <code>META</code> agora é derivada dos
 registros de entrada e saída, como em <code>opendss/element_specs.py</code>, de modo que um
 atributo não pode ser declarado sem o código que o implementa.</p>
+<h2 id="a-potencia-comandada-e-a-entregue">A potência comandada é a entregue<a class="headerlink" href="#a-potencia-comandada-e-a-entregue" title="Permanent link">&para;</a></h2>
+<p><strong>Decisão</strong>: Ao compilar o circuito, o wrapper troca a conversão DC/AC de todo
+PVSystem por uma ideal (curvas de eficiência e de temperatura planas,
+<code>%cutin</code>/<code>%cutout</code> de 0,0001) e abre a faixa <code>Vminpu</code>/<code>Vmaxpu</code> de todo Generator
+(0,001–10 pu). Não há opção para desligar.</p>
+<p><strong>Motivo</strong>: Na co-simulação, a potência chega ao OpenDSS já calculada — pelo
+inversor modelado em outro simulador, ou por uma curva. O modelo nativo do
+PVSystem ainda a multiplicaria pela eficiência e pelo derating térmico e
+desligaria o inversor abaixo de 20 % do kVA; fora da faixa de tensão, o
+Generator vira impedância constante (medido: 100 kW comandados a 0,97 pu, com
+<code>Vminpu=0.99</code>, saíam 96 kW). Em ambos os casos a injeção sairia diferente da
+comandada, sem nada avisando.</p>
+<p><strong>Trade-off</strong>: Quem quiser as perdas de conversão as modela fora do OpenDSS. As
+curvas, os limiares e a faixa declarados no <code>.dss</code> continuam no <code>extra_info</code>,
+para isso.</p>
+<h2 id="taps-so-por-controlador-externo">Taps só por controlador externo<a class="headerlink" href="#taps-so-por-controlador-externo" title="Permanent link">&para;</a></h2>
+<p><strong>Decisão</strong>: O controle automático de todo RegControl é travado ao compilar
+(<code>MaxTapChange=0</code>), antes da primeira solução, sem mexer na posição do tap. O
+tap declarado no <code>.dss</code> vale até um controlador externo comandá-lo pelo
+atributo <code>tap</code>.</p>
+<p><strong>Motivo</strong>: A regulação de tensão é objeto de estudo — os controladores ficam
+em Python, fora do motor. Com o controle nativo ativo, os dois disputariam o
+tap. Antes, o travamento ficava numa função de leitura chamada na criação das
+entidades, que além disso zerava os taps, e a solução do construtor ainda saía
+com o controle nativo agindo.</p>
+<p><strong>Trade-off</strong>: Um cenário sem controlador de tap roda com os taps fixos na
+posição declarada. O controlador externo precisa ser iniciado com o tap real
+(<code>tap_ini=info["tap_ini"]</code>), porque envia a própria posição a cada passo.</p>
+<h2 id="falhar-alto-com-saida-para-seguir-e-marcar">Falhar alto, com saída para "seguir e marcar"<a class="headerlink" href="#falhar-alto-com-saida-para-seguir-e-marcar" title="Permanent link">&para;</a></h2>
+<p><strong>Decisão</strong>: Erros do motor — comando recusado, fluxo que não convergiu —
+interrompem a simulação por padrão. O parâmetro <code>fail_on_error=False</code> do
+<code>init()</code> troca a interrupção por uma mensagem, e o estado de cada passo fica no
+atributo <code>converged</code> do modelo <code>Circuit</code>. Erros de uso (elemento ou propriedade
+inexistente, multiplicador fora da faixa) interrompem sempre.</p>
+<p><strong>Motivo</strong>: Numa co-simulação, uma falha silenciosa produz um dia inteiro de
+dados sutilmente errados, sem nada no resultado que a denuncie. Quem prefere
+não perder a execução inteira por um passo ruim tem um caminho explícito, e o
+resultado registra quais instantes não podem ser levados a sério.</p>
+<h2 id="caixas-de-dialogo-so-na-compilacao-erro-pelo-codigo-do-motor">Caixas de diálogo só na compilação; erro pelo código do motor<a class="headerlink" href="#caixas-de-dialogo-so-na-compilacao-erro-pelo-codigo-do-motor" title="Permanent link">&para;</a></h2>
+<p><strong>Decisão</strong>: As caixas de diálogo do OpenDSS (<code>AllowForms</code>) ficam ligadas só
+enquanto um <code>.dss</code> compila. Fora disso, o <code>run_command</code> detecta o erro pelo
+código que o motor registra (<code>errorinterface.error_code</code>), e não pela palavra
+"error" no texto.</p>
+<p><strong>Motivo</strong>: No Windows, a caixa trava a execução até alguém clicar, com ou sem
+<code>fail_on_error</code>. Desligá-la de vez, porém, silenciaria erros de digitação no
+meio de um <code>.dss</code>: o <code>Redirect</code> informa só o erro da última linha executada. E a
+maioria das mensagens de erro do motor não contém a palavra "error" —
+<code>Unknown parameter</code> (580), <code>Unknown Command</code> (302), <code>... not found</code> (180)
+passavam como aviso.</p>
+<p><strong>Trade-off</strong>: Um erro no <code>.dss</code> ao carregar ainda espera um clique — numa
+execução sem ninguém olhando, no Windows, ela fica parada ali.</p>
+<h2 id="resumir-a-barra-fica-com-quem-consome">Resumir a barra fica com quem consome<a class="headerlink" href="#resumir-a-barra-fica-com-quem-consome" title="Permanent link">&para;</a></h2>
+<p><strong>Decisão</strong>: O modelo <code>Bus</code> expõe só as tensões e os ângulos por fase. Os
+agregados (<code>V_min_pu</code>, <code>V_max_pu</code>, <code>V_mean_pu</code>, <code>V_unb_pct</code>) foram removidos.</p>
+<p><strong>Motivo</strong>: Nasceram para colorir o mapa de calor da visualização, mas ela
+passou a reduzir as três fases por conta própria, e nada mais os consumia. A
+fase ausente é <code>NaN</code>, então qualquer redução precisa ignorá-la — o que
+<code>numpy.nanmin</code>/<code>nanmean</code> já fazem.</p>
 <h2 id="dados-de-estacoes-solares-reais">Dados de estações solares reais<a class="headerlink" href="#dados-de-estacoes-solares-reais" title="Permanent link">&para;</a></h2>
 <p><strong>Decisão</strong>: O projeto inclui dados reais de 51 estações solares brasileiras em <code>data/InfoPV/</code>.</p>
 <p><strong>Motivo</strong>: Permite validação com dados reais e suporta cenários realistas.</p>
@@ -2629,7 +2812,7 @@ atributo não pode ser declarado sem o código que o implementa.</p>
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="26 de agosto de 2026 10:22:44 UTC">26 de agosto de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="20 de outubro de 2026 21:14:18 UTC">20 de outubro de 2026</span>
   </span>
 
     

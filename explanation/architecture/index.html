@@ -2737,7 +2737,7 @@
 <tr>
 <td><code>opendss/api_opendss.py</code></td>
 <td>time-based</td>
-<td>Grid, Load, Line, Bus, RegControl, Storage, PVSystem</td>
+<td>Grid, Circuit, Bus, Load, Line, Switch, Transformer, RegControl, Storage, PVSystem, Generator</td>
 </tr>
 <tr>
 <td><code>inverter/smart_inverter_simulator.py</code></td>
@@ -2781,15 +2781,29 @@
 <p><strong>Por quê</strong>: com <code>META</code>, <code>step()</code> e <code>get_data()</code> editados separadamente, nada impede que um atributo apareça em um sem existir nos outros dois — um cenário conecta um atributo que a <code>META</code> promete, mas que <code>get_data()</code> nunca produz, e o erro só aparece como um valor ausente em tempo de execução. Derivar os três do mesmo registro torna essa divergência estruturalmente impossível: adicionar um atributo significa adicionar uma entrada ao registro, não editar três funções e torcer para que concordem. <code>tests/test_element_specs.py</code> (<code>TestGeneratedMeta</code>, <code>TestMetaMatchesImplementation</code>) é a suíte que garante isso.</p>
 <p>Os demais adaptadores (<code>battery_sim.py</code>, <code>pv_panel_simulator.py</code>, <code>controller_sim.py</code>, <code>regulator_control.py</code>) ainda declaram <code>META</code> como dict literal — é o padrão anterior, não um erro; adotar o registro declarativo nesses módulos é uma extensão possível, não uma correção pendente.</p>
 <h3 id="3-wrapper-opendss">3. Wrapper OpenDSS<a class="headerlink" href="#3-wrapper-opendss" title="Permanent link">&para;</a></h3>
-<p><code>opendss_wrapper.py</code> é a <strong>única interface</strong> com o motor OpenDSS. Todos os módulos que precisam interagir com o circuito passam por ele.</p>
+<p><code>opendss_wrapper.py</code> é a <strong>única interface</strong> com o motor OpenDSS — uma
+<em>fachada</em>, no sentido do padrão de projeto. Todos os módulos que precisam
+interagir com o circuito passam por ele. A classe <code>OpenDSS</code> compõe três camadas
+por herança (<code>_engine</code>, <code>_reader</code>, <code>_writer</code>), para que a API pública continue
+plana, e delega a leitura de cada tipo de dispositivo a módulos que ficam atrás
+dela (<code>opendss_pv</code>, <code>opendss_storage</code>, <code>opendss_generator</code>, <code>opendss_bus</code>,
+<code>opendss_loadshape</code>, <code>opendss_regulator</code>, <code>opendss_transformer</code>).</p>
 <p>Responsabilidades:</p>
 <ul>
-<li>Compilar arquivos <code>.dss</code></li>
-<li>Resolver fluxo de potência (snapshot)</li>
-<li>Ler e escrever tensões, correntes, potências</li>
-<li>Controlar elementos (tap, potência de PV/Storage)</li>
-<li>Detectar tipos de elementos no circuito</li>
+<li>Compilar arquivos <code>.dss</code>, com as caixas de diálogo do OpenDSS ligadas só
+  durante a compilação</li>
+<li>Preparar o circuito a cada compilação: conversão ideal dos PVSystems, faixa
+  de tensão aberta dos Generators, controle nativo dos reguladores travado</li>
+<li>Resolver fluxo de potência (snapshot), conferir a convergência e integrar a
+  energia das baterias</li>
+<li>Ler e escrever tensões, correntes, potências, servindo as leituras de um
+  cache por solução</li>
+<li>Controlar elementos (tap, chave, potência de carga, PV, bateria e gerador)</li>
+<li>Detectar os erros do motor pelo código que ele registra, e encaminhá-los pelo
+  <code>fail_on_error</code></li>
 </ul>
+<p>A regra é verificada: <code>tests/test_wrapper_layers.py::TestFacadeIsNotBypassed</code>
+falha se o adaptador ou o registry acessarem o motor por cima da fachada.</p>
 <h3 id="4-cenarios">4. Cenários<a class="headerlink" href="#4-cenarios" title="Permanent link">&para;</a></h3>
 <p>Scripts autônomos em <code>scenarios/</code> que orquestram a simulação: definem <code>SIM_CONFIG</code>, criam entidades, conectam adaptadores e executam o mundo mosaik.</p>
 <p>Cada cenário é um script independente — não é um módulo importável.</p>
@@ -2811,7 +2825,7 @@
 <tr>
 <td>Topologia</td>
 <td><code>util/topologia.py</code></td>
-<td>Exportar grafo do circuito para JSON</td>
+<td>Exportar grafo do circuito para JSON, pela fachada (<code>OpenDSS</code> + <code>grafo_tsdq</code>)</td>
 </tr>
 <tr>
 <td>TopologyBuilder</td>
@@ -2841,11 +2855,11 @@
 <h3 id="docker-rede-tcp">Docker (rede TCP)<a class="headerlink" href="#docker-rede-tcp" title="Permanent link">&para;</a></h3>
 <p>Cada adaptador roda em um container Docker com <code>--remote 0.0.0.0:&lt;porta&gt;</code>. <code>SIM_CONFIG</code> usa chaves <code>"connect"</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">SIM_CONFIG</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">&quot;DSS&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5671&quot;</span><span class="p">},</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">&quot;DSS&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5771&quot;</span><span class="p">},</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="convencao-de-sinais">Convenção de sinais<a class="headerlink" href="#convencao-de-sinais" title="Permanent link">&para;</a></h2>
-<p>O OpenDSS retorna potência de geração com sinal <strong>negativo</strong>. O adaptador inverte os sinais na fronteira usando <code>extract_3phase_pq(sign=-1)</code>, para que os demais módulos trabalhem com valores positivos para geração.</p>
+<p>O OpenDSS retorna potência de geração com sinal <strong>negativo</strong>. O adaptador inverte os sinais na fronteira, pelo <code>sign=-1</code> declarado no registry (<code>phase_attr_map</code> em <code>element_specs.py</code>), para que os demais módulos trabalhem com valores positivos para geração.</p>
 <p>Consulte <a href="../sign-convention/">Convenção de Sinais</a> para detalhes.</p>
 
 
@@ -2867,7 +2881,7 @@
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="26 de agosto de 2026 10:22:44 UTC">26 de agosto de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="20 de outubro de 2026 21:14:18 UTC">20 de outubro de 2026</span>
   </span>
 
     

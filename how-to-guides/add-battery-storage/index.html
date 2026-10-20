@@ -1113,6 +1113,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#do-lado-do-opendss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Do lado do OpenDSS
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2383,6 +2394,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#do-lado-do-opendss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Do lado do OpenDSS
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2578,6 +2600,54 @@
 </tr>
 </tbody>
 </table>
+<h2 id="do-lado-do-opendss">Do lado do OpenDSS<a class="headerlink" href="#do-lado-do-opendss" title="Permanent link">&para;</a></h2>
+<p>A bateria do OpenDSS (<code>Storage</code> no <code>.dss</code>) vira uma entidade <code>Storage-&lt;nome&gt;</code>
+do adaptador, que aceita dois caminhos de comando — nunca os dois juntos:</p>
+<table>
+<thead>
+<tr>
+<th>Atributo</th>
+<th>Faixa</th>
+<th>Efeito</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>P_set</code>, <code>Q_set</code></td>
+<td>kW, kvar</td>
+<td>Potência absoluta. Positivo descarrega, negativo carrega; o estado (<code>Charging</code>, <code>Discharging</code>, <code>Idling</code>) sai do sinal</td>
+</tr>
+<tr>
+<td><code>P_mult</code></td>
+<td>−1 a 1</td>
+<td>Multiplicador da potência nominal (<code>kWrated</code>); a reativa vem do <code>pf</code> declarado</td>
+</tr>
+<tr>
+<td><code>SoC_set</code></td>
+<td>0 a 1</td>
+<td>Força o estado de carga, para o modelo externo ser o dono da física e o elemento do OpenDSS só o espelhar</td>
+</tr>
+</tbody>
+</table>
+<p>A cada passo, depois do fluxo de potência, o adaptador roda o <code>UpdateStorage</code>,
+que integra a energia da bateria no intervalo — em modo <em>snapshot</em> o motor não
+o faz sozinho. O estado de carga sai no atributo <code>SoC</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Limitações conhecidas</p>
+<ul>
+<li><strong><code>Q_set</code> sozinho é descartado.</strong> Se no passo chegar <code>Q_set</code> sem
+  <code>P_set</code>, nada é escrito, sem aviso. Conecte as duas grandezas juntas,
+  como no exemplo acima.</li>
+<li><strong>Bateria declarada ativa perde um passo antes do início.</strong> O
+  <code>setup_done()</code> resolve o circuito antes do primeiro passo, e o
+  <code>UpdateStorage</code> dessa solução já integra um passo de energia. Só afeta
+  baterias declaradas carregando ou descarregando no <code>.dss</code>; as declaradas
+  <code>IDLING</code>, ou comandadas pelo cenário, começam no SoC declarado.</li>
+<li><strong>O <code>kvarMax</code> padrão do OpenDSS não acompanha o tamanho da bateria</strong>
+  (uma de 200 kW sai com teto de 25 kvar), e o excedente de reativa é
+  cortado. O adaptador avisa na criação; declare <code>kvarMax</code> no <code>.dss</code>.</li>
+</ul>
+</div>
 
 
 
@@ -2598,7 +2668,7 @@
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="24 de agosto de 2026 11:30:45 UTC">24 de agosto de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="20 de outubro de 2026 21:14:18 UTC">20 de outubro de 2026</span>
   </span>
 
     
