@@ -101,7 +101,7 @@ Cada cenário é um script independente — não é um módulo importável.
 | Ferramenta | Módulo | Função |
 |---|---|---|
 | PVCreator | `util/pv_creator.py` | Gerar PVSystems + LoadShapes automaticamente |
-| Topologia | `util/topologia.py` | Exportar grafo do circuito para JSON |
+| Topologia | `util/topologia.py` | Exportar grafo do circuito para JSON, pela fachada (`OpenDSS` + `grafo_tsdq`) |
 | TopologyBuilder | `opendss/topology_builder.py` | Construir grafo topológico a partir do OpenDSS |
 
 ## Fluxo de execução de um cenário

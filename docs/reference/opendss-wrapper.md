@@ -404,6 +404,8 @@ Exporta o grafo topológico do circuito para JSON usando `topology_builder.build
 |---|---|---|
 | `output_path` | `str` | Caminho do arquivo JSON de saída |
 
+**Retorno**: o `NetworkGraph` exportado, para inspecioná-lo sem reler o arquivo.
+
 ---
 
 ## Exceções

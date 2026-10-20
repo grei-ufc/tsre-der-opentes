@@ -1,38 +1,45 @@
-import json
+"""Exportação avulsa da topologia de um circuito para JSON.
 
-import py_dss_interface
+Passa pela fachada :class:`~simulators.opendss.opendss_wrapper.OpenDSS`, e não
+por uma instância crua do ``py_dss_interface``: a compilação ganha as mesmas
+defesas da co-simulação — o arquivo conferido antes do ``Redirect``, o
+diretório de trabalho preservado, os erros do motor detectados — e o JSON sai
+pelo mesmo ``grafo_tsdq`` que o adaptador usa.
+"""
 
-from ..opendss.graph_model import serialize_graph
-from ..opendss.topology_builder import build_graph
+import datetime as dt
+
+from ..opendss.opendss_wrapper import OpenDSS
+
+# O wrapper pede passo e início da simulação; para só exportar a topologia,
+# qualquer valor serve.
+_PASSO = dt.timedelta(seconds=900)
+_INICIO = dt.datetime(2025, 1, 1)
 
 
 def exportar_topologia(dss_path, caminho_json_saida):
+    """Compila o circuito e grava o grafo dele em JSON.
+
+    Args:
+        dss_path: Arquivo ``.dss`` mestre do circuito.
+        caminho_json_saida: Onde gravar o JSON.
+
+    Returns:
+        O :class:`~simulators.opendss.graph_model.NetworkGraph` exportado.
+    """
     print("1. Compilando o circuito via OpenDSS...")
+    wrapper = OpenDSS(topofile=dss_path, time_step=_PASSO, start_time=_INICIO)
 
-    dss = py_dss_interface.DSS()
-    dss.text("Clear")
-    dss.text(f"compile [{dss_path}]")
-
-    print("2. Construindo o grafo e classificando os barramentos...")
-    grafo = build_graph(dss)
+    print(f"2. Construindo o grafo e salvando em: {caminho_json_saida}")
+    grafo = wrapper.grafo_tsdq(caminho_json_saida)
 
     print(
         f"3. Grafo gerado: {grafo.total_nodes} nós, {grafo.total_edges} arestas "
         f"e {grafo.total_elements} elementos."
     )
-
-    # 4. Convertendo o NetworkGraph para um dicionário serializável em JSON
-    grafo_dict = serialize_graph(grafo)
-
-    print(f"4. Salvando dados no arquivo: {caminho_json_saida}")
-    with open(caminho_json_saida, "w", encoding="utf-8") as f:
-        json.dump(grafo_dict, f, indent=4, ensure_ascii=False)
-
     print("Processo concluído com sucesso!")
+    return grafo
 
-
-# Exemplo de uso:
-# exportar_topologia("meu_circuito_ieee.dss", "topologia_exportada.json")
 
 if __name__ == "__main__":
     # Exemplo de uso

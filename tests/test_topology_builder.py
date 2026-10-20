@@ -456,3 +456,31 @@ class TestDisabledElements:
 
     def test_closed_lines_are_not_flagged_open(self, circuito_com_desligados):
         assert circuito_com_desligados.graph.edges["line_650632"].metadata["open"] is False
+
+
+class TestStandaloneExport:
+    """`util.topologia.exportar_topologia` passa pela fachada.
+
+    Antes ele compilava com um `DSS()` cru, sem conferir o arquivo nem o erro.
+    No fim do arquivo: compila outro circuito no motor compartilhado.
+    """
+
+    def test_it_writes_the_same_graph_as_the_facade(self, tmp_path):
+        from simulators.util.topologia import exportar_topologia
+
+        if not IEEE13.exists():
+            pytest.skip("IEEE13 fixture not found")
+        saida = tmp_path / "topologia.json"
+
+        grafo = exportar_topologia(str(IEEE13), str(saida))
+        exportado = json.loads(saida.read_text(encoding="utf-8"))
+
+        assert len(exportado["nodes"]) == grafo.total_nodes > 0
+        assert len(exportado["edges"]) == grafo.total_edges
+
+    def test_a_missing_file_is_refused(self, tmp_path):
+        from simulators.opendss.opendss_wrapper import OpenDSSException
+        from simulators.util.topologia import exportar_topologia
+
+        with pytest.raises(OpenDSSException, match="not found"):
+            exportar_topologia(str(tmp_path / "nao_existe.dss"), str(tmp_path / "t.json"))

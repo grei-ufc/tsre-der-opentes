@@ -71,7 +71,7 @@ uv add <package>
 │       │   └── pv_panel_simulator.py # Irradiance/temperature → DC power
 │       ├── util/            # Standalone utilities
 │       │   ├── pv_creator.py   # PV system creator for OpenDSS
-│       │   └── topologia.py    # Topology export to JSON
+│       │   └── topologia.py    # Topology export to JSON (through the facade)
 │       └── old/             # Deprecated simulator code (do not modify)
 ├── data/                    # IEEE test case files (.dss, .csv) per bus count
 ├── notebooks/               # Jupyter notebooks for analysis

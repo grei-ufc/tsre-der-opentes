@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O projeto usa **pytest**, com 17 arquivos e 638 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 637 passed, 1 skipped).
+O projeto usa **pytest**, com 17 arquivos e 640 casos de teste (contando parametrização; rodando `uv run --no-sync python -m pytest tests/ -v` neste ambiente: 639 passed, 1 skipped).
 
 Duas categorias, misturadas entre os arquivos:
 
@@ -45,7 +45,7 @@ uv run --no-sync python -m pytest tests/ -v --tb=long
 | `test_opendss_entities.py` | 37 | Sim | Grafo de entidades mosaik (`rel`, `extra_info`) do adaptador OpenDSS |
 | `test_opendss_phase_reads.py` | 23 | Sim | Leitura por fase do wrapper (`opendss_wrapper.py`) |
 | `test_opendss_snapshot.py` | 19 | Sim | Cache de leituras do wrapper |
-| `test_topology_builder.py` | 44 | Sim | `opendss.topology_builder.build_graph` |
+| `test_topology_builder.py` | 46 | Sim | `opendss.topology_builder.build_graph` |
 | `test_wrapper_layers.py` | 18 | Sim | Composição em mixins do wrapper (`_engine`/`_reader`/`_writer`) |
 | `test_scenario_smoke.py` | 3 | Sim | Um cenário de ponta a ponta, com CSV de saída |
 
@@ -220,6 +220,7 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 | `TestStorage` | 6 | Enumeração de baterias e classificação da barra, num circuito sintético, já que nenhum alimentador de `data/` tem Storage |
 | `TestGenerator` | 5 | Generator vira elemento próprio e entra no índice da barra e no JSON exportado, sem mudar o `node_type`; desabilitado fica de fora |
 | `TestDisabledElements` | 3 | Linha desabilitada não vira aresta; chave aberta permanece, mas marcada |
+| `TestStandaloneExport` | 2 | `util.topologia.exportar_topologia` grava o mesmo grafo da fachada e recusa um arquivo inexistente |
 
 #### `test_webvis_topology.py`
 

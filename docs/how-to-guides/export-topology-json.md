@@ -164,4 +164,4 @@ trafegam pelo `extra_info` das entidades mosaik e não por este grafo.
 |---|---|
 | `opendss/topology_builder.py` | Constrói o grafo a partir do circuito |
 | `opendss/graph_model.py` | Dataclasses `NetworkNode`, `NetworkEdge`, `NetworkElement`, `NetworkGraph` e `serialize_graph` |
-| `util/topologia.py` | Script standalone para exportação |
+| `util/topologia.py` | Exportação avulsa, sem co-simulação. Compila pela fachada `OpenDSS` e grava com o mesmo `grafo_tsdq` do adaptador |

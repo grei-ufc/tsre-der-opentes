@@ -150,6 +150,9 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin):
 
         Padrão utilizado na plataforma `tsdq-dataview-opentes`
 
+        Returns:
+            O :class:`~.graph_model.NetworkGraph` exportado, para quem quiser
+            inspecioná-lo sem reler o arquivo.
         """
 
         grafo = build_graph(self.dss)
@@ -158,3 +161,5 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin):
 
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(grafo_dict, f, indent=4, ensure_ascii=False)
+
+        return grafo
