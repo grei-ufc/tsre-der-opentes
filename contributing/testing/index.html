@@ -3584,9 +3584,9 @@ circuito ativo.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>TestSourceBus</code></td>
-<td>4</td>
-<td>A barra de referência vem da fonte de tensão, não do nome <code>"sourcebus"</code></td>
+<td><code>TestSource</code></td>
+<td>3</td>
+<td>A fonte é um elemento <code>Vsource</code>, achado pela classe, e não pelo nome <code>"sourcebus"</code> (no IEEE123 ela fica na <code>150</code>)</td>
 </tr>
 <tr>
 <td><code>TestParallelElements</code></td>
@@ -3594,34 +3594,44 @@ circuito ativo.</p>
 <td>Elementos paralelos na mesma dupla de barras (ex.: <code>reg1</code>/<code>reg2</code>/<code>reg3</code>) não se sobrescrevem</td>
 </tr>
 <tr>
-<td><code>TestNodeClassification</code></td>
-<td>5</td>
-<td>Classificação de barra por papel real no circuito (regulador, PV, carga), não por convenção de nome</td>
+<td><code>TestFactsOnly</code></td>
+<td>9</td>
+<td>Formato v2: cada registro só com os próprios campos, nenhuma classificação; a barra com carga e PV lista os dois; cargas e capacitores viram elementos; o transformador regulado traz <code>regcontrols</code></td>
 </tr>
 <tr>
-<td><code>TestNodeMetadata</code></td>
-<td>2</td>
-<td>Barras carregam coordenadas e tensão base; arestas carregam contagem de fases</td>
+<td><code>TestSwitchesInTheFeeder</code></td>
+<td>5</td>
+<td>As oito chaves do IEEE123 são arestas <code>Switch</code>, as normalmente abertas saem abertas e ligam as barras reais</td>
+</tr>
+<tr>
+<td><code>TestNodeFields</code></td>
+<td>6</td>
+<td>Barras carregam tensão base, nós e coordenadas (<code>null</code> quando ausentes); arestas carregam contagem de fases</td>
 </tr>
 <tr>
 <td><code>TestElements</code></td>
-<td>7</td>
-<td>Cada PV/Storage vira um elemento próprio, com barra e fases; a barra indexa o que está ligado nela</td>
+<td>5</td>
+<td>Cada elemento de uma barra vira um registro próprio, com barra, fases e nós (que não se repetem: carga em delta)</td>
 </tr>
 <tr>
 <td><code>TestStorage</code></td>
-<td>6</td>
-<td>Enumeração de baterias e classificação da barra, num circuito sintético, já que nenhum alimentador de <code>data/</code> tem Storage</td>
+<td>4</td>
+<td>Enumeração de baterias num circuito sintético, já que nenhum alimentador de <code>data/</code> tem Storage; a bateria entra ao lado da carga e do capacitor da barra</td>
 </tr>
 <tr>
 <td><code>TestGenerator</code></td>
-<td>5</td>
-<td>Generator vira elemento próprio e entra no índice da barra e no JSON exportado, sem mudar o <code>node_type</code>; desabilitado fica de fora</td>
+<td>4</td>
+<td>Generator vira elemento próprio, ao lado da carga e do capacitor da barra, e chega ao JSON; desabilitado fica de fora</td>
 </tr>
 <tr>
 <td><code>TestDisabledElements</code></td>
 <td>3</td>
 <td>Linha desabilitada não vira aresta; chave aberta permanece, mas marcada</td>
+</tr>
+<tr>
+<td><code>TestJoinsWithTheAdapter</code></td>
+<td>1</td>
+<td><code>f"{type}-{name}"</code> de cada aresta, elemento, barra e RegControl é um eid do adaptador mosaik</td>
 </tr>
 <tr>
 <td><code>TestStandaloneExport</code></td>
@@ -3811,7 +3821,7 @@ circuito ativo.</p>
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="20 de outubro de 2026 17:42:23 UTC">20 de outubro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="26 de outubro de 2026 18:34:19 UTC">26 de outubro de 2026</span>
   </span>
 
     
