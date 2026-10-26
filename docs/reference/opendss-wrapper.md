@@ -461,6 +461,8 @@ pontos.
 #### `grafo_tsdq(output_path)`
 
 Exporta o grafo topológico do circuito para JSON usando `topology_builder.build_graph()`.
+O JSON (formato v2) traz barras, arestas e elementos ligados às barras, sem
+classificar barra nenhuma; ver [Exportar Topologia para JSON](../how-to-guides/export-topology-json.md).
 
 | Parâmetro | Tipo | Descrição |
 |---|---|---|

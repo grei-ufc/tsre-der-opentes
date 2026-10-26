@@ -12,7 +12,7 @@ com ⚠ quebram compatibilidade com cenários ou dados anteriores.
 - Elemento `Generator` no adaptador OpenDSS: entidade `Generator-<nome>`,
   despacho por `P_set`/`Q_set` ou `P_mult`, curva `daily`/`yearly` do `.dss`
   seguida a cada passo, e presença na topologia exportada
-  (`element_type="generator"`)
+  (`"type": "Generator"`)
 - Curvas de multiplicadores: `S_mult` na carga e `P_mult` no PV, na bateria e no
   gerador, com a faixa conferida a cada passo
 - Parâmetros do `init()` do adaptador: `buscoords`, `tolerance`,
@@ -25,8 +25,10 @@ com ⚠ quebram compatibilidade com cenários ou dados anteriores.
   e carregamento por fase das linhas (`Loading1_pct`...)
 - Geração do PV em pu da placa do inversor (`P_pu`, `P1_pu`...)
 - Visualização da rede no navegador (`webvis`) e os cenários `*_web.py`
-- Topologia em JSON com os elementos ligados a cada barra (`elements`,
-  `metadata.attached`) e coordenada ausente como `null`
+- Topologia em JSON com os elementos ligados a cada barra (`elements`: fonte,
+  cargas, capacitores, PV, baterias e geradores), as chaves como arestas
+  `Switch`, os `regcontrols` de cada transformador regulado e coordenada
+  ausente como `null`
 - Inversor inteligente reescrito sobre o OpenDER (IEEE 1547), com configuração
   declarativa e validada
 - Métodos da fachada `load_buscoords`, `get_circuit_summary`,
@@ -44,6 +46,10 @@ com ⚠ quebram compatibilidade com cenários ou dados anteriores.
 - ⚠ O modelo `Bus` expõe só as tensões e os ângulos por fase
 - ⚠ As portas dos simuladores no Docker passaram de 5671–5680 para 5771–5780
 - ⚠ Fase ausente é `NaN`, e não zero; no CSV, célula vazia
+- ⚠ O JSON da topologia passou ao formato v2 (`"version": 2`): cada fato num
+  lugar só, campos no nível do registro em vez de `metadata`, e arestas e
+  elementos identificados por `type` + `name`, com `f"{type}-{name}"` igual ao
+  eid do adaptador
 - O controle automático dos reguladores é travado ao compilar, sem mexer no
   tap; `tap_ini` reporta o tap declarado, e os cenários iniciam o controlador
   externo nele
@@ -52,8 +58,6 @@ com ⚠ quebram compatibilidade com cenários ou dados anteriores.
   só durante a compilação
 - `set_power` atende só Load, Generator e Storage, e recusa PVSystem
 - `util/topologia.py` exporta pela fachada
-- O `metadata.attached` de toda barra no JSON da topologia ganhou a chave
-  `generator`
 - No adaptador, `profiles` substitui `loads_with_profiles`
 
 ### Removido
@@ -62,6 +66,11 @@ com ⚠ quebram compatibilidade com cenários ou dados anteriores.
   `storage_names` do wrapper
 - Os atributos `V_min_pu`, `V_max_pu`, `V_mean_pu` e `V_unb_pct` da barra
 - A camada de leituras legadas do wrapper
+- ⚠ A classificação de barras do JSON da topologia (`node_type` e a ordem de
+  precedência): o JSON diz o que há em cada barra, e classificar fica com a
+  plataforma que o consome. Saem também os campos que repetiam outros (`id`,
+  `label`, `num_nodes`, `coord_defined`, `attached`) e o `voltage_pu`, sempre
+  nulo
 
 ### Corrigido
 

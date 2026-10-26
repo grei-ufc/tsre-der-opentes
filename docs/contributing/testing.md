@@ -217,14 +217,16 @@ Todos usam uma fixture de módulo que compila `data/13Bus/IEEE13Nodeckt.dss`, `r
 
 | Classe | Testes | O que valida |
 |---|---|---|
-| `TestSourceBus` | 4 | A barra de referência vem da fonte de tensão, não do nome `"sourcebus"` |
+| `TestSource` | 3 | A fonte é um elemento `Vsource`, achado pela classe, e não pelo nome `"sourcebus"` (no IEEE123 ela fica na `150`) |
 | `TestParallelElements` | 4 | Elementos paralelos na mesma dupla de barras (ex.: `reg1`/`reg2`/`reg3`) não se sobrescrevem |
-| `TestNodeClassification` | 5 | Classificação de barra por papel real no circuito (regulador, PV, carga), não por convenção de nome |
-| `TestNodeMetadata` | 2 | Barras carregam coordenadas e tensão base; arestas carregam contagem de fases |
-| `TestElements` | 7 | Cada PV/Storage vira um elemento próprio, com barra e fases; a barra indexa o que está ligado nela |
-| `TestStorage` | 6 | Enumeração de baterias e classificação da barra, num circuito sintético, já que nenhum alimentador de `data/` tem Storage |
-| `TestGenerator` | 5 | Generator vira elemento próprio e entra no índice da barra e no JSON exportado, sem mudar o `node_type`; desabilitado fica de fora |
+| `TestFactsOnly` | 9 | Formato v2: cada registro só com os próprios campos, nenhuma classificação; a barra com carga e PV lista os dois; cargas e capacitores viram elementos; o transformador regulado traz `regcontrols` |
+| `TestSwitchesInTheFeeder` | 5 | As oito chaves do IEEE123 são arestas `Switch`, as normalmente abertas saem abertas e ligam as barras reais |
+| `TestNodeFields` | 6 | Barras carregam tensão base, nós e coordenadas (`null` quando ausentes); arestas carregam contagem de fases |
+| `TestElements` | 5 | Cada elemento de uma barra vira um registro próprio, com barra, fases e nós (que não se repetem: carga em delta) |
+| `TestStorage` | 4 | Enumeração de baterias num circuito sintético, já que nenhum alimentador de `data/` tem Storage; a bateria entra ao lado da carga e do capacitor da barra |
+| `TestGenerator` | 4 | Generator vira elemento próprio, ao lado da carga e do capacitor da barra, e chega ao JSON; desabilitado fica de fora |
 | `TestDisabledElements` | 3 | Linha desabilitada não vira aresta; chave aberta permanece, mas marcada |
+| `TestJoinsWithTheAdapter` | 1 | `f"{type}-{name}"` de cada aresta, elemento, barra e RegControl é um eid do adaptador mosaik |
 | `TestStandaloneExport` | 2 | `util.topologia.exportar_topologia` grava o mesmo grafo da fachada e recusa um arquivo inexistente |
 
 #### `test_webvis_topology.py`

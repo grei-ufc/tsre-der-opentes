@@ -1,624 +1,576 @@
 {
+    "version": 2,
     "nodes": [
         {
-            "id": "sourcebus",
-            "label": "sourcebus",
-            "node_type": "refbus",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 66.39528095680697,
-                "num_nodes": 3,
-                "nodes": [
-                    1,
-                    2,
-                    3
-                ],
-                "x": 200.0,
-                "y": 400.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [],
-                    "storage": []
-                }
-            }
+            "name": "sourcebus",
+            "kv_base": 66.39528095680697,
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "x": 200.0,
+            "y": 400.0
         },
         {
-            "id": "650",
-            "label": "650",
-            "node_type": "transformer_bus",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 3,
-                "nodes": [
-                    1,
-                    2,
-                    3
-                ],
-                "x": 200.0,
-                "y": 350.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [],
-                    "storage": []
-                }
-            }
+            "name": "650",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "x": 200.0,
+            "y": 350.0
         },
         {
-            "id": "rg60",
-            "label": "rg60",
-            "node_type": "regulator_bus",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 3,
-                "nodes": [
-                    1,
-                    2,
-                    3
-                ],
-                "x": 200.0,
-                "y": 300.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [],
-                    "storage": []
-                }
-            }
+            "name": "rg60",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "x": 200.0,
+            "y": 300.0
         },
         {
-            "id": "633",
-            "label": "633",
-            "node_type": "transformer_bus",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 3,
-                "nodes": [
-                    1,
-                    2,
-                    3
-                ],
-                "x": 350.0,
-                "y": 250.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [],
-                    "storage": []
-                }
-            }
+            "name": "633",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "x": 350.0,
+            "y": 250.0
         },
         {
-            "id": "634",
-            "label": "634",
-            "node_type": "pv",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 0.27712812921102037,
-                "num_nodes": 3,
-                "nodes": [
-                    1,
-                    2,
-                    3
-                ],
-                "x": 400.0,
-                "y": 250.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [
-                        "pv_pv"
-                    ],
-                    "storage": []
-                }
-            }
+            "name": "634",
+            "kv_base": 0.27712812921102037,
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "x": 400.0,
+            "y": 250.0
         },
         {
-            "id": "671",
-            "label": "671",
-            "node_type": "load",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 3,
-                "nodes": [
-                    1,
-                    2,
-                    3
-                ],
-                "x": 200.0,
-                "y": 100.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [],
-                    "storage": []
-                }
-            }
+            "name": "671",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "x": 200.0,
+            "y": 100.0
         },
         {
-            "id": "645",
-            "label": "645",
-            "node_type": "load",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 2,
-                "nodes": [
-                    2,
-                    3
-                ],
-                "x": 100.0,
-                "y": 250.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [],
-                    "storage": []
-                }
-            }
+            "name": "645",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                2,
+                3
+            ],
+            "x": 100.0,
+            "y": 250.0
         },
         {
-            "id": "646",
-            "label": "646",
-            "node_type": "pv",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 2,
-                "nodes": [
-                    2,
-                    3
-                ],
-                "x": 0.0,
-                "y": 250.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [
-                        "pv_pv-4"
-                    ],
-                    "storage": []
-                }
-            }
+            "name": "646",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                2,
+                3
+            ],
+            "x": 0.0,
+            "y": 250.0
         },
         {
-            "id": "692",
-            "label": "692",
-            "node_type": "pv",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 3,
-                "nodes": [
-                    1,
-                    2,
-                    3
-                ],
-                "x": 250.0,
-                "y": 100.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [
-                        "pv_pv-2"
-                    ],
-                    "storage": []
-                }
-            }
+            "name": "692",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "x": 250.0,
+            "y": 100.0
         },
         {
-            "id": "675",
-            "label": "675",
-            "node_type": "load",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 3,
-                "nodes": [
-                    1,
-                    2,
-                    3
-                ],
-                "x": 400.0,
-                "y": 100.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [],
-                    "storage": []
-                }
-            }
+            "name": "675",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "x": 400.0,
+            "y": 100.0
         },
         {
-            "id": "611",
-            "label": "611",
-            "node_type": "pv",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 1,
-                "nodes": [
-                    3
-                ],
-                "x": 0.0,
-                "y": 100.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [
-                        "pv_pv-5"
-                    ],
-                    "storage": []
-                }
-            }
+            "name": "611",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                3
+            ],
+            "x": 0.0,
+            "y": 100.0
         },
         {
-            "id": "652",
-            "label": "652",
-            "node_type": "pv",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 1,
-                "nodes": [
-                    1
-                ],
-                "x": 100.0,
-                "y": 0.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [
-                        "pv_pv-6"
-                    ],
-                    "storage": []
-                }
-            }
+            "name": "652",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                1
+            ],
+            "x": 100.0,
+            "y": 0.0
         },
         {
-            "id": "670",
-            "label": "670",
-            "node_type": "load",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 3,
-                "nodes": [
-                    1,
-                    2,
-                    3
-                ],
-                "x": 200.0,
-                "y": 200.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [],
-                    "storage": []
-                }
-            }
+            "name": "670",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "x": 200.0,
+            "y": 200.0
         },
         {
-            "id": "632",
-            "label": "632",
-            "node_type": "bus",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 3,
-                "nodes": [
-                    1,
-                    2,
-                    3
-                ],
-                "x": 200.0,
-                "y": 250.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [],
-                    "storage": []
-                }
-            }
+            "name": "632",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "x": 200.0,
+            "y": 250.0
         },
         {
-            "id": "680",
-            "label": "680",
-            "node_type": "pv",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 3,
-                "nodes": [
-                    1,
-                    2,
-                    3
-                ],
-                "x": 200.0,
-                "y": 0.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [
-                        "pv_pv-3"
-                    ],
-                    "storage": []
-                }
-            }
+            "name": "680",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "x": 200.0,
+            "y": 0.0
         },
         {
-            "id": "684",
-            "label": "684",
-            "node_type": "bus",
-            "voltage_pu": null,
-            "metadata": {
-                "kv_base": 2.4017771198288433,
-                "num_nodes": 2,
-                "nodes": [
-                    1,
-                    3
-                ],
-                "x": 100.0,
-                "y": 100.0,
-                "coord_defined": true,
-                "attached": {
-                    "pv": [],
-                    "storage": []
-                }
-            }
+            "name": "684",
+            "kv_base": 2.4017771198288433,
+            "nodes": [
+                1,
+                3
+            ],
+            "x": 100.0,
+            "y": 100.0
         }
     ],
     "edges": [
         {
-            "id": "line_650632",
+            "type": "Line",
+            "name": "650632",
             "source": "rg60",
             "target": "632",
-            "edge_type": "line",
-            "metadata": {
-                "name": "650632",
-                "phases": 3,
-                "open": false
-            }
+            "phases": 3,
+            "open": false,
+            "regcontrols": []
         },
         {
-            "id": "line_632670",
+            "type": "Line",
+            "name": "632670",
             "source": "632",
             "target": "670",
-            "edge_type": "line",
-            "metadata": {
-                "name": "632670",
-                "phases": 3,
-                "open": false
-            }
+            "phases": 3,
+            "open": false,
+            "regcontrols": []
         },
         {
-            "id": "line_670671",
+            "type": "Line",
+            "name": "670671",
             "source": "670",
             "target": "671",
-            "edge_type": "line",
-            "metadata": {
-                "name": "670671",
-                "phases": 3,
-                "open": false
-            }
+            "phases": 3,
+            "open": false,
+            "regcontrols": []
         },
         {
-            "id": "line_671680",
+            "type": "Line",
+            "name": "671680",
             "source": "671",
             "target": "680",
-            "edge_type": "line",
-            "metadata": {
-                "name": "671680",
-                "phases": 3,
-                "open": false
-            }
+            "phases": 3,
+            "open": false,
+            "regcontrols": []
         },
         {
-            "id": "line_632633",
+            "type": "Line",
+            "name": "632633",
             "source": "632",
             "target": "633",
-            "edge_type": "line",
-            "metadata": {
-                "name": "632633",
-                "phases": 3,
-                "open": false
-            }
+            "phases": 3,
+            "open": false,
+            "regcontrols": []
         },
         {
-            "id": "line_632645",
+            "type": "Line",
+            "name": "632645",
             "source": "632",
             "target": "645",
-            "edge_type": "line",
-            "metadata": {
-                "name": "632645",
-                "phases": 2,
-                "open": false
-            }
+            "phases": 2,
+            "open": false,
+            "regcontrols": []
         },
         {
-            "id": "line_645646",
+            "type": "Line",
+            "name": "645646",
             "source": "645",
             "target": "646",
-            "edge_type": "line",
-            "metadata": {
-                "name": "645646",
-                "phases": 2,
-                "open": false
-            }
+            "phases": 2,
+            "open": false,
+            "regcontrols": []
         },
         {
-            "id": "line_692675",
+            "type": "Line",
+            "name": "692675",
             "source": "692",
             "target": "675",
-            "edge_type": "line",
-            "metadata": {
-                "name": "692675",
-                "phases": 3,
-                "open": false
-            }
+            "phases": 3,
+            "open": false,
+            "regcontrols": []
         },
         {
-            "id": "line_671684",
+            "type": "Line",
+            "name": "671684",
             "source": "671",
             "target": "684",
-            "edge_type": "line",
-            "metadata": {
-                "name": "671684",
-                "phases": 2,
-                "open": false
-            }
+            "phases": 2,
+            "open": false,
+            "regcontrols": []
         },
         {
-            "id": "line_684611",
+            "type": "Line",
+            "name": "684611",
             "source": "684",
             "target": "611",
-            "edge_type": "line",
-            "metadata": {
-                "name": "684611",
-                "phases": 1,
-                "open": false
-            }
+            "phases": 1,
+            "open": false,
+            "regcontrols": []
         },
         {
-            "id": "line_684652",
+            "type": "Line",
+            "name": "684652",
             "source": "684",
             "target": "652",
-            "edge_type": "line",
-            "metadata": {
-                "name": "684652",
-                "phases": 1,
-                "open": false
-            }
+            "phases": 1,
+            "open": false,
+            "regcontrols": []
         },
         {
-            "id": "line_671692",
+            "type": "Switch",
+            "name": "671692",
             "source": "671",
             "target": "692",
-            "edge_type": "line",
-            "metadata": {
-                "name": "671692",
-                "phases": 3,
-                "open": false
-            }
+            "phases": 3,
+            "open": false,
+            "regcontrols": []
         },
         {
-            "id": "transformer_sub",
+            "type": "Transformer",
+            "name": "sub",
             "source": "sourcebus",
             "target": "650",
-            "edge_type": "transformer",
-            "metadata": {
-                "name": "sub",
-                "phases": 3,
-                "open": false
-            }
+            "phases": 3,
+            "open": false,
+            "regcontrols": []
         },
         {
-            "id": "transformer_reg1",
+            "type": "Transformer",
+            "name": "reg1",
             "source": "650",
             "target": "rg60",
-            "edge_type": "transformer",
-            "metadata": {
-                "name": "reg1",
-                "phases": 1,
-                "open": false
-            }
+            "phases": 1,
+            "open": false,
+            "regcontrols": [
+                {
+                    "name": "reg1",
+                    "bus": "rg60"
+                }
+            ]
         },
         {
-            "id": "transformer_reg2",
+            "type": "Transformer",
+            "name": "reg2",
             "source": "650",
             "target": "rg60",
-            "edge_type": "transformer",
-            "metadata": {
-                "name": "reg2",
-                "phases": 1,
-                "open": false
-            }
+            "phases": 1,
+            "open": false,
+            "regcontrols": [
+                {
+                    "name": "reg2",
+                    "bus": "rg60"
+                }
+            ]
         },
         {
-            "id": "transformer_reg3",
+            "type": "Transformer",
+            "name": "reg3",
             "source": "650",
             "target": "rg60",
-            "edge_type": "transformer",
-            "metadata": {
-                "name": "reg3",
-                "phases": 1,
-                "open": false
-            }
+            "phases": 1,
+            "open": false,
+            "regcontrols": [
+                {
+                    "name": "reg3",
+                    "bus": "rg60"
+                }
+            ]
         },
         {
-            "id": "transformer_xfm1",
+            "type": "Transformer",
+            "name": "xfm1",
             "source": "633",
             "target": "634",
-            "edge_type": "transformer",
-            "metadata": {
-                "name": "xfm1",
-                "phases": 3,
-                "open": false
-            }
+            "phases": 3,
+            "open": false,
+            "regcontrols": []
         }
     ],
     "elements": [
         {
-            "id": "pv_pv",
+            "type": "Vsource",
+            "name": "source",
+            "bus": "sourcebus",
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "phases": 3
+        },
+        {
+            "type": "Load",
+            "name": "671",
+            "bus": "671",
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "phases": 3
+        },
+        {
+            "type": "Load",
+            "name": "634a",
+            "bus": "634",
+            "nodes": [
+                1
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Load",
+            "name": "634b",
+            "bus": "634",
+            "nodes": [
+                2
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Load",
+            "name": "634c",
+            "bus": "634",
+            "nodes": [
+                3
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Load",
+            "name": "645",
+            "bus": "645",
+            "nodes": [
+                2
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Load",
+            "name": "646",
+            "bus": "646",
+            "nodes": [
+                2,
+                3
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Load",
+            "name": "692",
+            "bus": "692",
+            "nodes": [
+                3,
+                1
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Load",
+            "name": "675a",
+            "bus": "675",
+            "nodes": [
+                1
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Load",
+            "name": "675b",
+            "bus": "675",
+            "nodes": [
+                2
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Load",
+            "name": "675c",
+            "bus": "675",
+            "nodes": [
+                3
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Load",
+            "name": "611",
+            "bus": "611",
+            "nodes": [
+                3
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Load",
+            "name": "652",
+            "bus": "652",
+            "nodes": [
+                1
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Load",
+            "name": "670a",
+            "bus": "670",
+            "nodes": [
+                1
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Load",
+            "name": "670b",
+            "bus": "670",
+            "nodes": [
+                2
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Load",
+            "name": "670c",
+            "bus": "670",
+            "nodes": [
+                3
+            ],
+            "phases": 1
+        },
+        {
+            "type": "Capacitor",
+            "name": "cap1",
+            "bus": "675",
+            "nodes": [
+                1,
+                2,
+                3
+            ],
+            "phases": 3
+        },
+        {
+            "type": "Capacitor",
+            "name": "cap2",
+            "bus": "611",
+            "nodes": [
+                3
+            ],
+            "phases": 1
+        },
+        {
+            "type": "PVSystem",
             "name": "pv",
-            "element_type": "pv",
             "bus": "634",
             "nodes": [
                 1,
                 2,
                 3
             ],
-            "phases": 3,
-            "metadata": {}
+            "phases": 3
         },
         {
-            "id": "pv_pv-2",
+            "type": "PVSystem",
             "name": "pv-2",
-            "element_type": "pv",
             "bus": "692",
             "nodes": [
                 1,
                 2,
                 3
             ],
-            "phases": 3,
-            "metadata": {}
+            "phases": 3
         },
         {
-            "id": "pv_pv-3",
+            "type": "PVSystem",
             "name": "pv-3",
-            "element_type": "pv",
             "bus": "680",
             "nodes": [
                 1,
                 2,
                 3
             ],
-            "phases": 3,
-            "metadata": {}
+            "phases": 3
         },
         {
-            "id": "pv_pv-4",
+            "type": "PVSystem",
             "name": "pv-4",
-            "element_type": "pv",
             "bus": "646",
             "nodes": [
                 2
             ],
-            "phases": 1,
-            "metadata": {}
+            "phases": 1
         },
         {
-            "id": "pv_pv-5",
+            "type": "PVSystem",
             "name": "pv-5",
-            "element_type": "pv",
             "bus": "611",
             "nodes": [
                 3
             ],
-            "phases": 1,
-            "metadata": {}
+            "phases": 1
         },
         {
-            "id": "pv_pv-6",
+            "type": "PVSystem",
             "name": "pv-6",
-            "element_type": "pv",
             "bus": "652",
             "nodes": [
                 1
             ],
-            "phases": 1,
-            "metadata": {}
+            "phases": 1
         }
     ]
 }

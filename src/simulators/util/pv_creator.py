@@ -82,7 +82,7 @@ from random import choice, seed  # Random node selection and reproducibility see
 import pandas as pd  # Data manipulation and CSV file handling
 import pv_validator as val  # Centralised validation and error-checking routines
 import py_dss_interface  # Python interface for OpenDSS (EPRI)
-import topology_builder as tb  # Topology building and bus classification routines
+import topology_builder as tb  # Circuit graph: buses, branches and attached elements
 
 # --- Logging Configuration ---
 logging.basicConfig(
@@ -549,27 +549,21 @@ def PVCreator(QtdPVs,
         PV_buses_phases = []
         allbuses_mapping = []
 
-        logger.info("Classifying buses using topology builder...")
-        load_buses = tb.get_load_buses(dss)
-        pv_buses_exist = tb.get_pv_buses(dss)
-        transformer_buses = tb.get_transformer_buses(dss)
+        logger.info("Reading the circuit graph from the topology builder...")
+        graph = tb.build_graph(dss)
 
-        # We exclude reference, virtual and regulator buses from being selected for PV installation.
-        excluded_node_types = {"refbus", "virtual_bus", "regulator_bus"}
+        # We exclude the source bus and the buses regulated by a RegControl from
+        # being selected for PV installation.
+        excluded_buses = {
+            element.bus for element in graph.elements.values() if element.type == "Vsource"
+        } | {regcontrol["bus"] for edge in graph.edges.values() for regcontrol in edge.regcontrols}
 
         # Iterate through circuit buses to identify eligible connection points
         logger.info("Mapping available buses...")
         for i in dss.circuit.buses_names:
             dss.circuit.set_active_bus(i)
 
-            node_type = tb.get_node_type(
-                dss.bus.name.lower(),
-                load_buses,
-                pv_buses_exist,
-                transformer_buses
-            )
-
-            if node_type not in excluded_node_types:
+            if dss.bus.name.lower() not in excluded_buses:
                 # Define connection and phase count based on bus topology (nodes)
                 allbuses_mapping.append(
                     f"{dss.bus.name}." + ".".join(map(str, dss.bus.nodes))

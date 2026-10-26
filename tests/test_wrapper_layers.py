@@ -347,9 +347,9 @@ class TestFacadeReaders:
 
         for nome, dados in info.items():
             no = grafo.nodes[nome.lower()]
-            assert no.metadata["kv_base"] == dados["kv_base"]
-            assert no.metadata["nodes"] == dados["nodes"]
-            assert no.metadata["coord_defined"] == dados["coord_defined"]
+            assert no.kv_base == dados["kv_base"]
+            assert no.nodes == dados["nodes"]
+            assert (no.x is not None) == dados["coord_defined"]
 
 
 class TestLoadShapes:

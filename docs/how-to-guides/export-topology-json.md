@@ -2,7 +2,15 @@
 
 ## Visão geral
 
-O projeto pode exportar a topologia do circuito OpenDSS como um grafo JSON com nós (barras), arestas (linhas/transformadores) e elementos (PVSystems/Storages conectados às barras).
+O projeto pode exportar a topologia do circuito OpenDSS como um grafo JSON com
+nós (barras), arestas (linhas, chaves e transformadores) e elementos (o que fica
+ligado a uma só barra: fonte, cargas, capacitores, PVSystems, Storages e
+Generators).
+
+O JSON informa e não classifica. Ele diz o que o modelo compilado declara em
+cada barra; decidir se uma barra é "de carga", "de geração" ou "regulada" fica
+a critério de quem o consome — a plataforma `tsdq-dataview-opentes`, por
+exemplo.
 
 ## Quando usar
 
@@ -44,120 +52,126 @@ dss.grafo_tsdq("output/topologia.json")
 
 ## Estrutura do JSON
 
-Três vetores no topo. As chaves são descartadas na serialização — a plataforma
-indexa pelo campo `id` de cada item.
+Três vetores e a versão do formato. Cada dado aparece num lugar só: nada no
+JSON pode ser obtido de dois jeitos diferentes.
 
 ```json
 {
+  "version": 2,
   "nodes": [
-    {
-      "id": "646",
-      "label": "646.2.3",
-      "node_type": "pv",
-      "voltage_pu": null,
-      "metadata": {
-        "kv_base": 2.4017771198288433,
-        "num_nodes": 2,
-        "nodes": [2, 3],
-        "x": 400.0,
-        "y": 250.0,
-        "coord_defined": true,
-        "attached": { "pv": ["pv_pv-4"], "storage": [], "generator": [] }
-      }
-    }
+    {"name": "646", "kv_base": 2.4017771198288433, "nodes": [2, 3], "x": 400.0, "y": 250.0}
   ],
   "edges": [
-    {
-      "id": "line_650632",
-      "source": "rg60",
-      "target": "632",
-      "edge_type": "line",
-      "metadata": { "name": "650632", "phases": 3, "open": false }
-    }
+    {"type": "Line", "name": "650632", "source": "rg60", "target": "632",
+     "phases": 3, "open": false, "regcontrols": []},
+    {"type": "Transformer", "name": "reg1", "source": "650", "target": "rg60",
+     "phases": 1, "open": false, "regcontrols": [{"name": "reg1", "bus": "rg60"}]}
   ],
   "elements": [
-    {
-      "id": "pv_pv-4",
-      "name": "pv-4",
-      "element_type": "pv",
-      "bus": "646",
-      "nodes": [2],
-      "phases": 1,
-      "metadata": {}
-    }
+    {"type": "Vsource",  "name": "source", "bus": "sourcebus", "nodes": [1, 2, 3], "phases": 3},
+    {"type": "Load",     "name": "646",    "bus": "646",       "nodes": [2, 3],    "phases": 1},
+    {"type": "PVSystem", "name": "pv-4",   "bus": "646",       "nodes": [2],       "phases": 1}
   ]
 }
 ```
 
-`voltage_pu` sai sempre `null`: o grafo é estático e nada escreve tensão nele.
+### Barras (`nodes`)
 
-As coordenadas `x` e `y` vêm do arquivo de coordenadas referenciado no `.dss`
-principal do alimentador (comando `BusCoords`). Uma barra que não consta desse
-arquivo sai com `"x": null, "y": null` e `"coord_defined": false`. O OpenDSS
-reporta `(0, 0)` para ela, mas esse zero não é uma posição: desenhá-la ali a
-poria na origem do diagrama.
-
-## Classificação de nós
-
-O `topology_builder.py` classifica cada barra pelo que está de fato ligado a
-ela, lendo o modelo compilado — não o nome da barra. Uma barra pode satisfazer
-mais de um critério, e vence o primeiro da tabela (uma barra com carga e PV é
-classificada como `pv`).
-
-| Tipo | Descrição |
+| Campo | Descrição |
 |---|---|
-| `refbus` | Barra alimentadora, lida do `Vsource` |
-| `regulator_bus` | Barra regulada, derivada dos `RegControl` e seus transformadores |
-| `pv` | Barra com PVSystem conectado |
-| `storage` | Barra com Storage conectado |
-| `load` | Barra com carga |
-| `transformer_bus` | Barra que é terminal de algum transformador |
-| `bus` | Barra genérica |
+| `name` | Nome da barra, em minúsculas e sem sufixo de nós. É por ele que arestas e elementos a referenciam |
+| `kv_base` | Tensão base, em kV |
+| `nodes` | Nós (fases) presentes na barra |
+| `x`, `y` | Coordenadas do `BusCoords`, ou `null` |
 
-## Tipos de aresta
+As coordenadas vêm do arquivo referenciado no `.dss` principal do alimentador
+(comando `BusCoords`). Uma barra que não consta desse arquivo sai com
+`"x": null, "y": null`. O OpenDSS reporta `(0, 0)` para ela, mas esse zero não
+é uma posição: desenhá-la ali a poria na origem do diagrama.
 
-Só elementos habilitados viram aresta, e o identificador vem do **nome do
+### Arestas (`edges`)
+
+| Campo | Descrição |
+|---|---|
+| `type` | `Line`, `Switch` ou `Transformer` |
+| `name` | Nome do elemento no OpenDSS |
+| `source`, `target` | Barras dos dois terminais |
+| `phases` | Número de fases |
+| `open` | Se algum terminal está aberto |
+| `regcontrols` | RegControls que comandam o transformador, cada um com a barra que regula (`bus`); vazio nas demais arestas |
+
+Só elementos habilitados viram aresta, e a identidade vem do **nome do
 elemento**, não do par de barras: os três reguladores de fase do IEEE 13 ligam
 `650` a `rg60` e colapsariam numa aresta só.
 
-| Tipo | Descrição |
+No OpenDSS, chave e linha são a mesma classe `Line`; a aresta de uma linha
+declarada com `switch=yes` sai com `type: "Switch"`, a mesma divisão que o
+adaptador mosaik faz. Uma chave aberta continua no grafo, com `open: true` —
+ela existe fisicamente ainda que não conduza, e o consumidor pode desenhá-la
+tracejada em vez de fazê-la sumir. Basta um terminal aberto: as chaves
+normalmente abertas do IEEE123 são abertas pelo terminal 2.
+
+`regcontrols` é uma lista porque nada impede dois RegControls no mesmo
+transformador. A barra regulada é a do enrolamento que o RegControl declara.
+
+### Elementos (`elements`)
+
+| Campo | Descrição |
 |---|---|
-| `line` | Linha de distribuição |
-| `transformer` | Transformador |
+| `type` | `Vsource`, `Load`, `Capacitor`, `PVSystem`, `Storage` ou `Generator` |
+| `name` | Nome do elemento no OpenDSS |
+| `bus` | Barra a que está ligado, com a mesma normalização de `nodes[].name` |
+| `nodes` | Nós da barra em que está ligado |
+| `phases` | Número de fases |
 
-Uma chave aberta continua no grafo, com `metadata.open = true` — ela existe
-fisicamente ainda que não conduza, e o consumidor pode desenhá-la tracejada em
-vez de fazê-la sumir. O estado é do elemento: basta um terminal aberto. (Até
-esta versão só o terminal 1 era consultado, e as chaves normalmente abertas do
-IEEE123, que o circuito abre com `terminal=2`, saíam como fechadas.)
+Enquanto a aresta liga duas barras, o elemento pendura-se numa só. Três PVs
+monofásicos numa barra trifásica são três elementos, cada um com a sua fase.
+`phases` e `nodes` não se repetem: a carga 646 do IEEE 13 é monofásica em
+delta, com uma fase e dois nós (`[2, 3]`).
 
-As chaves têm `edge_type: "line"` — no OpenDSS elas são `Line` com
-`switch=yes`. Quem precisa distingui-las usa as entidades do adaptador mosaik,
-onde são um modelo `Switch` à parte.
+Elementos desabilitados (`enabled=no`) ficam de fora. Os parâmetros nominais
+(`pmpp`, `kva`, `kwh_rated`) trafegam pelo `extra_info` das entidades mosaik, e
+não por este grafo.
 
-## Elementos conectados
+## Identidade e junção com os resultados
 
-Enquanto a aresta liga duas barras, o elemento pendura-se numa só. O
-`node_type` diz apenas que existe geração fotovoltaica na barra; é o vetor
-`elements` que diz quantos inversores são, como se chamam e em que fases estão.
-Olhando só o tipo da barra, três PVs monofásicos são indistinguíveis de um
-único PV trifásico.
+Uma barra é identificada pelo `name`; uma aresta ou um elemento, pelo par
+`type` + `name`. Os valores de `type` são os nomes dos modelos do adaptador
+mosaik, então `f"{type}-{name}"` — e `f"Bus-{name}"` para as barras — é o eid
+da entidade, que prefixa as colunas do CSV de resultados:
 
-| Tipo | Descrição |
-|---|---|
-| `pv` | PVSystem |
-| `storage` | Storage |
-| `generator` | Generator — entra só em `elements` e no `attached`; não muda o `node_type` da barra |
+| No JSON | Eid | Coluna do CSV |
+|---|---|---|
+| barra `rg60` | `Bus-rg60` | `DSS-0.Bus-rg60-V1_pu` |
+| `Line` `650632` | `Line-650632` | `DSS-0.Line-650632-I1_A` |
+| `PVSystem` `pv-4` | `PVSystem-pv-4` | `DSS-0.PVSystem-pv-4-P_meas` |
+| `regcontrols[].name` `creg1a` | `RegControl-creg1a` | `DSS-0.RegControl-creg1a-tap` |
 
-O campo `bus` usa a mesma normalização de `node.id` (minúsculas, sem sufixo de
-nós), então o join elemento → barra é direto. Para o caminho inverso, cada
-barra traz `metadata.attached` com os identificadores agrupados por tipo; a
-chave existe em **todas** as barras, com listas vazias quando não há nada, para
-que o consumidor itere sem antes checar.
+`DSS-0` é o id do simulador no cenário. `Vsource` e `Capacitor` não têm modelo
+no adaptador e, portanto, não têm colunas.
 
-Elementos desabilitados (`enabled=no`) ficam de fora, e `metadata` está
-reservado para os parâmetros nominais (`pmpp`, `kva`, `kwh_rated`), que hoje
-trafegam pelo `extra_info` das entidades mosaik e não por este grafo.
+## Classificar é da plataforma
+
+O JSON não traz tipo de barra. Uma barra com carga e PV lista os dois
+elementos, e quem consome decide o que ela é. Para obter o que está pendurado em
+cada barra, agrupe os elementos pelo campo `bus`:
+
+```python
+from collections import defaultdict
+
+tipos_por_barra = defaultdict(set)
+for elemento in grafo["elements"]:
+    tipos_por_barra[elemento["bus"]].add(elemento["type"])
+
+barras_reguladas = {
+    regcontrol["bus"] for aresta in grafo["edges"] for regcontrol in aresta["regcontrols"]
+}
+
+# tipos_por_barra["646"] == {"Load", "PVSystem"}: a precedência é sua.
+```
+
+A barra alimentadora é a do elemento `Vsource`; a de um transformador, qualquer
+extremo de uma aresta `Transformer`.
 
 ## Módulos envolvidos
 

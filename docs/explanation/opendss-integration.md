@@ -310,11 +310,14 @@ graph = dss_wrapper.grafo_tsdq("output/topologia.json")
 # graph.elements: dict[str, NetworkElement]
 ```
 
-Cada nó é classificado, nesta ordem de precedência, como: `refbus`,
-`regulator_bus`, `pv`, `storage`, `load`, `transformer_bus` ou `bus`. Os
-elementos ligados a uma só barra — PVSystems, Storages e Generators — entram no
-vetor `elements` e no índice `attached` de cada barra; o gerador não muda o tipo
-da barra.
+O grafo informa e não classifica. Barras, elementos série (`Line`, `Switch`,
+`Transformer`) e elementos ligados a uma só barra (`Vsource`, `Load`,
+`Capacitor`, `PVSystem`, `Storage`, `Generator`) são registrados como o modelo
+compilado os declara, cada fato num lugar só. Uma barra com carga e PV lista os
+dois elementos, e decidir o tipo dela fica a critério de quem consome o JSON.
+Os transformadores comandados por um `RegControl` trazem, em `regcontrols`, a
+barra que ele regula. O formato está em
+[Exportar Topologia para JSON](../how-to-guides/export-topology-json.md).
 
 A exportação para JSON pode ser ativada passando `output_graph_path` ao iniciar
 o adaptador, ou de forma avulsa por `util.topologia.exportar_topologia`, que

@@ -144,9 +144,13 @@ class OpenDSS(EngineMixin, ReaderMixin, WriterMixin):
         """
         Exporta o grafo do circuito em formato JSON.
 
-        São três vetores: ``nodes`` (barras), ``edges`` (linhas e
-        transformadores) e ``elements`` (PVSystems e Storages, com a barra e as
-        fases em que estão).
+        São três vetores, mais a ``version`` do formato: ``nodes`` (barras),
+        ``edges`` (linhas, chaves e transformadores, estes com os RegControls
+        que os comandam) e ``elements`` (Vsource, Loads, Capacitors, PVSystems,
+        Storages e Generators, com a barra e as fases em que estão).
+
+        O JSON só informa o que há em cada barra; não classifica barra nenhuma.
+        Ver :mod:`.graph_model`.
 
         Padrão utilizado na plataforma `tsdq-dataview-opentes`
 
