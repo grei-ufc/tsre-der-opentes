@@ -129,66 +129,6 @@ class TestPowerTotal:
         assert abs(first + second) < 0.1 * abs(first)
 
 
-class TestCompileIsRobust:
-    """``py_dss_interface.DSS()`` chdir's the process to its stored DataPath.
-
-    Every relative path the caller then resolves silently points at the wrong
-    directory, and ``Redirect`` on the resulting missing file does not raise —
-    the simulation just runs on an empty circuit.
-    """
-
-    def test_constructing_does_not_leave_the_process_elsewhere(self):
-        import os
-
-        before = os.getcwd()
-        OpenDSS(
-            topofile=str(MASTER),
-            time_step=dt.timedelta(seconds=300),
-            start_time=dt.datetime(2025, 1, 1),
-        )
-        assert os.getcwd() == before
-
-    def test_relative_paths_resolve_against_the_callers_directory(self):
-        relative = MASTER.relative_to(pathlib.Path.cwd())
-        wrapper = OpenDSS(
-            topofile=str(relative),
-            time_step=dt.timedelta(seconds=300),
-            start_time=dt.datetime(2025, 1, 1),
-        )
-        assert wrapper.dss.circuit.num_buses > 0
-
-    def test_missing_file_raises_instead_of_compiling_nothing(self):
-        with pytest.raises(OpenDSSException, match="not found"):
-            OpenDSS(
-                topofile="nao_existe_em_lugar_nenhum.dss",
-                time_step=dt.timedelta(seconds=300),
-                start_time=dt.datetime(2025, 1, 1),
-            )
-
-    def test_a_list_of_paths_is_rejected(self):
-        """A assinatura antiga aceitava lista; um segundo circuito nunca coexistiu.
-
-        Todas as instâncias DSS() compartilham um motor só, entao compilar o
-        segundo repunha o primeiro em silêncio. Melhor recusar do que fingir.
-        """
-        with pytest.raises(TypeError, match=r"single \.dss file"):
-            OpenDSS(
-                topofile=[str(MASTER), str(MASTER)],
-                time_step=dt.timedelta(seconds=300),
-                start_time=dt.datetime(2025, 1, 1),
-            )
-
-    def test_error_names_the_resolved_path(self):
-        with pytest.raises(OpenDSSException) as excinfo:
-            OpenDSS(
-                topofile="nao_existe.dss",
-                time_step=dt.timedelta(seconds=300),
-                start_time=dt.datetime(2025, 1, 1),
-            )
-        # O caminho reportado deve ser o do chamador, sem duplicar diretórios.
-        assert str(pathlib.Path.cwd() / "nao_existe.dss") in str(excinfo.value)
-
-
 class TestReadersDoNotMutate:
     def test_circuit_info_does_not_solve(self, dss, monkeypatch):
         """It used to call run_dss(), so a getter advanced the simulation."""
@@ -243,7 +183,7 @@ SIMULATORS = pathlib.Path(__file__).parent.parent / "src" / "simulators"
 FRONT_OF_FACADE = ("opendss/api_opendss.py", "opendss/element_specs.py")
 
 # Ferramenta avulsa que gera arquivos .dss antes de qualquer co-simulação.
-STANDALONE_TOOLS = ("util/pv_creator.py",)
+STANDALONE_TOOLS = ("util/pv_creator.py", "util/ev_creator.py")
 
 
 def _facade_bypasses(path):
@@ -463,3 +403,66 @@ class TestBusCoords:
         assert dss.load_buscoords(arquivo) is True
         depois = dss.get_all_buses_info()["650"]
         assert (depois["x"], depois["y"]) == (antes["x"], antes["y"])
+
+
+class TestCompileIsRobust:
+    """``py_dss_interface.DSS()`` chdir's the process to its stored DataPath.
+
+    Every relative path the caller then resolves silently points at the wrong
+    directory, and ``Redirect`` on the resulting missing file does not raise —
+    the simulation just runs on an empty circuit.
+
+    Must stay at the end of the file: creating new DSS() instances and compiling
+    different paths resets the shared OpenDSS engine.
+    """
+
+    def test_constructing_does_not_leave_the_process_elsewhere(self):
+        import os
+
+        before = os.getcwd()
+        OpenDSS(
+            topofile=str(MASTER),
+            time_step=dt.timedelta(seconds=300),
+            start_time=dt.datetime(2025, 1, 1),
+        )
+        assert os.getcwd() == before
+
+    def test_relative_paths_resolve_against_the_callers_directory(self):
+        relative = MASTER.relative_to(pathlib.Path.cwd())
+        wrapper = OpenDSS(
+            topofile=str(relative),
+            time_step=dt.timedelta(seconds=300),
+            start_time=dt.datetime(2025, 1, 1),
+        )
+        assert wrapper.dss.circuit.num_buses > 0
+
+    def test_missing_file_raises_instead_of_compiling_nothing(self):
+        with pytest.raises(OpenDSSException, match="not found"):
+            OpenDSS(
+                topofile="nao_existe_em_lugar_nenhum.dss",
+                time_step=dt.timedelta(seconds=300),
+                start_time=dt.datetime(2025, 1, 1),
+            )
+
+    def test_a_list_of_paths_is_rejected(self):
+        """A assinatura antiga aceitava lista; um segundo circuito nunca coexistiu.
+
+        Todas as instâncias DSS() compartilham um motor só, entao compilar o
+        segundo repunha o primeiro em silêncio. Melhor recusar do que fingir.
+        """
+        with pytest.raises(TypeError, match=r"single \.dss file"):
+            OpenDSS(
+                topofile=[str(MASTER), str(MASTER)],
+                time_step=dt.timedelta(seconds=300),
+                start_time=dt.datetime(2025, 1, 1),
+            )
+
+    def test_error_names_the_resolved_path(self):
+        with pytest.raises(OpenDSSException) as excinfo:
+            OpenDSS(
+                topofile="nao_existe.dss",
+                time_step=dt.timedelta(seconds=300),
+                start_time=dt.datetime(2025, 1, 1),
+            )
+        # O caminho reportado deve ser o do chamador, sem duplicar diretórios.
+        assert str(pathlib.Path.cwd() / "nao_existe.dss") in str(excinfo.value)

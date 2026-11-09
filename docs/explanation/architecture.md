@@ -54,6 +54,7 @@ Módulos com a física e controle, sem dependência do mosaik. Testáveis isolad
 | `battery/battery_model.py` | `OpenDSSBattery` | Estados de carga/descarga, SoC, limites de energia |
 | `pv/pv_panel_simulator.py` | `PVPanelModel` | Irradiância × temperatura → potência DC |
 | `controller/regulator_control.py` | `VR_Model` | Controle de tap com LDC e histerese |
+| `ev/caldera_wrapper.py` | `CalderaWrapper` | Fachada C++ para geração eletroquímica de perfis de recarga (Caldera ICM) |
 
 ### 2. Adaptadores mosaik (interface de simulação)
 
@@ -67,6 +68,7 @@ Cada adaptador implementa a API v3 do mosaik (`mosaik_api_v3.Simulator`) e expõ
 | `controller/controller_sim.py` | time-based | Controller |
 | `controller/regulator_control.py` | time-based | RegController |
 | `pv/pv_panel_simulator.py` | time-based | PVPanel |
+| `ev/caldera_ev_sim.py` | time-based | CalderaEV |
 | `collector/collector.py` | **event-based** | Monitor |
 | `collector/csv_sim_pandas.py` | **hybrid** | Data |
 

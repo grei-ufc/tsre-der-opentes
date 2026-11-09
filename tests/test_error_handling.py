@@ -432,7 +432,15 @@ class TestEngineErrorsAfterLoading:
             pytest.param(
                 "New Line.x bus1=671 bus2=692 linecode=nao_existe", 180, id="linecode-inexistente"
             ),
-            pytest.param("Edit Load.671 kW=abc", 303, id="valor-invalido"),
+            pytest.param(
+                "Edit Load.671 kW=abc",
+                303,
+                id="valor-invalido",
+                marks=pytest.mark.xfail(
+                    sys.platform == "linux",
+                    reason="libOpenDSSC no Linux ignora conversao float invalida em Edit",
+                ),
+            ),
         ],
     )
     def test_a_refused_command_stops(self, wrapper, cmd, code):

@@ -227,9 +227,13 @@ class EngineMixin:
         """
         self.print(f"Running file: {filename}")
         self.invalidate_snapshot()
-        with self._dialogs_while_compiling():
-            self.dss.text(f'compile "{filename}"')
-        self._after_compile()
+        base_dir = os.getcwd()
+        try:
+            with self._dialogs_while_compiling():
+                self.dss.text(f'compile "{filename}"')
+            self._after_compile()
+        finally:
+            os.chdir(base_dir)
 
     def load_buscoords(self, path: str | os.PathLike) -> bool:
         """Carrega um arquivo de coordenadas de barras no circuito compilado.

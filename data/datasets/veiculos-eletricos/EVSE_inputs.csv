@@ -1,0 +1,4 @@
+EVSE_type,EVSE_level,EVSE_phase_connection,AC/DC_power_limit_kW,AC/DC_voltage_limits_V,AC/DC_current_limit_A,standby_real_power_kW,standby_reactive_power_kVAR
+BYD_Wallbox_7kW,L2,1,7.0,220,32,0,0
+GWM_Wallbox_Serie_G,L2,1,7.0,220,32,0,0
+Geely_Padrao_6p6kW,L2,1,6.6,220,32,0,0

@@ -75,10 +75,15 @@ uv add <package>
 │       ├── controller/      # Control adapters
 │       │   ├── controller_sim.py    # SE controller
 │       │   └── regulator_control.py # Voltage regulator control
+│       ├── ev/              # Electric Vehicle simulator (Caldera ICM C++ engine)
+│       │   ├── caldera_ev_sim.py   # Mosaik adapter (api_v3, CalderaEVSim)
+│       │   ├── caldera_wrapper.py  # Facade to C++ Caldera CP_interface_v2
+│       │   └── Caldera_*.so        # Compiled C++ motors (Linux x86_64)
 │       ├── pv/              # PV panel simulator
 │       │   └── pv_panel_simulator.py # Irradiance/temperature → DC power
 │       ├── util/            # Standalone utilities
 │       │   ├── pv_creator.py   # PV system creator for OpenDSS
+│       │   ├── ev_creator.py   # Stochastic EV allocator (Nested Adoption)
 │       │   └── topologia.py    # Topology export to JSON (through the facade)
 │       └── old/             # Deprecated simulator code (do not modify)
 ├── data/                    # IEEE test case files (.dss, .csv) per bus count

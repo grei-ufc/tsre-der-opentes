@@ -229,3 +229,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Generated EV simulation DSS files
+*_evs.dss
+*_run_ev.dss

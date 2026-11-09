@@ -34,7 +34,7 @@ A `META` abaixo não é escrita à mão: é **derivada** do registro declarativo
         "Load": {
             "public": False,
             "params": [],
-            "attrs": ["S_mult", "P_out_mw", "Q_out_mvar"],
+            "attrs": ["S_mult", "P_kw", "Q_kvar", "P_out_mw", "Q_out_mvar"],
         },
         "Line": {
             "public": False,
@@ -161,6 +161,8 @@ O `Transformer` existe por causa da topologia: bancos de reguladores e elevadora
 | PVSystem | `Q_des` | `float` | Potência reativa desejada (kvar) |
 | Switch | `is_open` | `bool` | `True` abre a chave, `False` fecha |
 | Load | `S_mult` | `float` | Multiplicador da potência nominal, de 0 a 1 |
+| Load | `P_kw` | `float` | Potência ativa direta da carga (kW) — usado por simuladores de VE |
+| Load | `Q_kvar` | `float` | Potência reativa direta da carga (kvar) — usado por simuladores de VE |
 | PVSystem | `P_mult` | `float` | Multiplicador do `Pmpp`, de 0 a 1 |
 | Storage | `P_mult` | `float` | Multiplicador da potência nominal, de −1 (carregando) a 1 (descarregando) |
 | Generator | `P_set` | `float` | Potência ativa despachada (kW) |
@@ -728,3 +730,57 @@ def init(self, sid, time_resolution, sim_start, datafile,
 | `datafile` | `str` | — | Caminho do arquivo CSV |
 | `date_format` | `str` | — | Formato da data no CSV |
 | `continuous` | `bool` | `True` | Se `True`, interpola entre timestamps |
+
+---
+
+## Caldera EV Simulator
+
+**Módulo**: `simulators.ev.caldera_ev_sim`
+**Classe**: `CalderaEVSim`
+**Tipo**: `time-based`
+
+Simulador de Veículos Elétricos integrado ao motor eletroquímico C++ Caldera ICM (Idaho National Laboratory). Gera perfis de recarga dinâmicos com resolução minutal considerando características de carregadores (EVSE) e baterias (fases CC/CV e tapering).
+
+### META
+
+```python
+{
+    "api_version": "3.0",
+    "type": "time-based",
+    "models": {
+        "CalderaEV": {
+            "public": True,
+            "params": ["profile_name", "csv_path", "fp"],
+            "attrs": ["P_kw", "Q_kvar", "fp", "is_charging"],
+        },
+    },
+}
+```
+
+### init()
+
+```python
+def init(self, sid, time_resolution=1.0, step_size=600, inputs_dir=None, **kwargs)
+```
+
+| Parâmetro | Tipo | Default | Descrição |
+|---|---|---|---|
+| `step_size` | `int` | `600` | Tamanho do passo da co-simulação em segundos |
+| `inputs_dir` | `str \| None` | `None` | Diretório dos arquivos `EV_inputs.csv` e `EVSE_inputs.csv` |
+
+### Parâmetros de criação (`create`)
+
+| Parâmetro | Tipo | Default | Descrição |
+|---|---|---|---|
+| `profile_name` | `str` | Obrigatório | Nome do perfil presente no dataset de sessões (`ev_sessions_caldera.csv`) |
+| `csv_path` | `str \| None` | `None` | Caminho do arquivo CSV de sessões de recarga |
+| `fp` | `float` | `1.0` | Fator de potência do carregador (0.98 a 1.00) |
+
+### Atributos de saída (get_data)
+
+| Atributo | Tipo | Descrição |
+|---|---|---|
+| `P_kw` | `float` | Potência ativa demandada na recarga (kW) |
+| `Q_kvar` | `float` | Potência reativa consumida pelo carregador (kvar) |
+| `fp` | `float` | Fator de potência operacional |
+| `is_charging` | `bool` | Indicador booleano de recarga ativa (`True` se $P > 0{,}05\text{ kW}$) |

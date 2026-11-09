@@ -15,6 +15,7 @@ uv run --no-sync python scenarios/<nome_do_cenario>.py
 | Cenário | Comando | Requisitos |
 |---|---|---|
 | 13-bus (debug) | `uv run --no-sync python scenarios/opendss_scenario.py` | Nenhum |
+| 13-bus + VE (Caldera) | `uv run --no-sync python scenarios/scenario_13bus_ev.py` | Nenhum |
 | 123-bus (baseline) | `uv run --no-sync python scenarios/opendss_scenario_123bus.py` | Nenhum |
 | 123-bus + PV | `uv run --no-sync python scenarios/opendss_scenario_123bus_pv.py` | Nenhum |
 | 123-bus + PV + JSON | `uv run --no-sync python scenarios/opendss_scenario_123bus_pv_export_json.py` | Nenhum |

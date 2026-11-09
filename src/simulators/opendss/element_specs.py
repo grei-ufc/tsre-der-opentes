@@ -659,17 +659,28 @@ def write_generator(sim, name: str, values: dict[str, Any]) -> None:
 
 
 def write_load(sim, name: str, values: dict[str, Any]) -> None:
-    """Move a carga por um multiplicador de 0 a 1 sobre a potência nominal.
+    """Move a carga por P_kw / Q_kvar diretos ou por multiplicador S_mult.
 
-    Ativa e reativa são escaladas pelo mesmo fator, o que **preserva o fator de
-    potência** da carga: escalar a potência aparente a ``pf`` constante é essa
-    mesma conta. Por isso o ``pf`` não precisa ser lido — ele está implícito na
-    razão entre o ``kW`` e o ``kvar`` nominais.
+    P_kw e Q_kvar comandam a potência ativa e reativa da carga diretamente
+    (por exemplo, para cargas controladas como veículos elétricos).
+
+    S_mult escala ativamente e reativamente pelo mesmo fator sobre a potência
+    nominal, preservando o fator de potência da carga: escalar a potência
+    aparente a ``pf`` constante é essa mesma conta.
 
     A placa vem de :meth:`~.api_opendss.OpenDSSSimulator.load_nameplate`, e não
     do motor: o laço de ``LoadShape`` reescreve a potência da carga a cada
     passo, então o valor corrente é o do perfil.
     """
+    if "P_kw" in values or "Q_kvar" in values:
+        sim.dss_wrapper.set_power(
+            name,
+            p=values.get("P_kw"),
+            q=values.get("Q_kvar"),
+            element="Load",
+        )
+        return
+
     if "S_mult" not in values:
         return
 
@@ -705,9 +716,13 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         dss_class="Load",
         reader=read_phases,
         writer=write_load,
-        # Multiplicador da placa, de 0 a 1. Uma carga que recebe S_mult num
-        # passo não é tocada pelo laço de LoadShape naquele passo; ver step().
-        inputs={"S_mult": InputSpec(aggregator=single_value, bounds=(0.0, 1.0))},
+        # Suporta multiplicador da placa (S_mult) ou potências ativas/reativas diretas (P_kw, Q_kvar).
+        # Uma carga que recebe inputs num passo não é tocada pelo laço de LoadShape naquele passo.
+        inputs={
+            "S_mult": InputSpec(aggregator=single_value, bounds=(0.0, 1.0)),
+            "P_kw": InputSpec(),
+            "Q_kvar": InputSpec(),
+        },
         # Convenção do OpenDSS: carga consome com sinal positivo.
         attr_map=phase_attr_map(
             p_total=("P_out_mw",),

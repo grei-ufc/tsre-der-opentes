@@ -21,6 +21,7 @@ Todos os cenários estão em `scenarios/`. Cada um é um script standalone.
 | `opendss_scenario_34bus_web.py` | IEEE 34-bus | Local | Regulador | — | 300s | visualização em `http://127.0.0.1:8000/` |
 | `opendss_scenario_123bus_web.py` | IEEE 123-bus | Local | Regulador | — | 300s | visualização em `http://127.0.0.1:8000/` |
 | `opendss_scenario_123bus_pv_web.py` | IEEE 123-bus | Local | PV + Regulador | Padrão | 300s | visualização em `http://127.0.0.1:8000/` |
+| `scenario_13bus_ev.py` | IEEE 13-bus | Local | EV (Caldera) | — | 300s | `output/resultado_scenario_13bus_ev.csv` + topologia JSON |
 
 ## Simuladores utilizados por cenário
 
@@ -51,6 +52,14 @@ opendss_scenario_34bus.py
 ```
 
 Simuladores: `DSS` + `RegControl` + `Collector`
+
+### Cenário com Veículos Elétricos (3 simuladores)
+
+```
+scenario_13bus_ev.py
+```
+
+Simuladores: `DSS` + `CalderaEV` + `Collector`
 
 ### Cenários com visualização web
 
