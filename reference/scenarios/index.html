@@ -1486,6 +1486,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#cenario-com-veiculos-eletricos-3-simuladores" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cenário com Veículos Elétricos (3 simuladores)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#cenarios-com-visualizacao-web" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2444,6 +2455,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#cenario-com-veiculos-eletricos-3-simuladores" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cenário com Veículos Elétricos (3 simuladores)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#cenarios-com-visualizacao-web" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2761,6 +2783,15 @@
 <td>300s</td>
 <td>visualização em <code>http://127.0.0.1:8000/</code></td>
 </tr>
+<tr>
+<td><code>scenario_13bus_ev.py</code></td>
+<td>IEEE 13-bus</td>
+<td>Local</td>
+<td>EV (Caldera)</td>
+<td>—</td>
+<td>300s</td>
+<td><code>output/resultado_scenario_13bus_ev.csv</code> + topologia JSON</td>
+</tr>
 </tbody>
 </table>
 <h2 id="simuladores-utilizados-por-cenario">Simuladores utilizados por cenário<a class="headerlink" href="#simuladores-utilizados-por-cenario" title="Permanent link">&para;</a></h2>
@@ -2780,52 +2811,56 @@
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>opendss_scenario_34bus.py
 </span></code></pre></div>
 <p>Simuladores: <code>DSS</code> + <code>RegControl</code> + <code>Collector</code></p>
+<h3 id="cenario-com-veiculos-eletricos-3-simuladores">Cenário com Veículos Elétricos (3 simuladores)<a class="headerlink" href="#cenario-com-veiculos-eletricos-3-simuladores" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>scenario_13bus_ev.py
+</span></code></pre></div>
+<p>Simuladores: <code>DSS</code> + <code>CalderaEV</code> + <code>Collector</code></p>
 <h3 id="cenarios-com-visualizacao-web">Cenários com visualização web<a class="headerlink" href="#cenarios-com-visualizacao-web" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>opendss_scenario_13bus_web.py      (DSS + WebVis)
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>opendss_scenario_34bus_web.py      (DSS + RegControl + WebVis)
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>opendss_scenario_123bus_web.py     (DSS + RegControl + WebVis)
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>opendss_scenario_123bus_pv_web.py  (DSS + PVSimulator + InverterSim + CSV + RegControl + WebVis)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>opendss_scenario_13bus_web.py      (DSS + WebVis)
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>opendss_scenario_34bus_web.py      (DSS + RegControl + WebVis)
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>opendss_scenario_123bus_web.py     (DSS + RegControl + WebVis)
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>opendss_scenario_123bus_pv_web.py  (DSS + PVSimulator + InverterSim + CSV + RegControl + WebVis)
 </span></code></pre></div>
 <p>Desenham a rede no navegador durante a simulação, em vez de gravar CSV. Veja
 <a href="../../how-to-guides/visualize-network-web/">Visualizar a Rede no Navegador</a>.</p>
 <h3 id="cenarios-com-inversor-smart-5-6-simuladores">Cenários com Inversor Smart (5-6 simuladores)<a class="headerlink" href="#cenarios-com-inversor-smart-5-6-simuladores" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>opendss_scenario_123bus_smart_pv.py (local)
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>scenario_13bus_smart_pv_docker.py (Docker)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>opendss_scenario_123bus_smart_pv.py (local)
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>scenario_13bus_smart_pv_docker.py (Docker)
 </span></code></pre></div>
 <p>Simuladores: <code>DSS</code> + <code>CSV</code> + <code>PVSimulator</code> + <code>InverterSim</code> (smart) + <code>Collector</code></p>
 <h3 id="cenario-legado-pandapower">Cenário legado (pandapower)<a class="headerlink" href="#cenario-legado-pandapower" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>base_scenario.py
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>base_scenario.py
 </span></code></pre></div>
 <p>Simuladores: <code>Grid</code> (pandapower) + <code>CSV</code> + <code>PV</code> (legado) + <code>Ctrl</code> (legado) + <code>Collector</code></p>
 <h2 id="como-executar">Como executar<a class="headerlink" href="#como-executar" title="Permanent link">&para;</a></h2>
 <h3 id="local-todos-os-cenarios">Local (todos os cenários)<a class="headerlink" href="#local-todos-os-cenarios" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--no-sync<span class="w"> </span>python<span class="w"> </span>scenarios/&lt;nome_do_cenario&gt;.py
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--no-sync<span class="w"> </span>python<span class="w"> </span>scenarios/&lt;nome_do_cenario&gt;.py
 </span></code></pre></div>
 <h3 id="docker-apenas-cenariodockerpy-e-scenario_13bus_smart_pv_dockerpy">Docker (apenas cenariodocker.py e scenario_13bus_smart_pv_docker.py)<a class="headerlink" href="#docker-apenas-cenariodockerpy-e-scenario_13bus_smart_pv_dockerpy" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>opentes-simulador<span class="w"> </span>.
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>uv<span class="w"> </span>run<span class="w"> </span>--no-sync<span class="w"> </span>python<span class="w"> </span>scenarios/cenariodocker.py
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>opentes-simulador<span class="w"> </span>.
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>uv<span class="w"> </span>run<span class="w"> </span>--no-sync<span class="w"> </span>python<span class="w"> </span>scenarios/cenariodocker.py
 </span></code></pre></div>
 <h2 id="configuracao-dos-cenarios-locais">Configuração dos cenários locais<a class="headerlink" href="#configuracao-dos-cenarios-locais" title="Permanent link">&para;</a></h2>
 <p>Os cenários locais definem <code>SIM_CONFIG</code> com chaves <code>"python"</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">SIM_CONFIG</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="s2">&quot;DSS&quot;</span><span class="p">:</span>       <span class="p">{</span><span class="s2">&quot;python&quot;</span><span class="p">:</span> <span class="s2">&quot;simulators.opendss.api_opendss:OpenDSSSimulator&quot;</span><span class="p">},</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="s2">&quot;PVSim&quot;</span><span class="p">:</span>     <span class="p">{</span><span class="s2">&quot;python&quot;</span><span class="p">:</span> <span class="s2">&quot;simulators.pv.pv_panel_simulator:PVPanelSim&quot;</span><span class="p">},</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="s2">&quot;InverterSim&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;python&quot;</span><span class="p">:</span> <span class="s2">&quot;simulators.inverter.inverter_simulator:InverterSim&quot;</span><span class="p">},</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="s2">&quot;CSV&quot;</span><span class="p">:</span>       <span class="p">{</span><span class="s2">&quot;python&quot;</span><span class="p">:</span> <span class="s2">&quot;simulators.collector.csv_sim_pandas:CSV&quot;</span><span class="p">},</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="s2">&quot;Collector&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;python&quot;</span><span class="p">:</span> <span class="s2">&quot;simulators.collector.collector:Collector&quot;</span><span class="p">},</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="p">}</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">SIM_CONFIG</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="s2">&quot;DSS&quot;</span><span class="p">:</span>       <span class="p">{</span><span class="s2">&quot;python&quot;</span><span class="p">:</span> <span class="s2">&quot;simulators.opendss.api_opendss:OpenDSSSimulator&quot;</span><span class="p">},</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="s2">&quot;PVSim&quot;</span><span class="p">:</span>     <span class="p">{</span><span class="s2">&quot;python&quot;</span><span class="p">:</span> <span class="s2">&quot;simulators.pv.pv_panel_simulator:PVPanelSim&quot;</span><span class="p">},</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="s2">&quot;InverterSim&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;python&quot;</span><span class="p">:</span> <span class="s2">&quot;simulators.inverter.inverter_simulator:InverterSim&quot;</span><span class="p">},</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="s2">&quot;CSV&quot;</span><span class="p">:</span>       <span class="p">{</span><span class="s2">&quot;python&quot;</span><span class="p">:</span> <span class="s2">&quot;simulators.collector.csv_sim_pandas:CSV&quot;</span><span class="p">},</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="s2">&quot;Collector&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;python&quot;</span><span class="p">:</span> <span class="s2">&quot;simulators.collector.collector:Collector&quot;</span><span class="p">},</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="configuracao-dos-cenarios-docker">Configuração dos cenários Docker<a class="headerlink" href="#configuracao-dos-cenarios-docker" title="Permanent link">&para;</a></h2>
 <p>Os cenários Docker definem <code>SIM_CONFIG</code> com chaves <code>"connect"</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">SIM_CONFIG</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="s2">&quot;DSS&quot;</span><span class="p">:</span>         <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5771&quot;</span><span class="p">},</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="s2">&quot;PVSimulator&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5778&quot;</span><span class="p">},</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="s2">&quot;InverterSim&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5777&quot;</span><span class="p">},</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="s2">&quot;CSV_Irr&quot;</span><span class="p">:</span>     <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5775&quot;</span><span class="p">},</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="s2">&quot;CSV_Temp&quot;</span><span class="p">:</span>    <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5776&quot;</span><span class="p">},</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="s2">&quot;Collector&quot;</span><span class="p">:</span>   <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5773&quot;</span><span class="p">},</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="p">}</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">SIM_CONFIG</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="s2">&quot;DSS&quot;</span><span class="p">:</span>         <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5771&quot;</span><span class="p">},</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="s2">&quot;PVSimulator&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5778&quot;</span><span class="p">},</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="s2">&quot;InverterSim&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5777&quot;</span><span class="p">},</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="s2">&quot;CSV_Irr&quot;</span><span class="p">:</span>     <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5775&quot;</span><span class="p">},</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="s2">&quot;CSV_Temp&quot;</span><span class="p">:</span>    <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5776&quot;</span><span class="p">},</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="s2">&quot;Collector&quot;</span><span class="p">:</span>   <span class="p">{</span><span class="s2">&quot;connect&quot;</span><span class="p">:</span> <span class="s2">&quot;localhost:5773&quot;</span><span class="p">},</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">}</span>
 </span></code></pre></div>
 
 
@@ -2847,7 +2882,7 @@
     <span class="md-icon" title="Última atualização">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="20 de outubro de 2026 21:14:18 UTC">20 de outubro de 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="9 de novembro de 2026 21:06:09 UTC">9 de novembro de 2026</span>
   </span>
 
     
