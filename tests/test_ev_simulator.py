@@ -12,11 +12,17 @@ import pytest
 sys.path.insert(0, "src")
 
 from simulators.ev.caldera_ev_sim import CalderaEVModel, CalderaEVSim
-from simulators.ev.caldera_wrapper import CalderaWrapper
+from simulators.ev.caldera_wrapper import CALDERA_AVAILABLE, CalderaWrapper
 from simulators.opendss.element_specs import MODEL_SPECS, write_load
 from simulators.util.ev_creator import alocar_evs
 
+caldera_required = pytest.mark.skipif(
+    not CALDERA_AVAILABLE,
+    reason="Caldera C++ binaries (.so) not available on this platform (requires Linux x86_64)",
+)
 
+
+@caldera_required
 class TestCalderaWrapper:
     @pytest.fixture
     def wrapper(self):
@@ -98,6 +104,7 @@ class TestCalderaEVSim:
         assert "fp" in attrs
         assert "is_charging" in attrs
 
+    @caldera_required
     def test_init_and_create(self):
         sim = CalderaEVSim()
         meta = sim.init("CalderaEV-0", step_size=600)

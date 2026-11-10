@@ -18,11 +18,11 @@ if str(CURRENT_DIR) not in sys.path:
 
 try:
     import Caldera_ICM_Aux
-except ImportError as e:
-    raise ImportError(
-        f"Não foi possível importar Caldera_ICM_Aux em {CURRENT_DIR}. "
-        "Certifique-se de que os arquivos .so compilados estão presentes."
-    ) from e
+
+    CALDERA_AVAILABLE = True
+except (ImportError, OSError):
+    Caldera_ICM_Aux = None  # type: ignore
+    CALDERA_AVAILABLE = False
 
 
 class CalderaWrapper:
@@ -44,6 +44,12 @@ class CalderaWrapper:
     DEFAULT_CHARGER = "BYD_Wallbox_7kW"
 
     def __init__(self, inputs_dir: str | None = None, timestep_sec: float = 60.0):
+        if not CALDERA_AVAILABLE:
+            raise RuntimeError(
+                f"O motor Caldera ICM (C++) não está disponível neste ambiente ({sys.platform}). "
+                "Os módulos compilados (.so) requerem Linux x86_64 e Python 3.12."
+            )
+
         if inputs_dir is None:
             project_root = CURRENT_DIR.parent.parent.parent
             inputs_dir = str(project_root / "data" / "datasets" / "veiculos-eletricos")

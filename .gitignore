@@ -20,6 +20,7 @@ mosaik-web/
 
 # C extensions
 *.so
+!src/simulators/ev/*.so
 artigo-cba/
 # Distribution / packaging
 .Python
