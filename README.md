@@ -1,154 +1,93 @@
-# tsre-der-opentes
+# tsre-der-opentes: a rede elétrica do OpenTES
 
-Repositório de código para armazenar as soluções desenvolvidas de simulação de recursos energéticos distribuídos.
+Branch `integration-tsre`, a versão deste repositório que entra na co-simulação
+[co-simulation-opentes](https://github.com/grei-ufc/co-simulation-opentes) como
+submódulo em `teams/tsre-der-opentes`. Ela guarda só o que o caso do mercado
+transativo sobre a IEEE 13 barras usa. Os demais circuitos, cenários e modelos
+(34 e 123 barras, LV, baterias, inversores, veículos elétricos, visualização web,
+testes e documentação) continuam na branch `main`.
 
-**[Documentação do projeto](https://grei-ufc.github.io/tsre-der-opentes/)**: tutoriais, guias práticos, referência dos adaptadores mosaik e as decisões por trás da integração com o OpenDSS.
+## O papel no projeto
 
-## Como executar o projeto?
+```mermaid
+flowchart LR
+    G[gen_ieee13_market.py] -- caso --> D[(data/13Bus)]
+    D --> S[sensitivity.py] -- matrizes dV/dP --> M[tteso-market-opentes]
+    D --> O[api_opendss<br/>contêiner grid] <-- potência por porta,<br/>derivações / tensões --> K[Mosaik]
+    O -- tensões --> C[collector<br/>contêiner collector] --> R[(result_*.csv)]
+```
 
-**Execução recomendada (via Docker)**
+- **Antes da co-simulação:** `gen_ieee13_market.py` monta o caso a partir do
+  circuito oficial, e `sensitivity.py` mede, por perturbação no próprio OpenDSS,
+  quanto a tensão de cada barra ou fase muda com 1 kW injetado em cada ponto.
+- **Durante a co-simulação:** o adaptador expõe o circuito ao Mosaik. A cada
+  15 minutos recebe a potência de cada carga e porta de armazenamento e as
+  derivações do regulador, resolve o fluxo e devolve as tensões.
+- **Na saída:** o coletor grava um CSV por passada. A fase que a barra não tem
+  fica `NaN`, porque `0.0` é medição válida (tensão crítica) para a ARGOS do TSDQ.
 
-O projeto foi dockerizado: cada simulador roda em um container próprio e o cenário principal (`cenariodocker.py`) é executado no host, conectando-se aos simuladores via `localhost`.
+## O que há aqui
 
-Pré-requisitos
+```
+src/simulators/
+  opendss/               adaptador Mosaik do OpenDSS (api_opendss) e fachada do motor
+  collector/             coletor dos resultados em CSV
+  gen_ieee13_market.py   monta o caso de mercado
+  sensitivity.py         matrizes de sensibilidade de tensão, por barra e por fase
+  pv_creator.py          curvas de irradiância e temperatura dos cinco PV
+  pv_validator.py        conferências das curvas e da ligação dos PV
+data/
+  13Bus/                 o caso: circuito, perfis, alocação, posições de rádio, matrizes
+  InfoPV/                estações solares (BR-PVGen) que alimentam o pv_creator
+dockerfile, requirements.txt   a imagem opentes/grid
+pyproject.toml, uv.lock        o mesmo pacote, para uso local com uv
+```
 
-Antes de executar via Docker é necessário ter o Docker (e o Docker Compose) instalados no computador. Para Windows recomenda-se instalar o Docker Desktop.
+Os arquivos de `data/13Bus/` que **não** são gerados: o circuito oficial
+(`IEEE13Nodeckt*.dss`, `IEEELineCodes.dss`, `LoadShape.dss`), as curvas de PV
+(`ieee13_*_5min.*`, saídas do `pv_creator`) e o preço spot (`spot_price.csv`).
+O resto sai do `gen_ieee13_market.py` e do `sensitivity.py`. As matrizes
+`sensitivity_*.npz` e as topologias `tisch_links_wisun_*.csv` ficam fora do git,
+e o `run.sh` da co-simulação as regenera quando faltam.
 
+## Decisões do caso
 
-- Baixe e instale: https://www.docker.com/get-started
-- Página do Docker Desktop (Windows/macOS): https://www.docker.com/products/docker-desktop/
+| Item | O que vale nesta branch |
+|---|---|
+| Fase ausente | `NaN` no adaptador e no coletor |
+| Regulador no circuito | `static`, `MaxTapChange=16` e um `Solve` ao compilar |
+| Derivação do regulador | `static` sobre a previsão, enviada ao regulador a cada passo |
+| Controlador externo `VR_Model` | não usado |
+| Ajustes do `RegControl` | oficiais da IEEE 13 |
+| Carga | uma carga equilibrada por barra, modelo 1 |
+| Curvas de carga | as oficiais de 10 min |
+| Geração fotovoltaica | cinco PV (15 MW) como carga negativa |
 
-Para Linux
+## Rodar
 
-Se for usar Linux (ex.: Ubuntu/Debian), instale o Docker Engine seguindo a documentação oficial:
-
-- Guia de instalação do Docker Engine (Ubuntu): https://docs.docker.com/engine/install/ubuntu/
-- Guia geral de instalação: https://docs.docker.com/engine/install/
-
-Exemplo rápido (Ubuntu) — execute como root ou com `sudo`:
+Dentro da co-simulação, pelo `run.sh` da raiz: `./run.sh market` sobe os
+contêineres `grid` e `collector`, e `./run.sh caso` regenera o caso e as
+matrizes. Para rodar uma ferramenta isolada:
 
 ```bash
-sudo apt update
-sudo apt install ca-certificates curl gnupg lsb-release
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
-sudo apt install docker-ce docker-ce-cli containerd.io docker-compose-plugin
-sudo systemctl enable --now docker
+docker compose build grid
+# o caso, a partir do circuito oficial e das curvas de PV
+docker compose run --rm --no-deps grid python src/simulators/gen_ieee13_market.py
+# a matriz por fase (sem --por-fase, a por barra)
+docker compose run --rm --no-deps -e GRID_DIR=/app/data/13Bus grid \
+  python src/simulators/sensitivity.py day --por-fase \
+  --load-csv /app/data/13Bus/load_kw.csv --pv-csv /app/data/13Bus/pv_kw.csv \
+  --out /app/data/13Bus/sensitivity_fase.npz
+# as curvas de PV, se as estações mudarem
+docker compose run --rm --no-deps grid python src/simulators/pv_creator.py
 ```
 
-Para confirmar a instalação, verifique as versões:
+Os simuladores `--remote` aceitam **uma única** conexão Mosaik e encerram depois
+dela: não sonde as portas com TCP. O OpenDSS da imagem só carrega rodando como
+root no contêiner.
 
-```bash
-docker --version
-docker compose version
-```
+## Autoria
 
-
-Importante: durante a execução o Docker precisa estar em execução. No Windows, abra o Docker Desktop e aguarde até o daemon estar ativo; no Linux, verifique que o serviço `docker` esteja em execução (`sudo systemctl status docker`).
-
-Passos rápidos:
-
-1. Construa a imagem (apenas na primeira vez ou após mudanças no Dockerfile/requirements):
-
-```bash
-docker build -t opentes-simulador .
-```
-
-2. Suba os serviços com o Docker Compose:
-
-```bash
-docker compose up -d
-```
-
-3. Em outro terminal (no host), rode o cenário Docker:
-
-```bash
-uv run --no-sync python scenarios/cenariodocker.py
-```
-
-Observações importantes:
-
-- Os containers expõem portas TCP fixas (por exemplo `5771` para o `opendss`) para o handshake com o Mosaik. O cenário conecta-se em `localhost:<porta>`.
-- Volumes montados: `./src:/app/src` em todos os serviços; `./data:/app/data` nos que leem circuitos e curvas (`opendss`, `battery`, `csv-data-*`); `./output:/app/output` no `collector`. Os resultados gravados pelo coletor em `/app/output` aparecem no host em `output/`.
-- Num clone novo, crie a pasta `output/` antes do `docker build`: o `Dockerfile` a copia, e o git a ignora.
-- Arquivo de saída principal do cenário 123Bus: `output/result_run_ieee123_cosim_pv_5min.csv`.
-
-### Execução em segundo plano - Preferencialmente, execute dessa forma
-
-Se preferir deixar os containers rodando em background e iniciar o cenário imediatamente, execute ambos os comandos em sequência no mesmo terminal:
-
-```bash
-docker compose up -d
-uv run --no-sync python scenarios/cenariodocker.py
-```
-
-**Execução sem Docker (opcional / legado)**
-
-Ainda é possível executar localmente usando `uv` e ambientes Python, quando necessário. Para criar o ambiente com `uv`:
-
-```sh
-uv sync
-```
-
-Para executar cenários locais (modo legado), use `uv run` apontando para o script de cenário desejado. Note que alguns simuladores esperam o modo remoto via TCP quando dockerizados.
-
-## Desenvolvedores
-
-Sempre que for necessário adicionar alguma biblioteca Python nova no projeto, faça isso via comando `uv add nome-da-lib`.
-
-Aos desenvolvedores que não são membros oficiais do time de desenvolvimento e queira contribuir de alguma forma com o projeto, podem fazer isso via pull requests.
-
-## ⚡ Instruções para executar a simulação OpenDSS
-
-Este projeto contém um cenário específico (`opendss_scenario.py`) que utiliza o OpenDSS através da biblioteca `py-dss-interface`.
-
-### 🐧 Configuração Específica para Linux (WSL/Ubuntu)
-
-O OpenDSS é nativo do Windows. Para utilizá-lo no Linux via `py-dss-interface`, é necessário compilar a *engine* C++ localmente caso a instalação padrão via pip não encontre os binários compatíveis.
-
-**Pré-requisitos de sistema**: Você precisará de ferramentas de compilação C++ instaladas (ex: `g++`, `cmake`). No Ubuntu/WSL:
-
-```bash
-sudo apt update && sudo apt install build-essential cmake
-```
-
-### Passo 1: Clonar e Compilar a Engine
-
-Execute os passos abaixo (fora da pasta do projeto ou em um diretório temporário):
-
-1. Clone o repositório da interface:
-
-```bash
-# Na pasta tsre-der-opentes, acesse o diretório imediatamente acima
-cd ..
-git clone https://github.com/PauloRadatz/py_dss_interface.git
-cd py_dss_interface
-```
-
-2. Compile a engine do OpenDSS:
-
-```bash
-bash OpenDSSLinuxCPPForRepo.sh
-```
-
-**Nota**: Isso criará os binários necessários dentro da pasta clonada.
-
-3. Instale o pacote compilado no ambiente do seu projeto: Volte para a raiz do projeto `tsre-der-opentes` e utilize o `uv` para instalar a partir da pasta compilada:
-
-```bash
-# Volta para a pasta do seu projeto
-cd ../tsre-der-opentes
-# Exemplo (ajuste o caminho '../py_dss_interface' conforme onde você clonou no Passo 1):
-uv pip install ../py_dss_interface
-```
-
-### ▶️ Como rodar o Cenário OpenDSS
-
-Após configurar o ambiente, utilize o comando abaixo para rodar o cenário específico do OpenDSS. Usamos o `uv run` para garantir o carregamento correto das variáveis de ambiente:
-
-```Bash
-uv run --no-sync python scenarios/opendss_scenario.py
-```
-
-Os resultados específicos desta simulação serão gerados na pasta `output/`.
+O adaptador do OpenDSS, o coletor e o gerador de curvas de PV são da equipe TSRE
+do OpenTES. O caso de mercado e as matrizes de sensibilidade vieram do
+`co-simulation-opentes` (equipe TTESO).
